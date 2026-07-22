@@ -8,7 +8,7 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-lg border border-slate-200/80 bg-white/95 p-5 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm">
       {(title || actions) && (
         <div className="mb-4 flex items-center justify-between">
           {title && <h2 className="text-base font-semibold text-slate-800">{title}</h2>}
@@ -54,9 +54,11 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
   const variants: Record<string, string> = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300",
+    primary:
+      "bg-[var(--cf-blue)] text-white hover:bg-[var(--cf-blue-dark)] disabled:bg-[var(--cf-blue)]/40 shadow-sm",
     secondary: "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100",
-    danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
+    danger:
+      "bg-[var(--cf-red)] text-white hover:bg-[var(--cf-red-dark)] disabled:bg-[var(--cf-red)]/40 shadow-sm",
   };
 
   return (
