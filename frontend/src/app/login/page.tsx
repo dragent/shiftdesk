@@ -38,13 +38,13 @@ export default function LoginPage() {
     <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-10">
       {/* Formes décoratives de marque (bleu/rouge), purement visuelles */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-[var(--cf-blue)] opacity-[0.10] blur-3xl" />
-        <div className="absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-[var(--cf-red)] opacity-[0.08] blur-3xl" />
-        <div className="bg-grid-overlay absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
+        <div className="absolute -left-32 -top-32 h-[30rem] w-[30rem] rounded-full bg-[var(--cf-blue)] opacity-25 blur-3xl" />
+        <div className="absolute -bottom-40 -right-24 h-[30rem] w-[30rem] rounded-full bg-[var(--cf-red)] opacity-20 blur-3xl" />
+        <div className="bg-grid-overlay absolute inset-0 opacity-70 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
       </div>
 
-      <div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-white/60 bg-white/90 shadow-xl shadow-slate-900/5 backdrop-blur">
-        <div className="cf-brand-stripe h-1.5 w-full" />
+      <div className="relative w-full max-w-sm overflow-hidden rounded-xl border border-white bg-white shadow-2xl shadow-blue-950/15">
+        <div className="cf-brand-stripe h-2 w-full" />
         <div className="p-6">
           <div className="mb-6 flex flex-col items-center gap-2">
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--cf-blue)] to-[var(--cf-blue-dark)] text-xl font-bold text-white shadow-md">

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f7fb;
+  --background: #eef3fb;
   --foreground: #0f1b2d;
 
   /* Palette de marque Carrefour */
@@ -34,27 +34,31 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100%;
 
-  /* Fond moderne "mesh gradient" aux couleurs Carrefour : base blanche,
-     halos bleu (marque) et rouge (accent) très subtils, sans nuire à la
-     lisibilité des contenus. */
+  /* Fond moderne, nettement coloré aux teintes Carrefour : large aplat
+     bleu marque en haut de page, halo rouge en contrepoint, dégradé vers
+     un gris-bleu clair pour ne pas gêner la lecture du contenu. */
   background-color: var(--background);
   background-image:
-    radial-gradient(1200px circle at 10% -10%, rgba(10, 75, 159, 0.16), transparent 55%),
-    radial-gradient(900px circle at 105% -5%, rgba(227, 6, 19, 0.10), transparent 50%),
-    radial-gradient(1100px circle at 50% 115%, rgba(10, 75, 159, 0.08), transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #eef2f8 45%, #eaf0f7 100%);
+    radial-gradient(1300px circle at 8% -15%, rgba(10, 75, 159, 0.55), transparent 45%),
+    radial-gradient(1000px circle at 100% -10%, rgba(227, 6, 19, 0.30), transparent 45%),
+    radial-gradient(1200px circle at 50% 130%, rgba(10, 75, 159, 0.22), transparent 55%),
+    linear-gradient(180deg, #d9e6f7 0%, #eef3fb 28%, #eef3fb 100%);
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
 
-/* Fine grille décorative, façon "blueprint" professionnel, très discrète. */
+/* Fine grille décorative, façon "blueprint" professionnel. */
 .bg-grid-overlay {
   background-image:
-    linear-gradient(to right, rgba(10, 75, 159, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(10, 75, 159, 0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgba(10, 75, 159, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 75, 159, 0.08) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 .cf-brand-stripe {
-  background: linear-gradient(90deg, var(--cf-blue) 0%, var(--cf-blue) 55%, var(--cf-red) 100%);
+  background: linear-gradient(90deg, var(--cf-red) 0%, var(--cf-blue) 45%, var(--cf-blue) 100%);
+}
+
+.cf-header-gradient {
+  background: linear-gradient(115deg, var(--cf-blue-dark) 0%, var(--cf-blue) 55%, #1462c4 100%);
 }
