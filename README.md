@@ -1,0 +1,190 @@
+# Carrefour Accueil — Gestion de l'accueil
+
+Application de gestion de l'accueil pour un site Carrefour : gestion des
+**pauses** des hôtes/hôtesses, **plannings** créés par la Direction,
+**demandes/interactions** classées par catégorie (dropdown configurable :
+*Caroline*, *Siebel*, *Menu Carrefour*, ...), et une brique **IA de
+supervision de planning** (architecture prête, extensible avec de vrais
+modèles ML).
+
+## Stack technique
+
+| Composant | Techno |
+|---|---|
+| Frontend | Next.js 16 (App Router, TypeScript, Tailwind CSS) |
+| Backend | Symfony 7.2 (API JSON, Doctrine ORM, JWT) |
+| Base de données | MySQL 8 |
+| Module IA | FastAPI (Python), micro-service isolé (`ai-service/`) |
+
+## Structure du repo
+
+```
+Carrefour-Accueil/
+├── backend/        # API Symfony (métier, auth, base de données)
+├── frontend/        # Application Next.js (UI)
+├── ai-service/       # Micro-service IA — supervision de planning
+├── docker-compose.yml
+└── README.md
+```
+
+## Fonctionnalités
+
+### Accueil (rôle `ROLE_HOTE`)
+- Démarrer/terminer ses pauses en temps réel (courte, déjeuner, autre).
+- Enregistrer une demande/interaction, classée via un menu déroulant de
+  catégories entièrement configurable par un administrateur (ex.
+  *Caroline*, *Siebel*, *Menu Carrefour*).
+
+### Direction (rôle `ROLE_DIRECTION`)
+- Créer et gérer les plannings (créneaux de travail) des hôtes/hôtesses,
+  vue par semaine.
+- **Supervision IA du planning** : détection automatique de
+  sous-effectifs, surcharges et conflits de pauses, avec possibilité de
+  lancer une analyse à la demande et de traiter les alertes.
+
+### Administration (rôle `ROLE_ADMIN`)
+- Gestion des comptes utilisateurs (Direction, Hôtes/Hôtesses).
+- Gestion des sites.
+- Gestion des catégories de demandes (le contenu du dropdown côté
+  accueil), sans redéploiement.
+
+## Module IA — Supervision de planning
+
+Le backend Symfony ne contient **aucune logique IA en dur** : il délègue
+l'analyse à un micro-service dédié (`ai-service/`, FastAPI) via
+`PlanningSupervisorService` (`backend/src/Service/PlanningSupervisorService.php`).
+
+- Si `ai-service` est disponible, il est interrogé (`POST /analyze-planning`).
+- S'il est indisponible (pas démarré, en cours de dev...), un **mode de
+  secours basé sur des règles simples** prend le relais côté Symfony, afin
+  que la fonctionnalité reste toujours utilisable.
+
+Cette séparation permet de faire évoluer la partie IA (modèles ML,
+prévision d'affluence, etc.) **indépendamment** du reste de l'application.
+Voir `ai-service/README.md` pour le détail du contrat d'API et les pistes
+d'évolution.
+
+## Lancer le projet en local (sans Docker pour l'app, MySQL en Docker)
+
+C'est le mode utilisé pendant le développement (testé de bout en bout).
+
+### 1. Base de données
+
+```bash
+docker compose up -d mysql adminer
+```
+
+MySQL est exposé sur `127.0.0.1:3307` (pour éviter un conflit avec un
+MySQL déjà installé localement sur le port 3306 par défaut). Adminer est
+disponible sur http://localhost:8080 (serveur `mysql`, utilisateur
+`carrefour`, mot de passe `carrefour`, base `carrefour_accueil`).
+
+> Si vous n'avez pas de MySQL local sur le port 3306, vous pouvez changer
+> le mapping de port dans `docker-compose.yml` (`"3306:3306"`) et adapter
+> `backend/.env` en conséquence.
+
+### 2. Backend Symfony
+
+```bash
+cd backend
+composer install
+php bin/console doctrine:migrations:migrate   # crée les tables
+php bin/console app:seed-demo                  # comptes + catégories de démo
+symfony server:start --no-tls --port=8000
+# ou : php -S 127.0.0.1:8000 -t public
+```
+
+Génération des clés JWT (une seule fois, si `config/jwt/*.pem` n'existent
+pas) :
+
+```bash
+php bin/console lexik:jwt:generate-keypair
+```
+
+> **Windows** : si vous obtenez une erreur OpenSSL du type
+> `error:80000003:system library::No such process`, définissez la
+> variable d'environnement `OPENSSL_CONF` vers le fichier `openssl.cnf`
+> livré avec votre installation PHP (ex. `.../php/extras/ssl/openssl.cnf`).
+
+### 3. Frontend Next.js
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+L'app est disponible sur http://localhost:3000 et appelle l'API via
+`NEXT_PUBLIC_API_URL` (voir `frontend/.env.local`, par défaut
+`http://127.0.0.1:8000`).
+
+### 4. (Optionnel) Module IA
+
+```bash
+cd ai-service
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8001
+```
+
+Sans cette étape, l'application fonctionne quand même : Symfony utilise
+son mode de secours basé sur des règles simples (voir plus haut).
+
+### Comptes de démonstration
+
+Créés par `php bin/console app:seed-demo` (mot de passe identique pour
+tous) :
+
+| Email | Rôle |
+|---|---|
+| `admin@carrefour-accueil.local` | Administrateur |
+| `direction@carrefour-accueil.local` | Direction |
+| `hote@carrefour-accueil.local` | Hôte/hôtesse d'accueil |
+
+Mot de passe : `Password123!`
+
+## Lancer le projet entièrement via Docker
+
+Un `docker-compose.yml` complet est fourni (MySQL, Adminer, backend,
+frontend, ai-service) :
+
+```bash
+docker compose up -d --build
+```
+
+- Frontend : http://localhost:3000
+- Backend : http://localhost:8000
+- Module IA : http://localhost:8001/docs
+- Adminer : http://localhost:8080
+
+Le conteneur backend génère automatiquement ses clés JWT au premier
+démarrage, applique les migrations Doctrine et initialise les données de
+démonstration (`docker/entrypoint.sh`).
+
+> Le workflow local (section précédente) reste recommandé en phase de
+> développement actif (rechargement à chaud plus rapide côté Symfony/Next.js).
+
+## Modèle de données (résumé)
+
+- **Site** : un point d'accueil (magasin/site).
+- **User** : compte avec un rôle (`ROLE_ADMIN`, `ROLE_DIRECTION`,
+  `ROLE_HOTE`), rattaché à un site.
+- **Planning** : créneau de travail (date, heure début/fin, statut),
+  créé par la Direction pour un hôte/hôtesse.
+- **Pause** : pause démarrée/terminée en temps réel par un hôte/hôtesse,
+  éventuellement rattachée à un planning.
+- **RequestCategory** : catégorie affichée dans le dropdown de saisie des
+  demandes (ex. Caroline, Siebel, Menu Carrefour), gérée par l'admin.
+- **AccueilRequest** : une demande/interaction traitée à l'accueil,
+  classée par catégorie.
+- **PlanningInsight** : une alerte générée par le module IA de
+  supervision de planning (sous-effectif, surcharge, conflit de pause...).
+
+## Prochaines étapes possibles
+
+- Enrichir le module IA avec un vrai modèle de prévision d'affluence
+  (historique de fréquentation → dimensionnement du planning).
+- Notifications temps réel (ex. Mercure) lors d'une alerte IA critique
+  ou d'une nouvelle demande urgente.
+- Export/impression des plannings.
+- Gestion multi-sites plus fine (filtrage par site sur tous les écrans
+  Direction/Admin).

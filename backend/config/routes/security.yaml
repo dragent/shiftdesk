@@ -1,0 +1,9 @@
+_security_logout:
+    resource: security.route_loader.logout
+    type: service
+
+# Route "vide" nécessaire pour /api/login : la requête est interceptée par
+# le firewall "login" (json_login) avant d'atteindre un contrôleur.
+api_login:
+    path: /api/login
+    methods: [POST]

@@ -1,0 +1,24 @@
+# Dépendances
+**/node_modules/
+**/vendor/
+
+# Symfony
+backend/var/
+backend/.env.local
+backend/.env.*.local
+backend/config/jwt/*.pem
+backend/config/secrets/prod/prod.decrypt.private.php
+
+# Next.js
+frontend/.next/
+frontend/dev.log
+frontend/dev.err.log
+
+# Python
+ai-service/__pycache__/
+ai-service/**/__pycache__/
+ai-service/.venv/
+
+# Divers
+.DS_Store
+*.log
