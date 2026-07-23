@@ -151,41 +151,43 @@ function CategoriesContent() {
         {loading ? (
           <p className="text-sm text-slate-400">Chargement...</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-2 pr-4">Libellé</th>
-                <th className="py-2 pr-4">Code</th>
-                <th className="py-2 pr-4">Description</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((c) => (
-                <tr key={c.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4 font-medium">{c.label}</td>
-                  <td className="py-2 pr-4 text-slate-500">{c.code}</td>
-                  <td className="py-2 pr-4 text-slate-500">{c.description ?? "—"}</td>
-                  <td className="py-2 pr-4">
-                    <Badge tone={c.active ? "CONFIRME" : "ANNULE"}>
-                      {c.active ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="py-2">
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => toggleActive(c)}>
-                        {c.active ? "Désactiver" : "Activer"}
-                      </Button>
-                      <Button variant="danger" onClick={() => remove(c.id)}>
-                        Supprimer
-                      </Button>
-                    </div>
-                  </td>
+          <div className="-mx-5 overflow-x-auto px-5">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="py-2 pr-4">Libellé</th>
+                  <th className="py-2 pr-4">Code</th>
+                  <th className="py-2 pr-4">Description</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {categories.map((c) => (
+                  <tr key={c.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-4 font-medium">{c.label}</td>
+                    <td className="py-2 pr-4 text-slate-500">{c.code}</td>
+                    <td className="py-2 pr-4 text-slate-500">{c.description ?? "—"}</td>
+                    <td className="py-2 pr-4">
+                      <Badge tone={c.active ? "CONFIRME" : "ANNULE"}>
+                        {c.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="py-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" onClick={() => toggleActive(c)}>
+                          {c.active ? "Désactiver" : "Activer"}
+                        </Button>
+                        <Button variant="danger" onClick={() => remove(c.id)}>
+                          Supprimer
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

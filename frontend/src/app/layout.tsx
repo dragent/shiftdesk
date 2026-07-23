@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Carrefour Accueil",
   description: "Gestion de l'accueil - pauses, plannings, demandes et supervision IA",
+  icons: {
+    icon: "/carrefour-logo.png",
+    shortcut: "/carrefour-logo.png",
+    apple: "/carrefour-logo.png",
+  },
 };
 
 export default function RootLayout({

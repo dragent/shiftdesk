@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { Card, Badge } from "@/components/ui";
 import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
+import { formatFrenchTimeOfDate } from "@/lib/planning";
 import type { AccueilRequest, Pause, PlanningInsight } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -23,7 +24,7 @@ function DashboardContent() {
   const { user, hasRole } = useAuth();
   const isDirectionOrAdmin = hasRole("ROLE_DIRECTION", "ROLE_ADMIN");
 
-  const [ongoingPause, setOngoingPause] = useState<Pause | null>(null);
+  const [ongoingPauses, setOngoingPauses] = useState<Pause[]>([]);
   const [recentRequests, setRecentRequests] = useState<AccueilRequest[]>([]);
   const [insights, setInsights] = useState<PlanningInsight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,12 +32,16 @@ function DashboardContent() {
   useEffect(() => {
     async function load() {
       try {
-        const [pauses, requests] = await Promise.all([
-          api.get<Pause[]>("/api/pauses?mine=1"),
+        // Chaque appel est isolé (Promise.allSettled) : certains rôles (ex.
+        // Rayon, Sécurité) n'ont pas accès aux pauses/demandes, on ne veut
+        // pas qu'un 403 sur l'un empêche l'affichage du reste du tableau de
+        // bord.
+        const [pauses, requests] = await Promise.allSettled([
+          api.get<Pause[]>("/api/pauses/ongoing"),
           api.get<AccueilRequest[]>("/api/requests?limit=5"),
         ]);
-        setOngoingPause(pauses.find((p) => p.status === "EN_COURS") ?? null);
-        setRecentRequests(requests);
+        if (pauses.status === "fulfilled") setOngoingPauses(pauses.value);
+        if (requests.status === "fulfilled") setRecentRequests(requests.value);
 
         if (isDirectionOrAdmin) {
           const activeInsights = await api.get<PlanningInsight[]>("/api/ai/insights");
@@ -61,25 +66,25 @@ function DashboardContent() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card title="Statut pause">
+        <Card title="Pauses caissiers en cours">
           {loading ? (
             <p className="text-sm text-slate-400">Chargement...</p>
-          ) : ongoingPause ? (
-            <div className="flex flex-col gap-2">
-              <Badge tone="EN_COURS">Pause en cours</Badge>
-              <p className="text-sm text-slate-500">
-                Démarrée à{" "}
-                {new Date(ongoingPause.startedAt).toLocaleTimeString("fr-FR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
+          ) : ongoingPauses.length === 0 ? (
+            <p className="text-sm text-slate-500">Aucun caissier en pause actuellement.</p>
           ) : (
-            <p className="text-sm text-slate-500">Aucune pause en cours.</p>
+            <ul className="flex flex-col gap-2">
+              {ongoingPauses.slice(0, 4).map((p) => (
+                <li key={p.id} className="flex items-center justify-between text-sm">
+                  <span className="truncate text-slate-600">
+                    {p.user.firstName} {p.user.lastName}
+                  </span>
+                  <Badge tone="EN_COURS">{formatFrenchTimeOfDate(p.startedAt)}</Badge>
+                </li>
+              ))}
+            </ul>
           )}
           <Link href="/accueil/pauses" className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline">
-            Gérer mes pauses →
+            Gérer les pauses →
           </Link>
         </Card>
 
