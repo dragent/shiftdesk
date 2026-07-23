@@ -20,10 +20,12 @@ modèles ML).
 
 ```
 Carrefour-Accueil/
-├── backend/        # API Symfony (métier, auth, base de données)
+├── .github/         # Workflows CI (GitHub Actions)
+├── backend/         # API Symfony (métier, auth, base de données)
 ├── frontend/        # Application Next.js (UI)
-├── ai-service/       # Micro-service IA — supervision de planning
+├── ai-service/      # Micro-service IA — supervision de planning
 ├── docker-compose.yml
+├── CONTRIBUTING.md  # Règles de contribution, branches, TDD
 └── README.md
 ```
 
@@ -179,10 +181,36 @@ démonstration (`docker/entrypoint.sh`).
 - **PlanningInsight** : une alerte générée par le module IA de
   supervision de planning (sous-effectif, surcharge, conflit de pause...).
 
+## Contribution & workflow Git
+
+Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour le détail. En résumé :
+
+1. Branches de travail (`feature/*`, `chore/*`, `fix/*`) créées **depuis `dev`**.
+2. Pull Request **vers `dev`** (pas de merge direct).
+3. Promotion **`dev` → `main` uniquement via PR**.
+4. Branche `main` protégée (PR obligatoire, pas de force-push).
+
+## Tests
+
+Les règles métier critiques sont extraites en services testables
+(`PlanningBreakRule`, `RegisterAssignmentValidator`, `LocalPlanningAnalyzer`)
+afin de pouvoir les couvrir en TDD sans base de données.
+
+| Zone | Commande |
+|---|---|
+| Backend (Unit + Integration) | `cd backend && php bin/phpunit` |
+| Frontend (Vitest) | `cd frontend && npm test` |
+| AI service (pytest) | `cd ai-service && pytest` |
+
+Le workflow GitHub Actions (`.github/workflows/ci.yml`) exécute ces suites
+sur chaque push/PR vers `dev` ou `main`.
+
 ## Prochaines étapes possibles
 
 - Enrichir le module IA avec un vrai modèle de prévision d'affluence
   (historique de fréquentation → dimensionnement du planning).
+- Étendre les tests d'intégration API authentifiés (JWT) au-delà du smoke
+  auth actuel (`AuthApiTest`).
 - Notifications temps réel (ex. Mercure) lors d'une alerte IA critique
   ou d'une nouvelle demande urgente.
 - Export/impression des plannings.
