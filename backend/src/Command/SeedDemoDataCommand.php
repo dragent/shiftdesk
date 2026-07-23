@@ -56,6 +56,19 @@ class SeedDemoDataCommand extends Command
         $this->createUserIfMissing('admin@carrefour-accueil.local', 'Admin', 'Système', UserRole::ADMIN, $site, $io);
         $this->createUserIfMissing('direction@carrefour-accueil.local', 'Nadia', 'Direction', UserRole::DIRECTION, $site, $io);
         $this->createUserIfMissing('hote@carrefour-accueil.local', 'Caroline', 'Hôtesse', UserRole::HOTE, $site, $io);
+        $this->createUserIfMissing('rayon@carrefour-accueil.local', 'Fatou', 'Rayon', UserRole::RAYON, $site, $io);
+        $this->createUserIfMissing('securite@carrefour-accueil.local', 'Marc', 'Sécurité', UserRole::SECURITE, $site, $io);
+
+        $this->createUserIfMissing('julie.martin@caissier.carrefour-accueil.local', 'Julie', 'Martin', UserRole::CAISSIER, $site, $io);
+        $this->createUserIfMissing('karim.benali@caissier.carrefour-accueil.local', 'Karim', 'Benali', UserRole::CAISSIER, $site, $io);
+        $this->createUserIfMissing('sophie.durand@caissier.carrefour-accueil.local', 'Sophie', 'Durand', UserRole::CAISSIER, $site, $io);
+
+        // Contrats horaires hebdomadaires par défaut des employés de démo
+        // (en minutes : 36h45 = 2205min, 30h00 = 1800min).
+        $this->setContractMinutes('hote@carrefour-accueil.local', 2205, $io); // Caroline : 36h45
+        $this->setContractMinutes('karim.benali@caissier.carrefour-accueil.local', 2205, $io); // 36h45
+        $this->setContractMinutes('sophie.durand@caissier.carrefour-accueil.local', 2205, $io); // 36h45
+        $this->setContractMinutes('julie.martin@caissier.carrefour-accueil.local', 1800, $io); // 30h00
 
         $this->createCategoryIfMissing('CAROLINE', 'Caroline', 'Demandes liées à l\'outil Caroline.', 1, $io);
         $this->createCategoryIfMissing('SIEBEL', 'Siebel', 'Demandes liées au CRM Siebel.', 2, $io);
@@ -84,6 +97,21 @@ class SeedDemoDataCommand extends Command
 
         $this->em->persist($user);
         $io->text(sprintf('Utilisateur créé : %s (%s)', $email, $role->label()));
+    }
+
+    private function setContractMinutes(string $email, int $minutes, SymfonyStyle $io): void
+    {
+        $user = $this->userRepository->findOneByEmail($email);
+        if (!$user) {
+            return;
+        }
+
+        if ($user->getContractMinutes() === $minutes) {
+            return;
+        }
+
+        $user->setContractMinutes($minutes);
+        $io->text(sprintf('Contrat mis à jour : %s -> %dh%02d', $email, intdiv($minutes, 60), $minutes % 60));
     }
 
     private function createCategoryIfMissing(string $code, string $label, string $description, int $position, SymfonyStyle $io): void

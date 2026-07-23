@@ -1,4 +1,11 @@
-export type UserRole = "ROLE_ADMIN" | "ROLE_DIRECTION" | "ROLE_HOTE" | "ROLE_USER";
+export type UserRole =
+  | "ROLE_ADMIN"
+  | "ROLE_DIRECTION"
+  | "ROLE_HOTE"
+  | "ROLE_CAISSIER"
+  | "ROLE_RAYON"
+  | "ROLE_SECURITE"
+  | "ROLE_USER";
 
 export interface Site {
   id: number;
@@ -17,6 +24,8 @@ export interface User {
   roles?: UserRole[];
   site?: Site | null;
   active: boolean;
+  /** Contrat horaire hebdomadaire de l'employé, en minutes (ex: 36h45 = 2205). */
+  contractMinutes?: number;
 }
 
 export interface RequestCategory {
@@ -55,6 +64,19 @@ export interface Planning {
   status: PlanningStatus;
   note?: string | null;
   createdBy?: User | null;
+  /**
+   * Numéro de caisse attribué à ce créneau (plan de caisse) : caisse
+   * numérotée (1-8), caisses automatiques (0) ou pauses/retour (-1).
+   * Mutuellement exclusif avec `registerSegments` (null si le créneau est
+   * découpé en bascule).
+   */
+  registerNumber?: number | null;
+  /**
+   * Découpage du créneau en plusieurs affectations de caisse (bascule en
+   * cours de poste, ex. caisse 3 puis caisses automatiques à 10:00).
+   * Mutuellement exclusif avec `registerNumber`.
+   */
+  registerSegments?: { startTime: string; registerNumber: number }[] | null;
 }
 
 export type PauseType = "COURTE" | "DEJEUNER" | "AUTRE";
@@ -63,6 +85,7 @@ export type PauseStatus = "EN_COURS" | "TERMINEE";
 export interface Pause {
   id: number;
   user: User;
+  declaredBy?: User | null;
   type: PauseType;
   status: PauseStatus;
   startedAt: string;

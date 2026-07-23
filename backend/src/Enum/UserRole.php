@@ -11,6 +11,9 @@ enum UserRole: string
     case ADMIN = 'ROLE_ADMIN';
     case DIRECTION = 'ROLE_DIRECTION';
     case HOTE = 'ROLE_HOTE';
+    case CAISSIER = 'ROLE_CAISSIER';
+    case RAYON = 'ROLE_RAYON';
+    case SECURITE = 'ROLE_SECURITE';
 
     public function label(): string
     {
@@ -18,6 +21,9 @@ enum UserRole: string
             self::ADMIN => 'Administrateur',
             self::DIRECTION => 'Direction',
             self::HOTE => "Hôte(sse) d'accueil",
+            self::CAISSIER => 'Caissier(ère)',
+            self::RAYON => 'Rayon',
+            self::SECURITE => 'Sécurité',
         };
     }
 }
