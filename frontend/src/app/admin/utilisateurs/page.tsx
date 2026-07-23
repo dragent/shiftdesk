@@ -10,6 +10,8 @@ import type { Site, User } from "@/lib/types";
 const ROLE_OPTIONS = [
   { value: "HOTE", label: "Hôte(sse) d'accueil" },
   { value: "DIRECTION", label: "Direction" },
+  { value: "RAYON", label: "Rayon" },
+  { value: "SECURITE", label: "Sécurité" },
   { value: "ADMIN", label: "Administrateur" },
 ];
 
@@ -100,7 +102,7 @@ function UtilisateursContent() {
       <div>
         <h1 className="text-xl font-semibold text-slate-800">Utilisateurs</h1>
         <p className="text-sm text-slate-500">
-          Créez les comptes Direction et Hôtes/Hôtesses d&apos;accueil.
+          Créez les comptes Direction, Hôtes/Hôtesses d&apos;accueil, Rayon et Sécurité.
         </p>
       </div>
 
@@ -188,42 +190,44 @@ function UtilisateursContent() {
         {loading ? (
           <p className="text-sm text-slate-400">Chargement...</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Rôle</th>
-                <th className="py-2 pr-4">Site</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4">
-                    {u.firstName} {u.lastName}
-                  </td>
-                  <td className="py-2 pr-4">{u.email}</td>
-                  <td className="py-2 pr-4">
-                    {u.roles?.filter((r) => r !== "ROLE_USER").join(", ")}
-                  </td>
-                  <td className="py-2 pr-4">{u.site?.name ?? "—"}</td>
-                  <td className="py-2 pr-4">
-                    <Badge tone={u.active ? "CONFIRME" : "ANNULE"}>
-                      {u.active ? "Actif" : "Inactif"}
-                    </Badge>
-                  </td>
-                  <td className="py-2">
-                    <Button variant="secondary" onClick={() => toggleActive(u)}>
-                      {u.active ? "Désactiver" : "Activer"}
-                    </Button>
-                  </td>
+          <div className="-mx-5 overflow-x-auto px-5">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="py-2 pr-4">Nom</th>
+                  <th className="py-2 pr-4">Email</th>
+                  <th className="py-2 pr-4">Rôle</th>
+                  <th className="py-2 pr-4">Site</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-4">
+                      {u.firstName} {u.lastName}
+                    </td>
+                    <td className="py-2 pr-4">{u.email}</td>
+                    <td className="py-2 pr-4">
+                      {u.roles?.filter((r) => r !== "ROLE_USER").join(", ")}
+                    </td>
+                    <td className="py-2 pr-4">{u.site?.name ?? "—"}</td>
+                    <td className="py-2 pr-4">
+                      <Badge tone={u.active ? "CONFIRME" : "ANNULE"}>
+                        {u.active ? "Actif" : "Inactif"}
+                      </Badge>
+                    </td>
+                    <td className="py-2">
+                      <Button variant="secondary" onClick={() => toggleActive(u)}>
+                        {u.active ? "Désactiver" : "Activer"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

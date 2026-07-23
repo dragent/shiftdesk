@@ -42,12 +42,15 @@ security:
         - { path: ^/api/sites, roles: ROLE_ADMIN }
         - { path: ^/api/users, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET] }
         - { path: ^/api/users, roles: ROLE_ADMIN }
+        - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET, PUT, PATCH] }
+        - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
+        - { path: ^/api/plannings/\d+/register-number, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [PATCH] }
         - { path: ^/api/plannings, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST, PUT, PATCH, DELETE] }
-        - { path: ^/api/plannings, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
+        - { path: ^/api/plannings, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_RAYON, ROLE_SECURITE] }
         - { path: ^/api/pauses, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
         - { path: ^/api/requests, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
         - { path: ^/api/ai, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
-        - { path: ^/api/me, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
+        - { path: ^/api/me, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_RAYON, ROLE_SECURITE] }
         - { path: ^/api, roles: ROLE_USER }
 
 when@test:

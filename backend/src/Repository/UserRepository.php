@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\User;
+use App\Enum\UserRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
@@ -33,5 +34,23 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     public function findOneByEmail(string $email): ?User
     {
         return $this->findOneBy(['email' => $email]);
+    }
+
+    /**
+     * Retourne les utilisateurs possédant un rôle métier donné (ex: tous
+     * les caissiers). Le rôle est stocké dans une colonne JSON, on filtre
+     * donc via une recherche texte sur sa représentation sérialisée.
+     *
+     * @return User[]
+     */
+    public function findByRole(UserRole $role): array
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.roles LIKE :role')
+            ->setParameter('role', '%"'.$role->value.'"%')
+            ->orderBy('u.lastName', 'ASC')
+            ->addOrderBy('u.firstName', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

@@ -58,6 +58,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['user:read', 'user:write'])]
     private bool $active = true;
 
+    /**
+     * Contrat horaire hebdomadaire de l'employé, en minutes (ex: 36h45 =
+     * 2205). Utilisé pour comparer le total planifié sur la semaine au
+     * contrat (planning direction).
+     */
+    #[ORM\Column]
+    #[Groups(['user:read', 'user:write'])]
+    private int $contractMinutes = 0;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -197,6 +206,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setActive(bool $active): static
     {
         $this->active = $active;
+
+        return $this;
+    }
+
+    public function getContractMinutes(): int
+    {
+        return $this->contractMinutes;
+    }
+
+    public function setContractMinutes(int $contractMinutes): static
+    {
+        $this->contractMinutes = max(0, $contractMinutes);
 
         return $this;
     }
