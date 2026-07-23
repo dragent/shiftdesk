@@ -39,6 +39,23 @@ Toute évolution métier suit le cycle **Red → Green → Refactor** :
 Le workflow `.github/workflows/ci.yml` exécute ces suites sur chaque PR
 vers `dev` ou `main`. Un PR ne doit être mergé que si le CI est vert.
 
+## Frontend — responsive obligatoire
+
+Tout changement UI dans `frontend/` **doit** être vérifié en responsive
+avant merge :
+
+| Viewport | Largeur |
+|---|---|
+| Mobile | ~375px |
+| Tablette | ~768px |
+| Desktop | ≥1024px |
+
+Contrôler au minimum : pas de débordement horizontal parasite, navigation
+mobile/desktop, tableaux/grilles planning, formulaires, lisibilité.
+
+Règle agent Cursor : `.cursor/rules/frontend-responsive.mdc` (applique
+automatiquement sur les fichiers `frontend/**/*.{tsx,ts,css}`).
+
 ## Commits
 
 Messages clairs, style conventionnel :

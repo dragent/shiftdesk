@@ -1,0 +1,52 @@
+---
+description: Chaque changement UI frontend doit être vérifié en responsive (mobile/tablette/desktop)
+globs: frontend/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# Frontend — vérification responsive obligatoire
+
+Tout changement dans `frontend/` qui touche l’UI (pages, composants, styles)
+**doit** être vérifié en responsive avant de considérer le travail terminé.
+
+## Breakpoints à couvrir
+
+| Viewport | Largeur cible | Attendu |
+|---|---|---|
+| Mobile | ~375px | Navigation hamburger, pas de débordement horizontal non voulu, textes/lisibles, cibles tactiles ≥ 44px |
+| Tablette | ~768px | Layout intermédiaire cohérent (`sm` / `md`) |
+| Desktop | ≥1024px | Layout complet (`md` / `lg`), sticky/colonnes ok |
+
+## Checklist avant de finir
+
+1. **Pas de scroll horizontal parasite** hors zones volontairement scrollables (`overflow-x-auto` sur tableaux / grilles planning).
+2. **Navigation** : menu mobile (`md:hidden`) et desktop (`md:flex`) restent utilisables.
+3. **Tableaux / grilles planning** : lisibles sur mobile (cartes empilées ou scroll horizontal contrôlé), sticky desktop non cassé sur mobile.
+4. **Formulaires** : grilles `sm:grid-cols-*` empilent correctement ; boutons pleine largeur ou accessibles au pouce.
+5. **Typo & contraste** : tailles/contrastes lisibles sur petit écran (pas de `text-[10px]` critique).
+
+## Patterns du projet (à réutiliser)
+
+```tsx
+// ✅ Empilement mobile → colonnes dès sm/md
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+
+// ✅ Tableau : scroll horizontal volontaire
+<div className="-mx-5 overflow-x-auto px-5">
+
+// ✅ Contenu alternatif mobile / desktop
+<div className="flex flex-col gap-3 sm:hidden">…cartes…</div>
+<div className="hidden sm:flex overflow-x-auto">…grille…</div>
+```
+
+```tsx
+// ❌ Largeurs fixes qui cassent le mobile
+<div className="w-[900px]">
+```
+
+## Comment vérifier
+
+- Redimensionner le navigateur / DevTools aux 3 largeurs ci-dessus, **ou**
+- Utiliser le navigateur Cursor (snapshot + screenshot) sur la page modifiée.
+
+Ne pas merger / ne pas clôturer la tâche tant que mobile + tablette + desktop n’ont pas été contrôlés sur les écrans touchés.

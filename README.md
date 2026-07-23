@@ -189,6 +189,8 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour le détail. En résumé :
 2. Pull Request **vers `dev`** (pas de merge direct).
 3. Promotion **`dev` → `main` uniquement via PR**.
 4. Branche `main` protégée (PR obligatoire, pas de force-push).
+5. Tout changement UI frontend doit être **vérifié en responsive**
+   (mobile / tablette / desktop) — voir `.cursor/rules/frontend-responsive.mdc`.
 
 ## Tests
 
