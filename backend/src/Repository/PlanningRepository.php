@@ -35,4 +35,27 @@ class PlanningRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Tous les créneaux déjà planifiés pour un employé un jour donné, hors
+     * un éventuel créneau exclu (utilisé lors d'une modification, pour ne
+     * pas se comparer à soi-même). Sert notamment à vérifier la pause
+     * déjeuner minimale entre deux créneaux du même jour.
+     *
+     * @return Planning[]
+     */
+    public function findForUserAndDate(int $userId, \DateTimeImmutable $workDate, ?int $excludeId = null): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.user = :userId')
+            ->andWhere('p.workDate = :workDate')
+            ->setParameter('userId', $userId)
+            ->setParameter('workDate', $workDate);
+
+        if (null !== $excludeId) {
+            $qb->andWhere('p.id != :excludeId')->setParameter('excludeId', $excludeId);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }
