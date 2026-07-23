@@ -682,8 +682,9 @@ function EmployeeGroup({
  * l'écran (masquée en dehors de l'impression via `hidden print:block`).
  *
  * - Si `scope` vaut "ALL" : tout le planning affiché est imprimé, et une
- *   ligne vierge est ajoutée sous les horaires de chaque employé, destinée
- *   à la signature de présence de chaque demi-journée.
+ *   ligne vierge est fusionnée sous les horaires de chaque employé (la
+ *   cellule du nom s'étend sur les deux lignes), destinée à la signature
+ *   de présence de chaque demi-journée.
  * - Sinon, `scope` contient l'identifiant de l'employé sélectionné : seul
  *   son planning personnel est imprimé (sans ligne de signature).
  */
@@ -769,7 +770,10 @@ function PrintableSchedule({
               {group.users.map((user) => (
                 <Fragment key={user.id}>
                   <tr>
-                    <td className="border border-slate-500 p-1 font-semibold">
+                    <td
+                      rowSpan={scope === "ALL" ? 2 : 1}
+                      className="border border-slate-500 p-1 align-middle font-semibold"
+                    >
                       {user.firstName} {user.lastName}
                     </td>
                     {weekDays.map((day, idx) =>
@@ -791,15 +795,15 @@ function PrintableSchedule({
                         );
                       }),
                     )}
-                    <td className="border border-slate-500 p-1 text-center font-semibold">
+                    <td
+                      rowSpan={scope === "ALL" ? 2 : 1}
+                      className="border border-slate-500 p-1 text-center align-middle font-semibold"
+                    >
                       {formatMinutesAsHours(totalMinutesByUser.get(user.id) ?? 0)}
                     </td>
                   </tr>
                   {scope === "ALL" && (
                     <tr>
-                      <td className="border border-slate-500 p-1 text-[9px] italic text-slate-500">
-                        Signature
-                      </td>
                       {weekDays.map((day, idx) =>
                         HALF_DAY_SLOTS.map((slot) => {
                           const closed = isClosedSlot(idx, slot.key);
@@ -811,7 +815,6 @@ function PrintableSchedule({
                           );
                         }),
                       )}
-                      <td className="border border-slate-500 p-1" />
                     </tr>
                   )}
                 </Fragment>
