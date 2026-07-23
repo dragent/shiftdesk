@@ -1,4 +1,4 @@
-FROM php:8.3-cli-alpine
+FROM php:8.4-cli-alpine
 
 RUN apk add --no-cache icu-dev libzip-dev openssl $PHPIZE_DEPS \
     && docker-php-ext-install pdo_mysql intl opcache \
