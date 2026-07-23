@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="cf-header-gradient sticky top-0 z-10 shadow-lg shadow-blue-950/20">
+      <header className="cf-header-gradient sticky top-0 z-10 shadow-lg shadow-blue-950/20 print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white p-1.5 shadow-md">
@@ -165,7 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 py-4 sm:px-4 sm:py-6">
         {children}
       </main>
-      <footer className="border-t border-slate-200/70 bg-white/60 px-4 py-3 text-center text-xs text-slate-400 backdrop-blur">
+      <footer className="border-t border-slate-200/70 bg-white/60 px-4 py-3 text-center text-xs text-slate-400 backdrop-blur print:hidden">
         Carrefour Accueil — Gestion de l&apos;accueil, des pauses, des plannings et supervision IA.
       </footer>
     </div>
