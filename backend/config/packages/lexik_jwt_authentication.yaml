@@ -2,3 +2,8 @@ lexik_jwt_authentication:
     secret_key: '%env(resolve:JWT_SECRET_KEY)%'
     public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
     pass_phrase: '%env(JWT_PASSPHRASE)%'
+    # Par défaut (3600s = 1h), le jeton expirait en pleine journée de travail :
+    # toute action (ex. sauvegarder un créneau de planning) échouait alors
+    # silencieusement avec un 401 une fois la session "expirée" sans que la
+    # direction s'en rende compte. Porté à une journée de travail complète.
+    token_ttl: 28800 # 8h

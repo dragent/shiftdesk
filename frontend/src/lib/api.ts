@@ -47,6 +47,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const message =
       (body && (body.error || body.message)) || `Erreur ${response.status}`;
+
+    // Session expirée ou jeton invalide : sans ça, toute action (ex.
+    // sauvegarder un créneau de planning) échoue silencieusement avec un 401
+    // et l'utilisateur ne comprend pas pourquoi "ça ne sauvegarde plus". On
+    // déconnecte proprement et on renvoie vers la connexion avec un message
+    // clair, plutôt que de laisser l'erreur brute s'afficher dans le formulaire.
+    if (response.status === 401 && path !== "/api/login" && typeof window !== "undefined") {
+      clearToken();
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login?expired=1";
+      }
+    }
+
     throw new ApiError(message, response.status, body?.details);
   }
 
