@@ -234,7 +234,7 @@ function PlanningContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-xl font-semibold text-slate-800">Planning</h1>
           <p className="text-sm text-slate-500">
@@ -244,25 +244,37 @@ function PlanningContent() {
             employé ne voit que son planning personnel. Le dimanche après-midi est fermé.
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-3">
+
+        {/*
+          Desktop (md+) : [← Semaine] [catégories] [Semaine →] centrés sur une ligne.
+          Mobile : catégories en grille 2×2, puis les deux boutons de semaine côte à côte.
+        */}
+        <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:justify-center">
           <Button
             variant="secondary"
+            className="order-2 min-h-11 md:order-1"
             onClick={() => setWeekStart((d) => {
               const nd = new Date(d);
               nd.setDate(nd.getDate() - 7);
               return nd;
             })}
           >
-            ← Semaine précédente
+            <span className="md:hidden">← Semaine</span>
+            <span className="hidden md:inline">← Semaine précédente</span>
           </Button>
-          <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 p-1">
+
+          <div
+            role="group"
+            aria-label="Catégorie de planning"
+            className="order-1 col-span-2 grid grid-cols-2 gap-1.5 rounded-lg border border-slate-300 bg-slate-100 p-1 md:order-2 md:col-span-1 md:flex md:flex-nowrap md:items-center"
+          >
             {CATEGORY_OPTIONS.map((c) => (
               <button
                 key={c.value}
                 type="button"
                 onClick={() => setCategory(c.value)}
                 aria-pressed={category === c.value}
-                className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+                className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold transition md:px-4 ${
                   category === c.value
                     ? "bg-[var(--cf-blue)] text-white shadow-sm"
                     : "text-slate-600 hover:bg-white hover:text-slate-900"
@@ -272,15 +284,18 @@ function PlanningContent() {
               </button>
             ))}
           </div>
+
           <Button
             variant="secondary"
+            className="order-3 min-h-11"
             onClick={() => setWeekStart((d) => {
               const nd = new Date(d);
               nd.setDate(nd.getDate() + 7);
               return nd;
             })}
           >
-            Semaine suivante →
+            <span className="md:hidden">Semaine →</span>
+            <span className="hidden md:inline">Semaine suivante →</span>
           </Button>
         </div>
       </div>
@@ -295,12 +310,12 @@ function PlanningContent() {
         ) : (
           <>
             <div className="overflow-x-auto rounded-md border border-slate-200">
-              <table className="w-full min-w-[1320px] border-collapse text-base">
+              <table className="w-full min-w-[1220px] border-collapse text-sm">
                 <thead>
                   <tr>
                     <th
                       rowSpan={2}
-                      className="sticky left-0 z-10 min-w-[190px] border-b-2 border-r-2 border-slate-300 bg-slate-50 p-2.5 text-left align-bottom text-base font-semibold text-slate-700 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)]"
+                      className="sticky left-0 z-10 min-w-[170px] border-b-2 border-r-2 border-slate-300 bg-slate-50 p-2.5 text-left align-bottom text-sm font-semibold text-slate-700 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)]"
                     >
                       Employé
                     </th>
@@ -316,7 +331,7 @@ function PlanningContent() {
                         >
                           {DAY_LABELS[idx]} {day.getDate()}/{day.getMonth() + 1}
                           {isToday && (
-                            <span className="ml-1.5 inline-block rounded-full bg-cf-blue px-2 py-0.5 text-xs font-semibold text-white align-middle">
+                            <span className="ml-1.5 inline-block rounded-full bg-cf-blue px-1.5 py-0.5 text-[10px] font-semibold text-white align-middle">
                               Aujourd&apos;hui
                             </span>
                           )}
@@ -339,14 +354,14 @@ function PlanningContent() {
                         return (
                           <th
                             key={`${toISODate(day)}_${slot.key}`}
-                            className={`min-w-[130px] border-b border-slate-200 p-2 text-center text-sm font-semibold ${
+                            className={`min-w-[120px] border-b border-slate-200 p-2 text-center text-xs font-medium ${
                               lastOfDay ? "border-r-2 border-r-slate-300" : "border-r border-slate-200"
                             } ${
                               closed
-                                ? "bg-slate-200/70 text-slate-600"
+                                ? "bg-slate-200/70 text-slate-500"
                                 : isToday
-                                  ? "bg-(--cf-blue)/5 text-slate-700"
-                                  : "text-slate-600"
+                                  ? "bg-(--cf-blue)/5 text-slate-600"
+                                  : "text-slate-500"
                             }`}
                           >
                             {closed ? "Fermé" : slot.label}
@@ -507,7 +522,7 @@ function EmployeeGroup({
   return (
     <>
       <tr>
-        <td className="sticky left-0 z-10 border-b-2 border-slate-300 bg-slate-100 px-2.5 py-2 text-sm font-semibold uppercase tracking-wide text-slate-700 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)]">
+        <td className="sticky left-0 z-10 border-b-2 border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)]">
           {label}
         </td>
         <td
@@ -531,14 +546,14 @@ function EmployeeGroup({
         return (
         <tr key={user.id} className={`group ${rowBg} hover:bg-(--cf-blue)/6`}>
           <td
-            className={`sticky left-0 z-10 border-b border-r-2 border-slate-300 p-2.5 text-left font-semibold text-slate-800 ${rowBg} shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)] transition-colors group-hover:bg-(--cf-blue)/6`}
+            className={`sticky left-0 z-10 border-b border-r-2 border-slate-300 p-2.5 text-left font-medium text-slate-700 ${rowBg} shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)] transition-colors group-hover:bg-(--cf-blue)/6`}
           >
             <div className="flex items-center justify-between gap-2">
               <span>
                 {user.firstName} {user.lastName}
               </span>
               {contractMinutes > 0 && (
-                <span className="hidden whitespace-nowrap text-sm font-medium text-slate-500 sm:inline">
+                <span className="hidden whitespace-nowrap text-[11px] font-normal text-slate-400 sm:inline">
                   {formatMinutesAsHours(contractMinutes)}
                 </span>
               )}
@@ -560,7 +575,7 @@ function EmployeeGroup({
                 return (
                   <td
                     key={cellKey}
-                    className={`border-b border-slate-200 bg-slate-100 p-1.5 text-center font-medium text-slate-500 ${dayBorder}`}
+                    className={`border-b border-slate-200 bg-slate-100 p-1.5 text-center text-slate-300 ${dayBorder}`}
                   >
                     —
                   </td>
@@ -586,7 +601,7 @@ function EmployeeGroup({
                         max={slot.end}
                         value={formStart}
                         onChange={onFormStartChange}
-                        className="w-full rounded-md border border-slate-300 px-1.5 py-1.5 text-sm"
+                        className="w-full rounded-md border border-slate-300 px-1.5 py-1 text-xs"
                       />
                       <TimeField
                         required
@@ -594,20 +609,20 @@ function EmployeeGroup({
                         max={STORE_CLOSE}
                         value={formEnd}
                         onChange={onFormEndChange}
-                        className="w-full rounded-md border border-slate-300 px-1.5 py-1.5 text-sm"
+                        className="w-full rounded-md border border-slate-300 px-1.5 py-1 text-xs"
                       />
                       <div className="flex gap-1">
                         <Button
                           type="submit"
                           disabled={isPending}
-                          className="w-full justify-center px-1 py-1.5 text-xs"
+                          className="w-full justify-center px-1 py-1 text-[11px]"
                         >
                           OK
                         </Button>
                         <Button
                           type="button"
                           variant="secondary"
-                          className="w-full justify-center px-1 py-1.5 text-xs"
+                          className="w-full justify-center px-1 py-1 text-[11px]"
                           onClick={onCancelAdd}
                         >
                           Annuler
@@ -620,9 +635,9 @@ function EmployeeGroup({
                       title={`Retirer ${user.firstName} ${user.lastName}`}
                       disabled={isPending}
                       onClick={() => onRemove(entry, cellKey)}
-                      className="flex w-full flex-col items-center justify-center rounded-md border-2 border-(--cf-blue)/30 bg-(--cf-blue)/10 py-3 text-cf-blue transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      className="flex w-full flex-col items-center justify-center rounded-md border border-(--cf-blue)/20 bg-(--cf-blue)/10 py-2.5 text-cf-blue transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     >
-                      <span className="text-sm font-bold">
+                      <span className="text-xs font-semibold">
                         {formatFrenchTime(entry.startTime)} - {formatFrenchTime(entry.endTime)}
                       </span>
                     </button>
@@ -632,7 +647,7 @@ function EmployeeGroup({
                       title={`Choisir les heures pour ${user.firstName} ${user.lastName}`}
                       disabled={isPending}
                       onClick={() => onStartAdd(user, dayKey, slot.key)}
-                      className="flex w-full items-center justify-center rounded-md border-2 border-dashed border-slate-400 py-3 text-lg font-bold text-slate-500 transition hover:border-cf-blue hover:bg-(--cf-blue)/5 hover:text-cf-blue disabled:opacity-50"
+                      className="flex w-full items-center justify-center rounded-md border border-dashed border-slate-300 py-2.5 text-sm text-slate-400 transition hover:border-cf-blue hover:bg-(--cf-blue)/5 hover:text-cf-blue disabled:opacity-50"
                     >
                       +
                     </button>
