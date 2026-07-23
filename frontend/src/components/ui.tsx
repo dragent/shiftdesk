@@ -11,7 +11,7 @@ export function Card({
     <section className="rounded-lg border border-slate-200/80 bg-white/95 p-4 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm sm:p-5">
       {(title || actions) && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-base font-semibold text-slate-800">{title}</h2>}
+          {title && <h2 className="text-lg font-semibold text-slate-800">{title}</h2>}
           {actions}
         </div>
       )}
@@ -41,7 +41,7 @@ const BADGE_COLORS: Record<string, string> = {
 export function Badge({ children, tone }: { children: React.ReactNode; tone?: string }) {
   const cls = (tone && BADGE_COLORS[tone]) || "bg-slate-100 text-slate-600";
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium ${cls}`}>
       {children}
     </span>
   );
@@ -56,14 +56,14 @@ export function Button({
   const variants: Record<string, string> = {
     primary:
       "bg-[var(--cf-blue)] text-white hover:bg-[var(--cf-blue-dark)] disabled:bg-[var(--cf-blue)]/40 shadow-sm",
-    secondary: "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100",
+    secondary: "bg-white text-slate-800 border-2 border-slate-400 hover:bg-slate-100",
     danger:
       "bg-[var(--cf-red)] text-white hover:bg-[var(--cf-red-dark)] disabled:bg-[var(--cf-red)]/40 shadow-sm",
   };
 
   return (
     <button
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`min-h-10 rounded-md px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -137,5 +137,5 @@ export function Alert({ children, tone = "error" }: { children: React.ReactNode;
     tone === "error"
       ? "bg-red-50 text-red-700 border-red-200"
       : "bg-emerald-50 text-emerald-700 border-emerald-200";
-  return <div className={`rounded-md border px-3 py-2 text-sm ${cls}`}>{children}</div>;
+  return <div className={`rounded-md border px-3 py-2.5 text-base ${cls}`}>{children}</div>;
 }

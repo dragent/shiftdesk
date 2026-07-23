@@ -78,21 +78,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
             </span>
             <div className="flex flex-col leading-tight">
-              <span className="text-base font-semibold text-white">Carrefour Accueil</span>
-              <span className="hidden text-[11px] font-semibold tracking-wide text-red-300 sm:inline">
+              <span className="text-lg font-semibold text-white">Carrefour Accueil</span>
+              <span className="hidden text-xs font-semibold tracking-wide text-red-200 sm:inline">
                 GESTION DE L&apos;ACCUEIL
               </span>
             </div>
           </div>
           {user && (
             <div className="flex items-center gap-2 text-sm sm:gap-4">
-              <span className="hidden text-blue-100 md:inline">
+              <span className="hidden text-base text-blue-50 md:inline">
                 {user.firstName} {user.lastName}
                 {user.site ? ` · ${user.site.name}` : ""}
               </span>
               <button
                 onClick={logout}
-                className="hidden rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-white transition hover:border-[var(--cf-red)] hover:bg-[var(--cf-red)] sm:inline-block"
+                className="hidden min-h-10 rounded-md border border-white/40 bg-white/10 px-3 py-2 text-base font-medium text-white transition hover:border-[var(--cf-red)] hover:bg-[var(--cf-red)] sm:inline-block"
               >
                 Se déconnecter
               </button>
@@ -101,7 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setMenuOpen((o) => !o)}
                 aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
                 aria-expanded={menuOpen}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/30 bg-white/10 text-white transition hover:border-[var(--cf-red)] hover:bg-[var(--cf-red)] md:hidden"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/10 text-white transition hover:border-[var(--cf-red)] hover:bg-[var(--cf-red)] md:hidden"
               >
                 {menuOpen ? (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
@@ -133,7 +133,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {menuOpen && (
           <nav className="mx-auto flex max-w-6xl flex-col gap-0.5 border-t border-white/10 px-4 py-2 md:hidden">
             {user && (
-              <span className="px-3 py-1.5 text-xs text-blue-100">
+              <span className="px-3 py-1.5 text-sm text-blue-50">
                 {user.firstName} {user.lastName}
                 {user.site ? ` · ${user.site.name}` : ""}
               </span>
@@ -141,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {visibleItems.map((item) =>
               isDropdown(item) ? (
                 <div key={item.label} className="flex flex-col">
-                  <span className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-200">
+                  <span className="px-3 py-1.5 text-sm font-semibold uppercase tracking-wide text-blue-100">
                     {item.label}
                   </span>
                   {item.items.map((sub) => (
@@ -154,7 +154,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <button
               onClick={logout}
-              className="mt-1 rounded-md border border-white/30 bg-white/10 px-3 py-2 text-left text-sm text-white transition hover:border-[var(--cf-red)] hover:bg-[var(--cf-red)]"
+              className="mt-1 min-h-11 rounded-md border border-white/40 bg-white/10 px-3 py-2.5 text-left text-base font-medium text-white transition hover:border-[var(--cf-red)] hover:bg-[var(--cf-red)]"
             >
               Se déconnecter
             </button>
@@ -165,7 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-3 py-4 sm:px-4 sm:py-6">
         {children}
       </main>
-      <footer className="border-t border-slate-200/70 bg-white/60 px-4 py-3 text-center text-xs text-slate-400 backdrop-blur">
+      <footer className="border-t border-slate-200/70 bg-white/60 px-4 py-3 text-center text-sm text-slate-500 backdrop-blur">
         Carrefour Accueil — Gestion de l&apos;accueil, des pauses, des plannings et supervision IA.
       </footer>
     </div>
@@ -176,8 +176,8 @@ function MobileNavLink({ href, label, active }: { href: string; label: string; a
   return (
     <Link
       href={href}
-      className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-        active ? "bg-white/15 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white"
+      className={`rounded-md px-3 py-3 text-base font-medium transition ${
+        active ? "bg-white/15 text-white" : "text-blue-50 hover:bg-white/10 hover:text-white"
       }`}
     >
       {label}
@@ -189,8 +189,8 @@ function NavLinkItem({ href, label, active }: { href: string; label: string; act
   return (
     <Link
       href={href}
-      className={`relative px-3 py-2.5 text-sm font-medium transition ${
-        active ? "text-white" : "text-blue-100 hover:text-white"
+      className={`relative px-3 py-2.5 text-base font-medium transition ${
+        active ? "text-white" : "text-blue-50 hover:text-white"
       }`}
     >
       {label}
@@ -218,12 +218,12 @@ function NavDropdownMenu({ label, items, active }: { label: string; items: NavLi
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`relative flex items-center gap-1 px-3 py-2.5 text-sm font-medium transition ${
-          active ? "text-white" : "text-blue-100 hover:text-white"
+        className={`relative flex items-center gap-1 px-3 py-2.5 text-base font-medium transition ${
+          active ? "text-white" : "text-blue-50 hover:text-white"
         }`}
       >
         {label}
-        <span className={`text-[10px] transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+        <span className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
         {active && <span className="absolute inset-x-2 -bottom-px h-[3px] rounded-t-sm bg-[var(--cf-red)]" />}
       </button>
       {open && (
@@ -233,7 +233,7 @@ function NavDropdownMenu({ label, items, active }: { label: string; items: NavLi
               key={item.href}
               href={item.href}
               onClick={() => setOpen(false)}
-              className="block px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="block px-3 py-2.5 text-base text-slate-800 transition hover:bg-slate-50"
             >
               {item.label}
             </Link>

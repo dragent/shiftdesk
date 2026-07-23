@@ -102,17 +102,18 @@ function MonPlanningContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Mon planning</h1>
-          <p className="text-sm text-slate-500">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold text-slate-900">Mon planning</h1>
+          <p className="mt-1 text-base text-slate-700">
             Consultez vos créneaux de travail pour la semaine. Seule la direction peut créer ou
             modifier le planning.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Button
             variant="secondary"
+            className="w-full sm:w-auto"
             onClick={() => setWeekStart((d) => {
               const nd = new Date(d);
               nd.setDate(nd.getDate() - 7);
@@ -123,6 +124,7 @@ function MonPlanningContent() {
           </Button>
           <Button
             variant="secondary"
+            className="w-full sm:w-auto"
             onClick={() => setWeekStart((d) => {
               const nd = new Date(d);
               nd.setDate(nd.getDate() + 7);

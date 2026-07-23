@@ -332,10 +332,10 @@ function PlanDeCaisseContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Plan de caisse</h1>
-          <p className="text-sm text-slate-500">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold text-slate-900">Plan de caisse</h1>
+          <p className="mt-1 text-base text-slate-700">
             Attribuez une caisse (1 à 8), les caisses automatiques ou une affectation &quot;Pauses / Retour&quot;
             aux créneaux déjà planifiés pour chaque caissier(ère) — avec, si besoin, une bascule en
             cours de créneau (ex. caisse puis caisses automatiques à une heure donnée). Les horaires
@@ -343,9 +343,10 @@ function PlanDeCaisseContent() {
             moins un(e) caissier(ère) doit superviser les caisses automatiques sur chaque créneau ouvert.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Button
             variant="secondary"
+            className="w-full sm:w-auto"
             onClick={() => setWeekStart((d) => {
               const nd = new Date(d);
               nd.setDate(nd.getDate() - 7);
@@ -356,6 +357,7 @@ function PlanDeCaisseContent() {
           </Button>
           <Button
             variant="secondary"
+            className="w-full sm:w-auto"
             onClick={() => setWeekStart((d) => {
               const nd = new Date(d);
               nd.setDate(nd.getDate() + 7);
@@ -375,8 +377,11 @@ function PlanDeCaisseContent() {
         ) : caissiers.length === 0 ? (
           <p className="text-sm text-slate-500">Aucun caissier(ère) enregistré(e).</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1140px] border-collapse text-xs">
+          <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
+            <p className="mb-3 text-sm font-medium text-slate-600 lg:hidden">
+              Faites glisser horizontalement pour voir toute la semaine.
+            </p>
+            <table className="w-full min-w-[1140px] border-collapse text-sm">
               <thead>
                 <tr>
                   <th
