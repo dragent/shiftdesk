@@ -9,6 +9,8 @@ use App\Enum\UserRole;
 use App\Repository\PlanningRepository;
 use App\Repository\SiteRepository;
 use App\Repository\UserRepository;
+use App\Service\PlanningBreakRule;
+use App\Service\RegisterAssignmentValidator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,15 +34,14 @@ use Symfony\Component\Serializer\SerializerInterface;
 #[Route('/api/plannings')]
 class PlanningController extends AbstractApiController
 {
-    /** Pause déjeuner minimale exigée entre deux créneaux du même employé le même jour. */
-    private const MIN_BREAK_MINUTES = 60;
-
     public function __construct(
         SerializerInterface $serializer,
         private readonly PlanningRepository $planningRepository,
         private readonly UserRepository $userRepository,
         private readonly SiteRepository $siteRepository,
         private readonly EntityManagerInterface $em,
+        private readonly PlanningBreakRule $planningBreakRule,
+        private readonly RegisterAssignmentValidator $registerAssignmentValidator,
     ) {
         parent::__construct($serializer);
     }
@@ -176,11 +177,9 @@ class PlanningController extends AbstractApiController
     }
 
     /**
-     * Vérifie qu'il y a au moins {@see self::MIN_BREAK_MINUTES} minutes de
-     * coupure entre le créneau donné et tout autre créneau déjà planifié
-     * pour le même employé le même jour (ex. pause déjeuner d'au moins 1h
-     * entre un créneau du matin et un créneau de l'après-midi). Retourne un
-     * message d'erreur si la contrainte n'est pas respectée, sinon null.
+     * Vérifie qu'il y a au moins {@see PlanningBreakRule::MIN_BREAK_MINUTES}
+     * minutes de coupure entre le créneau donné et tout autre créneau déjà
+     * planifié pour le même employé le même jour.
      */
     private function checkMinimumBreak(
         User $user,
@@ -189,39 +188,15 @@ class PlanningController extends AbstractApiController
         \DateTimeImmutable $endTime,
         ?int $excludeId,
     ): ?string {
-        $start = $this->timeToMinutes($startTime);
-        $end = $this->timeToMinutes($endTime);
-
+        $otherSlots = [];
         foreach ($this->planningRepository->findForUserAndDate((int) $user->getId(), $workDate, $excludeId) as $other) {
-            $otherStart = $this->timeToMinutes($other->getStartTime());
-            $otherEnd = $this->timeToMinutes($other->getEndTime());
-
-            if ($this->gapMinutes($start, $end, $otherStart, $otherEnd) < self::MIN_BREAK_MINUTES) {
-                return sprintf(
-                    "La coupure avec le créneau %s-%s du même jour doit être d'au moins 1h (pause déjeuner).",
-                    $other->getStartTime()->format('H:i'),
-                    $other->getEndTime()->format('H:i'),
-                );
-            }
+            $otherSlots[] = [
+                'startTime' => $other->getStartTime(),
+                'endTime' => $other->getEndTime(),
+            ];
         }
 
-        return null;
-    }
-
-    /** Nombre de minutes écoulées depuis minuit pour une heure donnée. */
-    private function timeToMinutes(\DateTimeImmutable $time): int
-    {
-        return ((int) $time->format('H')) * 60 + (int) $time->format('i');
-    }
-
-    /** Écart en minutes entre deux intervalles [start1,end1[ et [start2,end2[ (0 s'ils se chevauchent). */
-    private function gapMinutes(int $start1, int $end1, int $start2, int $end2): int
-    {
-        if ($start1 < $end2 && $start2 < $end1) {
-            return 0;
-        }
-
-        return $start1 >= $end2 ? $start1 - $end2 : $start2 - $end1;
+        return $this->planningBreakRule->validateAgainstSlots($startTime, $endTime, $otherSlots);
     }
 
     /**
@@ -246,57 +221,24 @@ class PlanningController extends AbstractApiController
         $hasRegisterNumber = array_key_exists('registerNumber', $data);
 
         if ($hasSegments) {
-            $segments = $data['segments'];
-            if (!is_array($segments) || count($segments) < 2 || count($segments) > 3) {
-                return $this->respondError('Une bascule doit comporter 2 ou 3 tranches horaires.', 422);
+            $result = $this->registerAssignmentValidator->validateSegments(
+                $data['segments'],
+                $planning->getStartTime()->format('H:i'),
+                $planning->getEndTime()->format('H:i'),
+            );
+            if (null !== $result['error']) {
+                return $this->respondError($result['error'], 422);
             }
 
-            $shiftStart = $planning->getStartTime()->format('H:i');
-            $shiftEnd = $planning->getEndTime()->format('H:i');
-
-            $normalized = [];
-            $previousTime = null;
-            foreach (array_values($segments) as $index => $segment) {
-                if (!is_array($segment) || !array_key_exists('startTime', $segment) || !array_key_exists('registerNumber', $segment)) {
-                    return $this->respondError('Chaque tranche doit avoir une heure de début et un numéro de caisse.', 422);
-                }
-
-                $startTime = (string) $segment['startTime'];
-                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $startTime)) {
-                    return $this->respondError('Heure de bascule invalide.', 422);
-                }
-
-                $registerNumber = (int) $segment['registerNumber'];
-                // Une bascule ne peut concerner que des caisses numérotées ou
-                // les caisses automatiques, pas les "Pauses / Retour".
-                if ($registerNumber < 0 || $registerNumber > 8) {
-                    return $this->respondError('Le numéro de caisse d\'une tranche doit être compris entre 0 (caisses automatiques) et 8.', 422);
-                }
-
-                if (0 === $index && $startTime !== $shiftStart) {
-                    return $this->respondError('La première tranche doit commencer à l\'heure de début du créneau.', 422);
-                }
-                if (null !== $previousTime && $startTime <= $previousTime) {
-                    return $this->respondError('Les heures de bascule doivent être strictement croissantes.', 422);
-                }
-                if ($startTime >= $shiftEnd) {
-                    return $this->respondError('Une heure de bascule doit être avant la fin du créneau.', 422);
-                }
-
-                $previousTime = $startTime;
-                $normalized[] = ['startTime' => $startTime, 'registerNumber' => $registerNumber];
-            }
-
-            $planning->setRegisterSegments($normalized);
+            $planning->setRegisterSegments($result['normalized']);
             $planning->setRegisterNumber(null);
         } elseif ($hasRegisterNumber) {
             $registerNumber = $data['registerNumber'];
-            if ($registerNumber !== null) {
+            if (null !== $registerNumber) {
                 $registerNumber = (int) $registerNumber;
-                // Le magasin dispose de 8 caisses numérotées (1 à 8) ; 0 est
-                // réservé aux caisses automatiques, -1 aux "Pauses / Retour".
-                if ($registerNumber < -1 || $registerNumber > 8) {
-                    return $this->respondError('Le numéro de caisse doit être compris entre -1 (pauses/retour) et 8.', 422);
+                $error = $this->registerAssignmentValidator->validateRegisterNumber($registerNumber);
+                if (null !== $error) {
+                    return $this->respondError($error, 422);
                 }
             }
 
