@@ -9,7 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
- * Une pause déclarée par un hôte/hôtesse d'accueil (début/fin en temps réel).
+ * Une pause d'un(e) caissier(ère), saisie en temps réel par l'accueil
+ * (hôte/hôtesse) ou la direction pour le compte de ce caissier.
  */
 #[ORM\Entity(repositoryClass: PauseRepository::class)]
 #[ORM\Table(name: 'pause')]
@@ -21,10 +22,21 @@ class Pause
     #[Groups(['pause:read'])]
     private ?int $id = null;
 
+    /**
+     * Le caissier / la caissière qui prend la pause.
+     */
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'pauses')]
     #[ORM\JoinColumn(name: 'user_id', nullable: false, onDelete: 'CASCADE')]
     #[Groups(['pause:read', 'pause:write'])]
     private User $user;
+
+    /**
+     * La personne de l'accueil/direction qui a saisi la pause.
+     */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'declared_by_id', nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['pause:read'])]
+    private ?User $declaredBy = null;
 
     #[ORM\ManyToOne(targetEntity: Planning::class, inversedBy: 'pauses')]
     #[ORM\JoinColumn(name: 'planning_id', nullable: true, onDelete: 'SET NULL')]
@@ -65,6 +77,18 @@ class Pause
     public function setUser(User $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    public function getDeclaredBy(): ?User
+    {
+        return $this->declaredBy;
+    }
+
+    public function setDeclaredBy(?User $declaredBy): static
+    {
+        $this->declaredBy = $declaredBy;
 
         return $this;
     }
