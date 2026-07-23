@@ -244,7 +244,17 @@ function PlanningContent() {
             employé ne voit que son planning personnel. Le dimanche après-midi est fermé.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => setWeekStart((d) => {
+              const nd = new Date(d);
+              nd.setDate(nd.getDate() - 7);
+              return nd;
+            })}
+          >
+            ← Semaine précédente
+          </Button>
           <div className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 p-1">
             {CATEGORY_OPTIONS.map((c) => (
               <button
@@ -262,16 +272,6 @@ function PlanningContent() {
               </button>
             ))}
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => setWeekStart((d) => {
-              const nd = new Date(d);
-              nd.setDate(nd.getDate() - 7);
-              return nd;
-            })}
-          >
-            ← Semaine précédente
-          </Button>
           <Button
             variant="secondary"
             onClick={() => setWeekStart((d) => {
