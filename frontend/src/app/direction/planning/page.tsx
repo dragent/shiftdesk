@@ -19,6 +19,21 @@ import {
 } from "@/lib/planning";
 import type { Planning, User } from "@/lib/types";
 
+/**
+ * Catégorie de planning affichée : "Caisse" regroupe les caissiers/caissières
+ * et les hôtes/hôtesses d'accueil (front de magasin), les 3 autres sont des
+ * services distincts. Une seule catégorie est affichée à la fois, choisie
+ * via le select en haut de la grille.
+ */
+type PlanningCategory = "CAISSE" | "DIRECTION" | "RAYON" | "SECURITE";
+
+const CATEGORY_OPTIONS: { value: PlanningCategory; label: string }[] = [
+  { value: "CAISSE", label: "Caisse" },
+  { value: "DIRECTION", label: "Direction" },
+  { value: "RAYON", label: "Rayon" },
+  { value: "SECURITE", label: "Sécurité" },
+];
+
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = (d.getDay() + 6) % 7; // lundi = 0
@@ -51,6 +66,7 @@ export default function PlanningPage() {
 
 function PlanningContent() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [category, setCategory] = useState<PlanningCategory>("CAISSE");
   const [plannings, setPlannings] = useState<Planning[]>([]);
   const [caissiers, setCaissiers] = useState<User[]>([]);
   const [hotes, setHotes] = useState<User[]>([]);
@@ -203,12 +219,17 @@ function PlanningContent() {
     }
   }
 
-  const noEmployees =
-    caissiers.length === 0 &&
-    hotes.length === 0 &&
-    directionStaff.length === 0 &&
-    rayon.length === 0 &&
-    securite.length === 0;
+  // La catégorie "Caisse" regroupe caissiers/caissières ET hôtes/hôtesses
+  // d'accueil ; les autres catégories affichent un seul groupe dédié.
+  const categoryIsEmpty =
+    category === "CAISSE"
+      ? caissiers.length === 0 && hotes.length === 0
+      : category === "DIRECTION"
+        ? directionStaff.length === 0
+        : category === "RAYON"
+          ? rayon.length === 0
+          : securite.length === 0;
+  const categoryLabel = CATEGORY_OPTIONS.find((c) => c.value === category)?.label ?? "";
   const todayISO = toISODate(new Date());
 
   return (
@@ -224,6 +245,20 @@ function PlanningContent() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            Planning
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as PlanningCategory)}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              {CATEGORY_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <Button
             variant="secondary"
             onClick={() => setWeekStart((d) => {
@@ -249,11 +284,11 @@ function PlanningContent() {
 
       {error && <Alert>{error}</Alert>}
 
-      <Card title={`Semaine du ${weekDays[0].toLocaleDateString("fr-FR")} au ${weekDays[6].toLocaleDateString("fr-FR")}`}>
+      <Card title={`Planning ${categoryLabel} — Semaine du ${weekDays[0].toLocaleDateString("fr-FR")} au ${weekDays[6].toLocaleDateString("fr-FR")}`}>
         {loading ? (
           <p className="text-sm text-slate-400">Chargement...</p>
-        ) : noEmployees ? (
-          <p className="text-sm text-slate-500">Aucun caissier ni hôte(sse) enregistré(e).</p>
+        ) : categoryIsEmpty ? (
+          <p className="text-sm text-slate-500">Aucun employé enregistré dans cette catégorie.</p>
         ) : (
           <>
             <div className="overflow-x-auto rounded-md border border-slate-200">
@@ -319,96 +354,106 @@ function PlanningContent() {
                   </tr>
                 </thead>
                 <tbody>
-                  <EmployeeGroup
-                    label="Caissiers"
-                    users={caissiers}
-                    weekDays={weekDays}
-                    todayISO={todayISO}
-                    planningByCell={planningByCell}
-                    totalMinutesByUser={totalMinutesByUser}
-                    pendingKey={pendingKey}
-                    editingCell={editingCell}
-                    formStart={formStart}
-                    formEnd={formEnd}
-                    onFormStartChange={setFormStart}
-                    onFormEndChange={setFormEnd}
-                    onStartAdd={startAdd}
-                    onCancelAdd={cancelAdd}
-                    onSubmitAdd={submitAdd}
-                    onRemove={removeSlot}
-                  />
-                  <EmployeeGroup
-                    label="Hôtes / hôtesses d'accueil"
-                    users={hotes}
-                    weekDays={weekDays}
-                    todayISO={todayISO}
-                    planningByCell={planningByCell}
-                    totalMinutesByUser={totalMinutesByUser}
-                    pendingKey={pendingKey}
-                    editingCell={editingCell}
-                    formStart={formStart}
-                    formEnd={formEnd}
-                    onFormStartChange={setFormStart}
-                    onFormEndChange={setFormEnd}
-                    onStartAdd={startAdd}
-                    onCancelAdd={cancelAdd}
-                    onSubmitAdd={submitAdd}
-                    onRemove={removeSlot}
-                  />
-                  <EmployeeGroup
-                    label="Direction"
-                    users={directionStaff}
-                    weekDays={weekDays}
-                    todayISO={todayISO}
-                    planningByCell={planningByCell}
-                    totalMinutesByUser={totalMinutesByUser}
-                    pendingKey={pendingKey}
-                    editingCell={editingCell}
-                    formStart={formStart}
-                    formEnd={formEnd}
-                    onFormStartChange={setFormStart}
-                    onFormEndChange={setFormEnd}
-                    onStartAdd={startAdd}
-                    onCancelAdd={cancelAdd}
-                    onSubmitAdd={submitAdd}
-                    onRemove={removeSlot}
-                  />
-                  <EmployeeGroup
-                    label="Rayon"
-                    users={rayon}
-                    weekDays={weekDays}
-                    todayISO={todayISO}
-                    planningByCell={planningByCell}
-                    totalMinutesByUser={totalMinutesByUser}
-                    pendingKey={pendingKey}
-                    editingCell={editingCell}
-                    formStart={formStart}
-                    formEnd={formEnd}
-                    onFormStartChange={setFormStart}
-                    onFormEndChange={setFormEnd}
-                    onStartAdd={startAdd}
-                    onCancelAdd={cancelAdd}
-                    onSubmitAdd={submitAdd}
-                    onRemove={removeSlot}
-                  />
-                  <EmployeeGroup
-                    label="Sécurité"
-                    users={securite}
-                    weekDays={weekDays}
-                    todayISO={todayISO}
-                    planningByCell={planningByCell}
-                    totalMinutesByUser={totalMinutesByUser}
-                    pendingKey={pendingKey}
-                    editingCell={editingCell}
-                    formStart={formStart}
-                    formEnd={formEnd}
-                    onFormStartChange={setFormStart}
-                    onFormEndChange={setFormEnd}
-                    onStartAdd={startAdd}
-                    onCancelAdd={cancelAdd}
-                    onSubmitAdd={submitAdd}
-                    onRemove={removeSlot}
-                  />
+                  {category === "CAISSE" && (
+                    <>
+                      <EmployeeGroup
+                        label="Caissiers"
+                        users={caissiers}
+                        weekDays={weekDays}
+                        todayISO={todayISO}
+                        planningByCell={planningByCell}
+                        totalMinutesByUser={totalMinutesByUser}
+                        pendingKey={pendingKey}
+                        editingCell={editingCell}
+                        formStart={formStart}
+                        formEnd={formEnd}
+                        onFormStartChange={setFormStart}
+                        onFormEndChange={setFormEnd}
+                        onStartAdd={startAdd}
+                        onCancelAdd={cancelAdd}
+                        onSubmitAdd={submitAdd}
+                        onRemove={removeSlot}
+                      />
+                      <EmployeeGroup
+                        label="Hôtes / hôtesses d'accueil"
+                        users={hotes}
+                        weekDays={weekDays}
+                        todayISO={todayISO}
+                        planningByCell={planningByCell}
+                        totalMinutesByUser={totalMinutesByUser}
+                        pendingKey={pendingKey}
+                        editingCell={editingCell}
+                        formStart={formStart}
+                        formEnd={formEnd}
+                        onFormStartChange={setFormStart}
+                        onFormEndChange={setFormEnd}
+                        onStartAdd={startAdd}
+                        onCancelAdd={cancelAdd}
+                        onSubmitAdd={submitAdd}
+                        onRemove={removeSlot}
+                      />
+                    </>
+                  )}
+                  {category === "DIRECTION" && (
+                    <EmployeeGroup
+                      label="Direction"
+                      users={directionStaff}
+                      weekDays={weekDays}
+                      todayISO={todayISO}
+                      planningByCell={planningByCell}
+                      totalMinutesByUser={totalMinutesByUser}
+                      pendingKey={pendingKey}
+                      editingCell={editingCell}
+                      formStart={formStart}
+                      formEnd={formEnd}
+                      onFormStartChange={setFormStart}
+                      onFormEndChange={setFormEnd}
+                      onStartAdd={startAdd}
+                      onCancelAdd={cancelAdd}
+                      onSubmitAdd={submitAdd}
+                      onRemove={removeSlot}
+                    />
+                  )}
+                  {category === "RAYON" && (
+                    <EmployeeGroup
+                      label="Rayon"
+                      users={rayon}
+                      weekDays={weekDays}
+                      todayISO={todayISO}
+                      planningByCell={planningByCell}
+                      totalMinutesByUser={totalMinutesByUser}
+                      pendingKey={pendingKey}
+                      editingCell={editingCell}
+                      formStart={formStart}
+                      formEnd={formEnd}
+                      onFormStartChange={setFormStart}
+                      onFormEndChange={setFormEnd}
+                      onStartAdd={startAdd}
+                      onCancelAdd={cancelAdd}
+                      onSubmitAdd={submitAdd}
+                      onRemove={removeSlot}
+                    />
+                  )}
+                  {category === "SECURITE" && (
+                    <EmployeeGroup
+                      label="Sécurité"
+                      users={securite}
+                      weekDays={weekDays}
+                      todayISO={todayISO}
+                      planningByCell={planningByCell}
+                      totalMinutesByUser={totalMinutesByUser}
+                      pendingKey={pendingKey}
+                      editingCell={editingCell}
+                      formStart={formStart}
+                      formEnd={formEnd}
+                      onFormStartChange={setFormStart}
+                      onFormEndChange={setFormEnd}
+                      onStartAdd={startAdd}
+                      onCancelAdd={cancelAdd}
+                      onSubmitAdd={submitAdd}
+                      onRemove={removeSlot}
+                    />
+                  )}
                 </tbody>
               </table>
             </div>
