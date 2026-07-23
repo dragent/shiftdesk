@@ -1,4 +1,4 @@
-# Carrefour Accueil — Gestion de l'accueil
+# ShiftDesk — Gestion de l'accueil
 
 Application de gestion de l'accueil pour un site Carrefour : gestion des
 **pauses** des hôtes/hôtesses, **plannings** créés par la Direction,
@@ -19,7 +19,7 @@ modèles ML).
 ## Structure du repo
 
 ```
-Carrefour-Accueil/
+shiftdesk/
 ├── .github/         # Workflows CI (GitHub Actions)
 ├── backend/         # API Symfony (métier, auth, base de données)
 ├── frontend/        # Application Next.js (UI)

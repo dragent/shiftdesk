@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Carrefour Accueil",
+  title: "ShiftDesk",
   description: "Gestion de l'accueil - pauses, plannings, demandes et supervision IA",
   icons: {
     icon: "/carrefour-logo.png",

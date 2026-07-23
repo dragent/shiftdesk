@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
             </span>
             <div className="flex flex-col leading-tight">
-              <span className="text-base font-semibold text-white">Carrefour Accueil</span>
+              <span className="text-base font-semibold text-white">ShiftDesk</span>
               <span className="hidden text-[11px] font-semibold tracking-wide text-red-300 sm:inline">
                 GESTION DE L&apos;ACCUEIL
               </span>
@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <footer className="border-t border-slate-200/70 bg-white/60 px-4 py-3 text-center text-xs text-slate-400 backdrop-blur print:hidden">
-        Carrefour Accueil — Gestion de l&apos;accueil, des pauses, des plannings et supervision IA.
+        ShiftDesk — Gestion de l&apos;accueil, des pauses, des plannings et supervision IA.
       </footer>
     </div>
   );
