@@ -1,17 +1,35 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { Alert, Button } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
+  // `useSearchParams` (utilisé pour détecter une redirection après expiration
+  // de session) exige une frontière Suspense dans l'App Router.
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const { login, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Message affiché quand l'utilisateur est renvoyé ici après l'expiration
+  // de sa session (cf. gestion globale du 401 dans `api.ts`) : sans ça, on
+  // ne comprend pas pourquoi on se retrouve sur la connexion, ni pourquoi
+  // l'action en cours (ex. sauvegarder un créneau de planning) a échoué.
+  const [error, setError] = useState<string | null>(
+    searchParams.get("expired") ? "Votre session a expiré. Veuillez vous reconnecter." : null,
+  );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,7 +46,16 @@ export default function LoginPage() {
       await login(email, password);
       router.replace("/dashboard");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Identifiants invalides.");
+      if (err instanceof ApiError) {
+        // Le backend renvoie "Invalid credentials." (en anglais) pour un
+        // 401 : on l'affiche en français, cohérent avec le reste de l'UI.
+        setError(err.status === 401 ? "Identifiants invalides." : err.message);
+      } else {
+        // Ex. le serveur est inaccessible (arrêté, réseau...) : `fetch` lève
+        // une erreur générique qui n'a rien à voir avec des identifiants
+        // erronés, il ne faut donc pas l'afficher comme telle.
+        setError("Impossible de contacter le serveur. Réessayez dans quelques instants.");
+      }
     } finally {
       setLoading(false);
     }
@@ -47,8 +74,15 @@ export default function LoginPage() {
         <div className="cf-brand-stripe h-2 w-full" />
         <div className="p-6">
           <div className="mb-6 flex flex-col items-center gap-2">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--cf-blue)] to-[var(--cf-blue-dark)] text-xl font-bold text-white shadow-md">
-              C
+            <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-2 shadow-md ring-1 ring-slate-100">
+              <Image
+                src="/carrefour-logo.png"
+                alt="Carrefour"
+                width={40}
+                height={40}
+                className="h-full w-full object-contain"
+                priority
+              />
             </span>
             <h1 className="text-lg font-semibold text-slate-800">Carrefour Accueil</h1>
             <p className="text-center text-sm text-slate-500">
