@@ -119,6 +119,9 @@ class UserController extends AbstractApiController
             $site = $data['siteId'] ? $this->siteRepository->find($data['siteId']) : null;
             $user->setSite($site instanceof Site ? $site : null);
         }
+        if (array_key_exists('contractMinutes', $data)) {
+            $user->setContractMinutes((int) $data['contractMinutes']);
+        }
         if (!empty($data['password'])) {
             $user->setPassword($this->passwordHasher->hashPassword($user, $data['password']));
         }

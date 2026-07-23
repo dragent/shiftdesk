@@ -3,8 +3,20 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
-import { Card, Badge, Button, Alert } from "@/components/ui";
+import { Card, Button, Alert, TimeField } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import {
+  addHours,
+  DAY_LABELS,
+  durationMinutes,
+  formatFrenchTime,
+  formatMinutesAsHours,
+  HALF_DAY_SLOTS,
+  isClosedSlot,
+  slotKeyForTime,
+  STORE_CLOSE,
+  type HalfDayKey,
+} from "@/lib/planning";
 import type { Planning, User } from "@/lib/types";
 
 function startOfWeek(date: Date): Date {
@@ -15,6 +27,9 @@ function startOfWeek(date: Date): Date {
   return d;
 }
 
+/** Pause déjeuner minimale exigée entre un créneau du matin et de l'après-midi. */
+const MIN_LUNCH_BREAK_MINUTES = 60;
+
 function toISODate(date: Date): string {
   // Formatage en heure locale (et non toISOString(), qui convertit en UTC
   // et décalerait la date d'un jour selon le fuseau horaire).
@@ -23,8 +38,6 @@ function toISODate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
-const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 export default function PlanningPage() {
   return (
@@ -39,16 +52,21 @@ export default function PlanningPage() {
 function PlanningContent() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [plannings, setPlannings] = useState<Planning[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [caissiers, setCaissiers] = useState<User[]>([]);
+  const [hotes, setHotes] = useState<User[]>([]);
+  const [directionStaff, setDirectionStaff] = useState<User[]>([]);
+  const [rayon, setRayon] = useState<User[]>([]);
+  const [securite, setSecurite] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
-  const [userId, setUserId] = useState<number | "">("");
-  const [workDate, setWorkDate] = useState(toISODate(new Date()));
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("16:00");
-  const [note, setNote] = useState("");
+  // Case en cours d'édition (ajout d'un horaire) : la direction choisit
+  // elle-même l'heure de début/fin, pré-remplies avec la plage par défaut
+  // de la demi-journée (matin/après-midi) mais librement modifiables.
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [formStart, setFormStart] = useState("");
+  const [formEnd, setFormEnd] = useState("");
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => {
@@ -61,6 +79,7 @@ function PlanningContent() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const from = toISODate(weekStart);
       const to = toISODate(weekDays[6]);
@@ -69,71 +88,142 @@ function PlanningContent() {
         api.get<User[]>("/api/users"),
       ]);
       setPlannings(planningData);
-      const hotes = usersData.filter((u) => u.roles?.includes("ROLE_HOTE"));
-      setUsers(hotes.length > 0 ? hotes : usersData);
-      if (hotes.length > 0 && !userId) setUserId(hotes[0].id);
+      setCaissiers(usersData.filter((u) => u.roles?.includes("ROLE_CAISSIER")));
+      setHotes(usersData.filter((u) => u.roles?.includes("ROLE_HOTE")));
+      setDirectionStaff(usersData.filter((u) => u.roles?.includes("ROLE_DIRECTION")));
+      setRayon(usersData.filter((u) => u.roles?.includes("ROLE_RAYON")));
+      setSecurite(usersData.filter((u) => u.roles?.includes("ROLE_SECURITE")));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
     } finally {
       setLoading(false);
     }
-  }, [weekStart, weekDays, userId]);
-
-  useEffect(() => {
-    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!userId) return;
-    setError(null);
-    setSubmitting(true);
-    try {
-      await api.post<Planning>("/api/plannings", {
-        userId,
-        workDate,
-        startTime,
-        endTime,
-        note: note || null,
-      });
-      setNote("");
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de créer le créneau.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  async function removePlanning(id: number) {
-    try {
-      await api.delete(`/api/plannings/${id}`);
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de supprimer le créneau.");
-    }
-  }
-
-  const planningsByDay = useMemo(() => {
-    const map = new Map<string, Planning[]>();
+  // Regroupe les créneaux par employé + jour + demi-journée pour un accès
+  // rapide en O(1) depuis la grille.
+  const planningByCell = useMemo(() => {
+    const map = new Map<string, Planning>();
     for (const p of plannings) {
-      const key = p.workDate;
-      map.set(key, [...(map.get(key) ?? []), p]);
+      const key = `${p.user.id}_${p.workDate}_${slotKeyForTime(p.startTime)}`;
+      map.set(key, p);
     }
     return map;
   }, [plannings]);
 
+  // Total d'heures planifiées sur la semaine, par employé (toutes demi-
+  // journées confondues), pour la colonne "Total" et son code couleur.
+  const totalMinutesByUser = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const p of plannings) {
+      const mins = durationMinutes(p.startTime, p.endTime);
+      map.set(p.user.id, (map.get(p.user.id) ?? 0) + mins);
+    }
+    return map;
+  }, [plannings]);
+
+  function startAdd(user: User, dayKey: string, slotKey: HalfDayKey) {
+    const cellKey = `${user.id}_${dayKey}_${slotKey}`;
+    const slot = HALF_DAY_SLOTS.find((s) => s.key === slotKey);
+    let defaultStart = slot?.start ?? "07:30";
+    const defaultEnd = slot?.end ?? "20:15";
+
+    // Si la personne travaille déjà le matin ce jour-là, l'après-midi
+    // commence une heure après la fin du matin (pause déjeuner).
+    if (slotKey === "APRES_MIDI") {
+      const morningEntry = planningByCell.get(`${user.id}_${dayKey}_MATIN`);
+      if (morningEntry) {
+        defaultStart = addHours(morningEntry.endTime, 1);
+      }
+    }
+
+    setEditingCell(cellKey);
+    setFormStart(defaultStart);
+    setFormEnd(defaultEnd);
+  }
+
+  function cancelAdd() {
+    setEditingCell(null);
+  }
+
+  async function submitAdd(e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) {
+    e.preventDefault();
+    setError(null);
+
+    // La pause déjeuner entre le matin et l'après-midi doit être d'au moins
+    // 1h : on bloque la sauvegarde avant même d'appeler l'API si la coupure
+    // avec l'autre demi-journée (déjà planifiée ce jour-là) est trop courte.
+    const otherSlotKey: HalfDayKey = slotKey === "MATIN" ? "APRES_MIDI" : "MATIN";
+    const otherEntry = planningByCell.get(`${user.id}_${dayKey}_${otherSlotKey}`);
+    if (otherEntry) {
+      const breakMinutes =
+        slotKey === "MATIN"
+          ? durationMinutes(formEnd, otherEntry.startTime)
+          : durationMinutes(otherEntry.endTime, formStart);
+      if (breakMinutes < MIN_LUNCH_BREAK_MINUTES) {
+        setError(
+          `La coupure entre le matin et l'après-midi doit être d'au moins 1h (pause déjeuner) : actuellement ${formatMinutesAsHours(breakMinutes)}.`,
+        );
+        return;
+      }
+    }
+
+    setPendingKey(cellKey);
+    try {
+      await api.post<Planning>("/api/plannings", {
+        userId: user.id,
+        workDate: dayKey,
+        startTime: formStart,
+        endTime: formEnd,
+      });
+      setEditingCell(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Impossible d'ajouter ce créneau.");
+    } finally {
+      setPendingKey(null);
+    }
+  }
+
+  async function removeSlot(planning: Planning, cellKey: string) {
+    setError(null);
+    setPendingKey(cellKey);
+    try {
+      await api.delete(`/api/plannings/${planning.id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Impossible de retirer ce créneau.");
+    } finally {
+      setPendingKey(null);
+    }
+  }
+
+  const noEmployees =
+    caissiers.length === 0 &&
+    hotes.length === 0 &&
+    directionStaff.length === 0 &&
+    rayon.length === 0 &&
+    securite.length === 0;
+  const todayISO = toISODate(new Date());
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-800">Planning</h1>
           <p className="text-sm text-slate-500">
-            Créez et gérez les créneaux de travail des hôtes/hôtesses d&apos;accueil.
+            Cliquez sur une case <strong className="font-semibold text-slate-600">vide (+)</strong> pour
+            planifier un créneau, ou sur un <strong className="font-semibold text-slate-600">créneau
+            existant</strong> pour le retirer. Seule la direction peut modifier le planning ; chaque
+            employé ne voit que son planning personnel. Le dimanche après-midi est fermé.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
             onClick={() => setWeekStart((d) => {
@@ -159,113 +249,358 @@ function PlanningContent() {
 
       {error && <Alert>{error}</Alert>}
 
-      <Card title="Ajouter un créneau">
-        <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-5">
-          <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-slate-700">Hôte(sse)</label>
-            <select
-              required
-              value={userId}
-              onChange={(e) => setUserId(Number(e.target.value))}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            >
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.firstName} {u.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Date</label>
-            <input
-              type="date"
-              required
-              value={workDate}
-              onChange={(e) => setWorkDate(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Début</label>
-            <input
-              type="time"
-              required
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Fin</label>
-            <input
-              type="time"
-              required
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="sm:col-span-4">
-            <label className="mb-1 block text-sm font-medium text-slate-700">Note (optionnel)</label>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button type="submit" disabled={submitting} className="w-full justify-center">
-              Ajouter
-            </Button>
-          </div>
-        </form>
-      </Card>
-
       <Card title={`Semaine du ${weekDays[0].toLocaleDateString("fr-FR")} au ${weekDays[6].toLocaleDateString("fr-FR")}`}>
         {loading ? (
           <p className="text-sm text-slate-400">Chargement...</p>
+        ) : noEmployees ? (
+          <p className="text-sm text-slate-500">Aucun caissier ni hôte(sse) enregistré(e).</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-7">
-            {weekDays.map((day, idx) => {
-              const key = toISODate(day);
-              const dayPlannings = planningsByDay.get(key) ?? [];
-              return (
-                <div key={key} className="rounded-md border border-slate-200 p-2">
-                  <p className="mb-2 text-xs font-semibold text-slate-500">
-                    {DAY_LABELS[idx]} {day.getDate()}/{day.getMonth() + 1}
-                  </p>
-                  <div className="flex flex-col gap-1.5">
-                    {dayPlannings.length === 0 && (
-                      <p className="text-xs text-slate-400">Aucun créneau</p>
-                    )}
-                    {dayPlannings.map((p) => (
-                      <div key={p.id} className="rounded-md bg-slate-50 p-2 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">
-                            {p.user.firstName} {p.user.lastName}
-                          </span>
-                          <button
-                            onClick={() => removePlanning(p.id)}
-                            className="text-slate-400 hover:text-red-600"
-                            title="Supprimer"
+          <>
+            <div className="overflow-x-auto rounded-md border border-slate-200">
+              <table className="w-full min-w-[1220px] border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th
+                      rowSpan={2}
+                      className="sticky left-0 z-10 min-w-[170px] border-b-2 border-r-2 border-slate-300 bg-slate-50 p-2.5 text-left align-bottom text-sm font-semibold text-slate-700 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)]"
+                    >
+                      Employé
+                    </th>
+                    {weekDays.map((day, idx) => {
+                      const isToday = toISODate(day) === todayISO;
+                      return (
+                        <th
+                          key={toISODate(day)}
+                          colSpan={HALF_DAY_SLOTS.length}
+                          className={`border-b border-r-2 border-slate-300 p-2 text-center font-semibold ${
+                            isToday ? "bg-(--cf-blue)/10 text-cf-blue" : "bg-slate-50 text-slate-600"
+                          }`}
+                        >
+                          {DAY_LABELS[idx]} {day.getDate()}/{day.getMonth() + 1}
+                          {isToday && (
+                            <span className="ml-1.5 inline-block rounded-full bg-cf-blue px-1.5 py-0.5 text-[10px] font-semibold text-white align-middle">
+                              Aujourd&apos;hui
+                            </span>
+                          )}
+                        </th>
+                      );
+                    })}
+                    <th
+                      rowSpan={2}
+                      className="sm:sticky sm:right-0 sm:z-10 min-w-[100px] border-b-2 border-l-2 border-slate-300 bg-slate-50 p-2.5 text-center align-bottom font-semibold text-slate-600 sm:shadow-[-4px_0_6px_-4px_rgba(15,23,42,0.15)]"
+                    >
+                      Total
+                    </th>
+                  </tr>
+                  <tr>
+                    {weekDays.map((day, idx) => {
+                      const isToday = toISODate(day) === todayISO;
+                      return HALF_DAY_SLOTS.map((slot, slotIdx) => {
+                        const closed = isClosedSlot(idx, slot.key);
+                        const lastOfDay = slotIdx === HALF_DAY_SLOTS.length - 1;
+                        return (
+                          <th
+                            key={`${toISODate(day)}_${slot.key}`}
+                            className={`min-w-[120px] border-b border-slate-200 p-2 text-center text-xs font-medium ${
+                              lastOfDay ? "border-r-2 border-r-slate-300" : "border-r border-slate-200"
+                            } ${
+                              closed
+                                ? "bg-slate-200/70 text-slate-500"
+                                : isToday
+                                  ? "bg-(--cf-blue)/5 text-slate-600"
+                                  : "text-slate-500"
+                            }`}
                           >
-                            ✕
-                          </button>
-                        </div>
-                        <p className="text-slate-500">
-                          {p.startTime} - {p.endTime}
-                        </p>
-                        <Badge tone={p.status}>{p.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                            {closed ? "Fermé" : slot.label}
+                          </th>
+                        );
+                      });
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  <EmployeeGroup
+                    label="Caissiers"
+                    users={caissiers}
+                    weekDays={weekDays}
+                    todayISO={todayISO}
+                    planningByCell={planningByCell}
+                    totalMinutesByUser={totalMinutesByUser}
+                    pendingKey={pendingKey}
+                    editingCell={editingCell}
+                    formStart={formStart}
+                    formEnd={formEnd}
+                    onFormStartChange={setFormStart}
+                    onFormEndChange={setFormEnd}
+                    onStartAdd={startAdd}
+                    onCancelAdd={cancelAdd}
+                    onSubmitAdd={submitAdd}
+                    onRemove={removeSlot}
+                  />
+                  <EmployeeGroup
+                    label="Hôtes / hôtesses d'accueil"
+                    users={hotes}
+                    weekDays={weekDays}
+                    todayISO={todayISO}
+                    planningByCell={planningByCell}
+                    totalMinutesByUser={totalMinutesByUser}
+                    pendingKey={pendingKey}
+                    editingCell={editingCell}
+                    formStart={formStart}
+                    formEnd={formEnd}
+                    onFormStartChange={setFormStart}
+                    onFormEndChange={setFormEnd}
+                    onStartAdd={startAdd}
+                    onCancelAdd={cancelAdd}
+                    onSubmitAdd={submitAdd}
+                    onRemove={removeSlot}
+                  />
+                  <EmployeeGroup
+                    label="Direction"
+                    users={directionStaff}
+                    weekDays={weekDays}
+                    todayISO={todayISO}
+                    planningByCell={planningByCell}
+                    totalMinutesByUser={totalMinutesByUser}
+                    pendingKey={pendingKey}
+                    editingCell={editingCell}
+                    formStart={formStart}
+                    formEnd={formEnd}
+                    onFormStartChange={setFormStart}
+                    onFormEndChange={setFormEnd}
+                    onStartAdd={startAdd}
+                    onCancelAdd={cancelAdd}
+                    onSubmitAdd={submitAdd}
+                    onRemove={removeSlot}
+                  />
+                  <EmployeeGroup
+                    label="Rayon"
+                    users={rayon}
+                    weekDays={weekDays}
+                    todayISO={todayISO}
+                    planningByCell={planningByCell}
+                    totalMinutesByUser={totalMinutesByUser}
+                    pendingKey={pendingKey}
+                    editingCell={editingCell}
+                    formStart={formStart}
+                    formEnd={formEnd}
+                    onFormStartChange={setFormStart}
+                    onFormEndChange={setFormEnd}
+                    onStartAdd={startAdd}
+                    onCancelAdd={cancelAdd}
+                    onSubmitAdd={submitAdd}
+                    onRemove={removeSlot}
+                  />
+                  <EmployeeGroup
+                    label="Sécurité"
+                    users={securite}
+                    weekDays={weekDays}
+                    todayISO={todayISO}
+                    planningByCell={planningByCell}
+                    totalMinutesByUser={totalMinutesByUser}
+                    pendingKey={pendingKey}
+                    editingCell={editingCell}
+                    formStart={formStart}
+                    formEnd={formEnd}
+                    onFormStartChange={setFormStart}
+                    onFormEndChange={setFormEnd}
+                    onStartAdd={startAdd}
+                    onCancelAdd={cancelAdd}
+                    onSubmitAdd={submitAdd}
+                    onRemove={removeSlot}
+                  />
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
     </div>
+  );
+}
+
+function EmployeeGroup({
+  label,
+  users,
+  weekDays,
+  todayISO,
+  planningByCell,
+  totalMinutesByUser,
+  pendingKey,
+  editingCell,
+  formStart,
+  formEnd,
+  onFormStartChange,
+  onFormEndChange,
+  onStartAdd,
+  onCancelAdd,
+  onSubmitAdd,
+  onRemove,
+}: {
+  label: string;
+  users: User[];
+  weekDays: Date[];
+  todayISO: string;
+  planningByCell: Map<string, Planning>;
+  totalMinutesByUser: Map<number, number>;
+  pendingKey: string | null;
+  editingCell: string | null;
+  formStart: string;
+  formEnd: string;
+  onFormStartChange: (v: string) => void;
+  onFormEndChange: (v: string) => void;
+  onStartAdd: (user: User, dayKey: string, slotKey: HalfDayKey) => void;
+  onCancelAdd: () => void;
+  onSubmitAdd: (e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) => void;
+  onRemove: (planning: Planning, cellKey: string) => void;
+}) {
+  if (users.length === 0) return null;
+
+  return (
+    <>
+      <tr>
+        <td className="sticky left-0 z-10 border-b-2 border-slate-300 bg-slate-100 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)]">
+          {label}
+        </td>
+        <td
+          colSpan={weekDays.length * HALF_DAY_SLOTS.length}
+          className="border-b-2 border-slate-300 bg-slate-100"
+        />
+        <td className="sm:sticky sm:right-0 sm:z-10 border-b-2 border-slate-300 bg-slate-100 sm:shadow-[-4px_0_6px_-4px_rgba(15,23,42,0.15)]" />
+      </tr>
+      {users.map((user, rowIndex) => {
+        const totalMinutes = totalMinutesByUser.get(user.id) ?? 0;
+        const contractMinutes = user.contractMinutes ?? 0;
+        const overContract = contractMinutes > 0 && totalMinutes > contractMinutes;
+        const totalColorClass =
+          contractMinutes > 0
+            ? overContract
+              ? "bg-red-100 text-red-700"
+              : "bg-emerald-100 text-emerald-700"
+            : "bg-slate-50 text-slate-500";
+        const rowBg = rowIndex % 2 === 1 ? "bg-slate-50/70" : "bg-white";
+
+        return (
+        <tr key={user.id} className={`group ${rowBg} hover:bg-(--cf-blue)/6`}>
+          <td
+            className={`sticky left-0 z-10 border-b border-r-2 border-slate-300 p-2.5 text-left font-medium text-slate-700 ${rowBg} shadow-[4px_0_6px_-4px_rgba(15,23,42,0.15)] transition-colors group-hover:bg-(--cf-blue)/6`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span>
+                {user.firstName} {user.lastName}
+              </span>
+              {contractMinutes > 0 && (
+                <span className="hidden whitespace-nowrap text-[11px] font-normal text-slate-400 sm:inline">
+                  {formatMinutesAsHours(contractMinutes)}
+                </span>
+              )}
+            </div>
+          </td>
+          {weekDays.map((day, idx) =>
+            HALF_DAY_SLOTS.map((slot, slotIdx) => {
+              const dayKey = toISODate(day);
+              const cellKey = `${user.id}_${dayKey}_${slot.key}`;
+              const closed = isClosedSlot(idx, slot.key);
+              const entry = planningByCell.get(cellKey);
+              const isPending = pendingKey === cellKey;
+              const isEditing = editingCell === cellKey;
+              const isToday = dayKey === todayISO;
+              const lastOfDay = slotIdx === HALF_DAY_SLOTS.length - 1;
+              const dayBorder = lastOfDay ? "border-r-2 border-r-slate-300" : "border-r border-slate-200";
+
+              if (closed) {
+                return (
+                  <td
+                    key={cellKey}
+                    className={`border-b border-slate-200 bg-slate-100 p-1.5 text-center text-slate-300 ${dayBorder}`}
+                  >
+                    —
+                  </td>
+                );
+              }
+
+              return (
+                <td
+                  key={cellKey}
+                  className={`border-b border-slate-200 p-1.5 ${dayBorder} ${
+                    isToday ? "bg-(--cf-blue)/4" : ""
+                  }`}
+                >
+                  {isEditing ? (
+                    <form
+                      onSubmit={(e) => onSubmitAdd(e, user, dayKey, cellKey, slot.key)}
+                      className="flex flex-col gap-1.5 rounded-md border border-slate-300 bg-white p-2 shadow-sm"
+                    >
+                      <TimeField
+                        required
+                        autoFocus
+                        min={slot.start}
+                        max={slot.end}
+                        value={formStart}
+                        onChange={onFormStartChange}
+                        className="w-full rounded-md border border-slate-300 px-1.5 py-1 text-xs"
+                      />
+                      <TimeField
+                        required
+                        min={formStart || slot.start}
+                        max={STORE_CLOSE}
+                        value={formEnd}
+                        onChange={onFormEndChange}
+                        className="w-full rounded-md border border-slate-300 px-1.5 py-1 text-xs"
+                      />
+                      <div className="flex gap-1">
+                        <Button
+                          type="submit"
+                          disabled={isPending}
+                          className="w-full justify-center px-1 py-1 text-[11px]"
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="w-full justify-center px-1 py-1 text-[11px]"
+                          onClick={onCancelAdd}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    </form>
+                  ) : entry ? (
+                    <button
+                      type="button"
+                      title={`Retirer ${user.firstName} ${user.lastName}`}
+                      disabled={isPending}
+                      onClick={() => onRemove(entry, cellKey)}
+                      className="flex w-full flex-col items-center justify-center rounded-md border border-(--cf-blue)/20 bg-(--cf-blue)/10 py-2.5 text-cf-blue transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    >
+                      <span className="text-xs font-semibold">
+                        {formatFrenchTime(entry.startTime)} - {formatFrenchTime(entry.endTime)}
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      title={`Choisir les heures pour ${user.firstName} ${user.lastName}`}
+                      disabled={isPending}
+                      onClick={() => onStartAdd(user, dayKey, slot.key)}
+                      className="flex w-full items-center justify-center rounded-md border border-dashed border-slate-300 py-2.5 text-sm text-slate-400 transition hover:border-cf-blue hover:bg-(--cf-blue)/5 hover:text-cf-blue disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                  )}
+                </td>
+              );
+            }),
+          )}
+          <td
+            className={`sm:sticky sm:right-0 sm:z-10 border-b border-l-2 border-slate-300 p-2 text-center font-semibold sm:shadow-[-4px_0_6px_-4px_rgba(15,23,42,0.15)] ${totalColorClass}`}
+          >
+            {formatMinutesAsHours(totalMinutes)}
+          </td>
+        </tr>
+        );
+      })}
+    </>
   );
 }

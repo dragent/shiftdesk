@@ -13,8 +13,9 @@ use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Créneau de travail planifié par la direction pour un hôte/hôtesse
- * d'accueil (jour + heure de début/fin sur un site donné).
+ * Créneau de travail planifié par la direction pour un employé (hôte/
+ * hôtesse d'accueil ou caissier/caissière) : jour + heure de début/fin
+ * sur un site donné.
  */
 #[ORM\Entity(repositoryClass: PlanningRepository::class)]
 #[ORM\Table(name: 'planning')]
@@ -64,6 +65,36 @@ class Planning
     #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['planning:read', 'planning:write'])]
     private ?string $note = null;
+
+    /**
+     * Numéro de caisse attribué à ce créneau (plan de caisse) : de 1 à 8
+     * pour une caisse numérotée, 0 pour la supervision des caisses
+     * automatiques (libre-service), ou -1 pour une affectation "Pauses /
+     * Retour" (le/la caissier(ère) ne tient aucune caisse : il/elle fait
+     * passer les pauses des collègues ou gère les retours). Renseigné par
+     * l'accueil ou la direction, uniquement pertinent pour les créneaux de
+     * caissiers/caissières. Mutuellement exclusif avec $registerSegments
+     * (null si le créneau est découpé en bascule).
+     */
+    #[ORM\Column(nullable: true)]
+    #[Groups(['planning:read', 'planning:write'])]
+    private ?int $registerNumber = null;
+
+    /**
+     * Découpage d'un créneau en plusieurs affectations de caisse (bascule en
+     * cours de poste), ex. caisse 3 de 07:30 à 10:00 puis caisses
+     * automatiques de 10:00 à 14:00. Tableau ordonné par heure croissante
+     * d'objets {startTime: "HH:mm", registerNumber: int}, limité aux caisses
+     * numérotées (1-8) et aux caisses automatiques (0) — pas de "Pauses /
+     * Retour" au sein d'une bascule. Le premier segment démarre toujours à
+     * l'heure de début du créneau. Mutuellement exclusif avec
+     * $registerNumber (l'un ou l'autre, jamais les deux à la fois).
+     *
+     * @var array<int, array{startTime: string, registerNumber: int}>|null
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    #[Groups(['planning:read', 'planning:write'])]
+    private ?array $registerSegments = null;
 
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
@@ -180,6 +211,34 @@ class Planning
     public function setNote(?string $note): static
     {
         $this->note = $note;
+
+        return $this;
+    }
+
+    public function getRegisterNumber(): ?int
+    {
+        return $this->registerNumber;
+    }
+
+    public function setRegisterNumber(?int $registerNumber): static
+    {
+        $this->registerNumber = $registerNumber;
+        $this->touch();
+
+        return $this;
+    }
+
+    /** @return array<int, array{startTime: string, registerNumber: int}>|null */
+    public function getRegisterSegments(): ?array
+    {
+        return $this->registerSegments;
+    }
+
+    /** @param array<int, array{startTime: string, registerNumber: int}>|null $registerSegments */
+    public function setRegisterSegments(?array $registerSegments): static
+    {
+        $this->registerSegments = $registerSegments;
+        $this->touch();
 
         return $this;
     }

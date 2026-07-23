@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import type { UserRole } from "@/lib/types";
 
 interface RoleGuardProps {
@@ -30,11 +31,7 @@ export function RoleGuard({ roles, children }: RoleGuardProps) {
   }, [loading, user, roles, hasRole, router]);
 
   if (loading || !user) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-10 text-slate-500">
-        Chargement...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (roles && roles.length > 0 && !hasRole(...roles)) {

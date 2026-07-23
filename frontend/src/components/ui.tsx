@@ -8,9 +8,9 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200/80 bg-white/95 p-5 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm">
+    <section className="rounded-lg border border-slate-200/80 bg-white/95 p-4 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm sm:p-5">
       {(title || actions) && (
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           {title && <h2 className="text-base font-semibold text-slate-800">{title}</h2>}
           {actions}
         </div>
@@ -68,6 +68,67 @@ export function Button({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Champ de saisie d'heure au format français 24h ("07:30", "20:15"), qui
+ * n'affiche jamais AM/PM. Contrairement à `<input type="time">`, dont le
+ * rendu 12h/24h dépend des réglages régionaux du système d'exploitation
+ * (et non de la langue de la page), ce champ masque la saisie en un simple
+ * texte "HH:mm" pour garantir un format 24h quel que soit l'environnement
+ * de l'utilisateur.
+ *
+ * `min`/`max` (au format "HH:mm") bornent la saisie à une amplitude donnée
+ * (ex. la demi-journée matin/après-midi, ou les bornes d'un créneau) : une
+ * fois l'heure complète saisie, elle est automatiquement ramenée à la borne
+ * la plus proche plutôt que d'être simplement rejetée.
+ */
+export function TimeField({
+  value,
+  onChange,
+  required,
+  autoFocus,
+  min,
+  max,
+  className = "",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  autoFocus?: boolean;
+  min?: string;
+  max?: string;
+  className?: string;
+}) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+    let next = digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(next)) {
+      if (min && next < min) next = min;
+      if (max && next > max) next = max;
+    }
+    onChange(next);
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoFocus={autoFocus}
+      required={required}
+      pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$"
+      title={
+        min && max
+          ? `Heure au format 24h, entre ${min} et ${max}.`
+          : "Heure au format 24h (ex. 07:30 ou 20:15), sans AM/PM."
+      }
+      placeholder="HH:mm"
+      maxLength={5}
+      value={value}
+      onChange={handleChange}
+      className={className}
+    />
   );
 }
 
