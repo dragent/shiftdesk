@@ -34,8 +34,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class PlanningSupervisorService
 {
-    private const MIN_HOTES_SIMULTANES = 1;
-
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly PlanningRepository $planningRepository,
@@ -43,6 +41,7 @@ class PlanningSupervisorService
         private readonly SiteRepository $siteRepository,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly LocalPlanningAnalyzer $localPlanningAnalyzer,
         private readonly string $aiServiceUrl,
     ) {
     }
@@ -142,8 +141,7 @@ class PlanningSupervisorService
 
     /**
      * Règles simples locales utilisées quand le micro-service IA n'est pas
-     * disponible : détection de sous-effectif (aucun hôte planifié un jour
-     * donné) et de conflits (toutes les hôtes en pause simultanément).
+     * disponible (délègue à {@see LocalPlanningAnalyzer}).
      *
      * @param Planning[] $plannings
      * @param Pause[]    $ongoingPauses
@@ -152,65 +150,16 @@ class PlanningSupervisorService
      */
     private function fallbackAnalyze(\DateTimeImmutable $from, \DateTimeImmutable $to, array $plannings, array $ongoingPauses): array
     {
-        $insights = [];
-
-        $byDate = [];
-        foreach ($plannings as $planning) {
-            $byDate[$planning->getWorkDate()->format('Y-m-d')][] = $planning;
-        }
-
-        $cursor = $from;
-        while ($cursor <= $to) {
-            $dateKey = $cursor->format('Y-m-d');
-            $count = count($byDate[$dateKey] ?? []);
-
-            if (0 === $count) {
-                $insights[] = [
-                    'type' => InsightType::SOUS_EFFECTIF->value,
-                    'severity' => InsightSeverity::ATTENTION->value,
-                    'targetDate' => $dateKey,
-                    'message' => sprintf("Aucun hôte/hôtesse d'accueil n'est planifié le %s.", $cursor->format('d/m/Y')),
-                    'payload' => ['effectif' => 0],
-                ];
-            } elseif ($count < self::MIN_HOTES_SIMULTANES) {
-                $insights[] = [
-                    'type' => InsightType::SOUS_EFFECTIF->value,
-                    'severity' => InsightSeverity::INFO->value,
-                    'targetDate' => $dateKey,
-                    'message' => sprintf('Effectif réduit le %s (%d personne(s) planifiée(s)).', $cursor->format('d/m/Y'), $count),
-                    'payload' => ['effectif' => $count],
-                ];
-            }
-
-            $cursor = $cursor->modify('+1 day');
-        }
-
-        if (count($ongoingPauses) > 0 && count($ongoingPauses) === $this->countDistinctUsersPlannedToday($plannings)) {
-            $insights[] = [
-                'type' => InsightType::CONFLIT_PAUSE->value,
-                'severity' => InsightSeverity::CRITIQUE->value,
-                'targetDate' => (new \DateTimeImmutable())->format('Y-m-d'),
-                'message' => "Tous les hôtes/hôtesses planifié(e)s aujourd'hui sont actuellement en pause simultanément : l'accueil n'est plus couvert.",
-                'payload' => ['nbEnPause' => count($ongoingPauses)],
-            ];
-        }
-
-        return $insights;
-    }
-
-    /**
-     * @param Planning[] $plannings
-     */
-    private function countDistinctUsersPlannedToday(array $plannings): int
-    {
-        $today = (new \DateTimeImmutable())->format('Y-m-d');
-        $ids = [];
-        foreach ($plannings as $planning) {
-            if ($planning->getWorkDate()->format('Y-m-d') === $today) {
-                $ids[$planning->getUser()->getId()] = true;
-            }
-        }
-
-        return count($ids);
+        return $this->localPlanningAnalyzer->analyze(
+            $from,
+            $to,
+            array_map(static fn (Planning $p) => [
+                'userId' => (int) $p->getUser()->getId(),
+                'workDate' => $p->getWorkDate()->format('Y-m-d'),
+            ], $plannings),
+            array_map(static fn (Pause $pause) => [
+                'userId' => (int) $pause->getUser()->getId(),
+            ], $ongoingPauses),
+        );
     }
 }
