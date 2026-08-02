@@ -79,7 +79,7 @@ docker compose up -d mysql adminer
 MySQL est exposé sur `127.0.0.1:3307` (pour éviter un conflit avec un
 MySQL déjà installé localement sur le port 3306 par défaut). Adminer est
 disponible sur http://localhost:8080 (serveur `mysql`, utilisateur
-`carrefour`, mot de passe `carrefour`, base `carrefour_accueil`).
+`shiftdesk`, mot de passe `shiftdesk`, base `shiftdesk`).
 
 > Si vous n'avez pas de MySQL local sur le port 3306, vous pouvez changer
 > le mapping de port dans `docker-compose.yml` (`"3306:3306"`) et adapter

@@ -67,6 +67,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['user:read', 'user:write'])]
     private int $contractMinutes = 0;
 
+    /**
+     * Numéro de caissier (identifiant login caisse), distinct du numéro
+     * de caisse physique. Utilisé sur le plan de caisse imprimé.
+     */
+    #[ORM\Column(length: 20, nullable: true)]
+    #[Groups(['user:read', 'user:write'])]
+    private ?string $cashierNumber = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -218,6 +226,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setContractMinutes(int $contractMinutes): static
     {
         $this->contractMinutes = max(0, $contractMinutes);
+
+        return $this;
+    }
+
+    public function getCashierNumber(): ?string
+    {
+        return $this->cashierNumber;
+    }
+
+    public function setCashierNumber(?string $cashierNumber): static
+    {
+        $value = $cashierNumber !== null ? trim($cashierNumber) : null;
+        $this->cashierNumber = $value === '' ? null : $value;
 
         return $this;
     }

@@ -13,6 +13,7 @@ final class UserRoleTest extends TestCase
         self::assertSame('Direction', UserRole::DIRECTION->label());
         self::assertSame("Hôte(sse) d'accueil", UserRole::HOTE->label());
         self::assertSame('Caissier(ère)', UserRole::CAISSIER->label());
+        self::assertSame('LAD', UserRole::LAD->label());
         self::assertSame('Rayon', UserRole::RAYON->label());
         self::assertSame('Sécurité', UserRole::SECURITE->label());
     }

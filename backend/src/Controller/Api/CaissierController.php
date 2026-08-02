@@ -77,6 +77,13 @@ class CaissierController extends AbstractApiController
         if (array_key_exists('contractMinutes', $data)) {
             $caissier->setContractMinutes((int) $data['contractMinutes']);
         }
+        if (array_key_exists('cashierNumber', $data)) {
+            $caissier->setCashierNumber(
+                $data['cashierNumber'] !== null && $data['cashierNumber'] !== ''
+                    ? (string) $data['cashierNumber']
+                    : null,
+            );
+        }
 
         // Pas de connexion prévue dans l'immédiat pour les caissiers : un mot
         // de passe aléatoire est généré si aucun n'est fourni. La direction
@@ -130,6 +137,13 @@ class CaissierController extends AbstractApiController
         }
         if (array_key_exists('contractMinutes', $data)) {
             $caissier->setContractMinutes((int) $data['contractMinutes']);
+        }
+        if (array_key_exists('cashierNumber', $data)) {
+            $caissier->setCashierNumber(
+                $data['cashierNumber'] !== null && $data['cashierNumber'] !== ''
+                    ? (string) $data['cashierNumber']
+                    : null,
+            );
         }
         if (!empty($data['password'])) {
             if (strlen($data['password']) < 8) {
