@@ -34,17 +34,23 @@
   --color-cf-blue-light: var(--cf-blue-light);
   --color-cf-red: var(--cf-red);
   --color-cf-red-dark: var(--cf-red-dark);
-  --font-sans: var(--font-geist-sans), "Segoe UI", Arial, Helvetica, sans-serif;
+  --font-sans: var(--font-primary-sans);
 }
 
 html {
   height: 100%;
-  /* Base agrandie (16px -> ~18px) : comme les tailles Tailwind sont en
-     rem, tout le texte de l'application (titres, boutons, libellés...)
-     augmente proportionnellement, sans avoir à retoucher chaque page. */
+  /* Base agrandie (16px -> ~18px) : les tailles Tailwind en rem suivent.
+     Sur mobile on reste un peu au-dessus du défaut pour la lisibilité,
+     sans saturer les grilles denses. */
   font-size: 112.5%;
   scrollbar-width: auto;
   scrollbar-color: var(--cf-blue) transparent;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 106.25%;
+  }
 }
 
 /* Barres de défilement visibles partout (Firefox + Chromium). */
@@ -77,9 +83,8 @@ html {
 body {
   color: var(--foreground);
   font-family: var(--font-sans), "Segoe UI", Arial, Helvetica, sans-serif;
-  /* Interlignage et espacement des lettres généreux : réduit la fatigue
-     visuelle et facilite la lecture, notamment pour les personnes âgées
-     ou malvoyantes, sans nuire au rendu professionnel. */
+  /* Interlignage et espacement généreux : confort de lecture (seniors /
+     malvoyance) sans casser le rendu métier. */
   line-height: 1.55;
   letter-spacing: 0.01em;
   min-height: 100%;

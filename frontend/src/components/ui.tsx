@@ -11,7 +11,7 @@ export function Card({
     <section className="min-w-0 rounded-[var(--cf-radius)] border border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-[var(--cf-shadow-sm)] backdrop-blur-sm sm:p-5">
       {(title || actions) && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-base font-semibold text-[var(--foreground)]">{title}</h2>}
+          {title && <h2 className="text-lg font-semibold text-[var(--foreground)]">{title}</h2>}
           {actions}
         </div>
       )}
@@ -41,7 +41,7 @@ const BADGE_COLORS: Record<string, string> = {
 export function Badge({ children, tone }: { children: React.ReactNode; tone?: string }) {
   const cls = (tone && BADGE_COLORS[tone]) || "bg-[var(--surface-muted)] text-[var(--muted)]";
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium ${cls}`}>
       {children}
     </span>
   );
@@ -218,6 +218,6 @@ export function Alert({ children, tone = "error" }: { children: React.ReactNode;
       ? "bg-red-50 text-red-700 border-red-200"
       : "bg-emerald-50 text-emerald-700 border-emerald-200";
   return (
-    <div className={`rounded-[var(--cf-radius-sm)] border px-3 py-2 text-sm ${cls}`}>{children}</div>
+    <div className={`rounded-[var(--cf-radius-sm)] border px-3 py-2.5 text-base ${cls}`}>{children}</div>
   );
 }

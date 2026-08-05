@@ -523,9 +523,9 @@ function PlanDeCaisseContent() {
     <>
     <div className="flex flex-col gap-6 print:hidden">
       <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Plan de caisse</h1>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-slate-900">Plan de caisse</h1>
+          <p className="mt-1 text-base text-slate-700">
             Attribuez une caisse (1 à 8), les caisses automatiques ou une affectation &quot;Pauses / Retour&quot;
             aux créneaux déjà planifiés — caissiers, et LAD / Accueil lorsqu&apos;ils sont prévus en
             caisse. Les relèves SCO se gèrent via le bouton Caisse auto. Les horaires sont fixés
@@ -563,8 +563,11 @@ function PlanDeCaisseContent() {
         ) : rowUsers.length === 0 ? (
           <p className="text-sm text-slate-500">Aucun(e) employé(e) à afficher pour cette semaine.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1140px] border-collapse text-xs">
+          <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
+            <p className="mb-3 text-sm font-medium text-slate-600 lg:hidden">
+              Faites glisser horizontalement pour voir toute la semaine.
+            </p>
+            <table className="w-full min-w-[1140px] border-collapse text-sm">
               <thead>
                 <tr>
                   <th

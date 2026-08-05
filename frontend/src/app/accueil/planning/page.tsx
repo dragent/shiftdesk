@@ -103,9 +103,9 @@ function MonPlanningContent() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Mon planning</h1>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-slate-900">Mon planning</h1>
+          <p className="mt-1 text-base text-slate-700">
             Consultez vos créneaux de travail pour la semaine. Seule la direction peut créer ou
             modifier le planning.
           </p>
