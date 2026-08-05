@@ -1,0 +1,5 @@
+# Force des fins de ligne LF pour les scripts shell, quel que soit l'OS du
+# développeur (core.autocrlf=true sous Windows convertirait sinon ces
+# fichiers en CRLF, ce qui casse le shebang `#!/bin/sh` dans les conteneurs
+# Linux : "exec docker/entrypoint.sh: no such file or directory").
+*.sh text eol=lf
