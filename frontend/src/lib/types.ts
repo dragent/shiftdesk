@@ -3,6 +3,7 @@ export type UserRole =
   | "ROLE_DIRECTION"
   | "ROLE_HOTE"
   | "ROLE_CAISSIER"
+  | "ROLE_LAD"
   | "ROLE_RAYON"
   | "ROLE_SECURITE"
   | "ROLE_USER";
@@ -26,6 +27,8 @@ export interface User {
   active: boolean;
   /** Contrat horaire hebdomadaire de l'employé, en minutes (ex: 36h45 = 2205). */
   contractMinutes?: number;
+  /** Numéro de caissier (login caisse), distinct du n° de caisse physique. */
+  cashierNumber?: string | null;
 }
 
 export interface RequestCategory {
@@ -54,6 +57,29 @@ export interface AccueilRequest {
 
 export type PlanningStatus = "PLANIFIE" | "CONFIRME" | "ANNULE";
 
+export type AbsenceReason = "ARRET_TRAVAIL" | "CONGE";
+
+export interface Absence {
+  id: number;
+  user: User;
+  reason: AbsenceReason;
+  startDate: string;
+  endDate: string;
+  /** Présent pour un arrêt de travail ; null/absent pour un congé. */
+  startTime?: string | null;
+  endTime?: string | null;
+  createdBy?: User | null;
+}
+
+/** Fermeture magasin : bloque les demi-journées à partir de startHalfDay. */
+export interface StoreClosure {
+  id: number;
+  startDate: string;
+  startHalfDay: "MATIN" | "APRES_MIDI";
+  endDate: string;
+  createdBy?: User | null;
+}
+
 export interface Planning {
   id: number;
   user: User;
@@ -64,6 +90,11 @@ export interface Planning {
   status: PlanningStatus;
   note?: string | null;
   createdBy?: User | null;
+  /**
+   * LAD ou hôte/hôtesse affecté(e) en caisse pour ce créneau
+   * (sinon poste habituel). Ignoré pour les caissiers.
+   */
+  enCaisse?: boolean;
   /**
    * Numéro de caisse attribué à ce créneau (plan de caisse) : caisse
    * numérotée (1-8), caisses automatiques (0) ou pauses/retour (-1).

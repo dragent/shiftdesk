@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
-import { Card, Badge, Button, Alert } from "@/components/ui";
+import { Card, Badge, Alert, WeekNavigator } from "@/components/ui";
 import { useAuth } from "@/lib/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import { DAY_LABELS, durationMinutes, formatFrenchTime, formatMinutesAsHours, slotLabel } from "@/lib/planning";
@@ -28,7 +28,7 @@ function toISODate(date: Date): string {
 
 export default function MonPlanningPage() {
   return (
-    <RoleGuard roles={["ROLE_HOTE", "ROLE_CAISSIER", "ROLE_RAYON", "ROLE_SECURITE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_HOTE", "ROLE_CAISSIER", "ROLE_LAD", "ROLE_RAYON", "ROLE_SECURITE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
       <AppShell>
         <MonPlanningContent />
       </AppShell>
@@ -102,41 +102,20 @@ function MonPlanningContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-xl font-semibold text-slate-800">Mon planning</h1>
-          <p className="text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500">
             Consultez vos créneaux de travail pour la semaine. Seule la direction peut créer ou
             modifier le planning.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => setWeekStart((d) => {
-              const nd = new Date(d);
-              nd.setDate(nd.getDate() - 7);
-              return nd;
-            })}
-          >
-            ← Semaine précédente
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setWeekStart((d) => {
-              const nd = new Date(d);
-              nd.setDate(nd.getDate() + 7);
-              return nd;
-            })}
-          >
-            Semaine suivante →
-          </Button>
-        </div>
+        <WeekNavigator weekStart={weekStart} onWeekChange={setWeekStart} />
       </div>
 
       {error && <Alert>{error}</Alert>}
 
-      <Card title={`Semaine du ${weekDays[0].toLocaleDateString("fr-FR")} au ${weekDays[6].toLocaleDateString("fr-FR")}`}>
+      <Card title="Créneaux de la semaine">
         {loading ? (
           <p className="text-sm text-slate-400">Chargement...</p>
         ) : isDirectionOrAdmin ? (

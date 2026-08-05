@@ -67,6 +67,15 @@ class Planning
     private ?string $note = null;
 
     /**
+     * Indique qu'un LAD ou un hôte/hôtesse d'accueil est affecté(e) en
+     * caisse pour ce créneau (et non à son poste habituel). Les caissiers
+     * n'utilisent pas ce flag (ils sont déjà en caisse par rôle).
+     */
+    #[ORM\Column(name: 'en_caisse', options: ['default' => false])]
+    #[Groups(['planning:read', 'planning:write'])]
+    private bool $enCaisse = false;
+
+    /**
      * Numéro de caisse attribué à ce créneau (plan de caisse) : de 1 à 8
      * pour une caisse numérotée, 0 pour la supervision des caisses
      * automatiques (libre-service), ou -1 pour une affectation "Pauses /
@@ -211,6 +220,18 @@ class Planning
     public function setNote(?string $note): static
     {
         $this->note = $note;
+
+        return $this;
+    }
+
+    public function isEnCaisse(): bool
+    {
+        return $this->enCaisse;
+    }
+
+    public function setEnCaisse(bool $enCaisse): static
+    {
+        $this->enCaisse = $enCaisse;
 
         return $this;
     }

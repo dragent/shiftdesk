@@ -66,7 +66,11 @@ class PlanningController extends AbstractApiController
         $isDirectionOrAdmin = $this->isGranted('ROLE_DIRECTION') || $this->isGranted('ROLE_ADMIN');
 
         if ($caissiersOnly) {
-            $plannings = array_values(array_filter($plannings, static fn (Planning $p) => $p->getUser()->hasRole(UserRole::CAISSIER)));
+            // Caissiers + LAD/hôtes explicitement marqués « en caisse ».
+            $plannings = array_values(array_filter(
+                $plannings,
+                static fn (Planning $p) => $p->getUser()->hasRole(UserRole::CAISSIER) || $p->isEnCaisse(),
+            ));
         } elseif ($mine || !$isDirectionOrAdmin) {
             // Seule la Direction/Admin voit le planning de tout le monde. Tout
             // autre employé (hôte ou caissier) ne voit que son planning
@@ -100,12 +104,19 @@ class PlanningController extends AbstractApiController
             return $this->respondError($breakError, 422);
         }
 
+        $enCaisse = !empty($data['enCaisse']);
+        $enCaisseError = $this->validateEnCaisse($user, $enCaisse);
+        if ($enCaisseError) {
+            return $this->respondError($enCaisseError, 422);
+        }
+
         $planning = new Planning();
         $planning->setUser($user);
         $planning->setWorkDate($workDate);
         $planning->setStartTime($startTime);
         $planning->setEndTime($endTime);
         $planning->setNote($data['note'] ?? null);
+        $planning->setEnCaisse($enCaisse);
         $planning->setCreatedBy($currentUser);
 
         if (!empty($data['siteId'])) {
@@ -145,6 +156,14 @@ class PlanningController extends AbstractApiController
         if (array_key_exists('note', $data)) {
             $planning->setNote($data['note']);
         }
+        if (array_key_exists('enCaisse', $data)) {
+            $enCaisse = (bool) $data['enCaisse'];
+            $enCaisseError = $this->validateEnCaisse($planning->getUser(), $enCaisse);
+            if ($enCaisseError) {
+                return $this->respondError($enCaisseError, 422);
+            }
+            $planning->setEnCaisse($enCaisse);
+        }
         if (array_key_exists('status', $data)) {
             $status = PlanningStatus::tryFrom($data['status']);
             if (!$status) {
@@ -174,6 +193,24 @@ class PlanningController extends AbstractApiController
         $this->em->flush();
 
         return $this->respond($planning, 200, ['planning:read', 'user:read', 'site:read']);
+    }
+
+    /**
+     * « En caisse » n'est autorisé que pour les LAD et hôtes/hôtesses.
+     * Pour les autres rôles, une demande à true est rejetée ; false est
+     * toujours accepté.
+     */
+    private function validateEnCaisse(User $user, bool $enCaisse): ?string
+    {
+        if (!$enCaisse) {
+            return null;
+        }
+
+        if ($user->hasRole(UserRole::LAD) || $user->hasRole(UserRole::HOTE)) {
+            return null;
+        }
+
+        return 'Seuls les LAD et hôtes/hôtesses d\'accueil peuvent être marqués en caisse.';
     }
 
     /**

@@ -17,7 +17,9 @@
         <server name="SHELL_VERBOSITY" value="-1" />
         <env name="KERNEL_CLASS" value="App\Kernel" />
         <env name="APP_SECRET" value="$ecretf0rt3st" />
-        <env name="DATABASE_URL" value="sqlite:///:memory:" force="true" />
+        <!-- Fichier partagé (pas :memory:) : le client HTTP et SchemaTool
+             doivent voir le même schéma SQLite. -->
+        <env name="DATABASE_URL" value="sqlite:///%kernel.project_dir%/var/test.db" force="true" />
         <env name="AI_SERVICE_URL" value="http://127.0.0.1:8001" />
         <env name="CORS_ALLOW_ORIGIN" value="^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$" />
     </php>

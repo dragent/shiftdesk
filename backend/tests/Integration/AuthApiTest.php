@@ -2,8 +2,6 @@
 
 namespace App\Tests\Integration;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
@@ -11,6 +9,8 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
  */
 final class AuthApiTest extends WebTestCase
 {
+    use ApiTestTrait;
+
     public function testLoginRejectsMissingCredentials(): void
     {
         $client = static::createClient();
@@ -49,15 +49,5 @@ final class AuthApiTest extends WebTestCase
         $client->request('GET', '/api/plannings');
 
         self::assertResponseStatusCodeSame(401);
-    }
-
-    private function resetDatabaseSchema(): void
-    {
-        /** @var EntityManagerInterface $em */
-        $em = static::getContainer()->get('doctrine')->getManager();
-        $metadata = $em->getMetadataFactory()->getAllMetadata();
-        $tool = new SchemaTool($em);
-        $tool->dropSchema($metadata);
-        $tool->createSchema($metadata);
     }
 }

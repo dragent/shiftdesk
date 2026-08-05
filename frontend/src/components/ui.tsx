@@ -8,10 +8,10 @@ export function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200/80 bg-white/95 p-4 shadow-sm shadow-slate-900/[0.03] backdrop-blur-sm sm:p-5">
+    <section className="min-w-0 rounded-[var(--cf-radius)] border border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-[var(--cf-shadow-sm)] backdrop-blur-sm sm:p-5">
       {(title || actions) && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-base font-semibold text-slate-800">{title}</h2>}
+          {title && <h2 className="text-base font-semibold text-[var(--foreground)]">{title}</h2>}
           {actions}
         </div>
       )}
@@ -39,7 +39,7 @@ const BADGE_COLORS: Record<string, string> = {
 };
 
 export function Badge({ children, tone }: { children: React.ReactNode; tone?: string }) {
-  const cls = (tone && BADGE_COLORS[tone]) || "bg-slate-100 text-slate-600";
+  const cls = (tone && BADGE_COLORS[tone]) || "bg-[var(--surface-muted)] text-[var(--muted)]";
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
       {children}
@@ -47,27 +47,104 @@ export function Badge({ children, tone }: { children: React.ReactNode; tone?: st
   );
 }
 
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonSize = "sm" | "md" | "lg";
+
 export function Button({
   children,
   variant = "primary",
+  size = "md",
   className = "",
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" }) {
-  const variants: Record<string, string> = {
-    primary:
-      "bg-[var(--cf-blue)] text-white hover:bg-[var(--cf-blue-dark)] disabled:bg-[var(--cf-blue)]/40 shadow-sm",
-    secondary: "bg-white text-slate-700 border border-slate-300 hover:bg-slate-100",
-    danger:
-      "bg-[var(--cf-red)] text-white hover:bg-[var(--cf-red-dark)] disabled:bg-[var(--cf-red)]/40 shadow-sm",
-  };
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+}) {
+  const variantClass =
+    variant === "secondary"
+      ? "cf-btn--secondary"
+      : variant === "danger"
+        ? "cf-btn--danger"
+        : variant === "ghost"
+          ? "cf-btn--ghost"
+          : "cf-btn--primary";
+  const sizeClass = size === "sm" ? "cf-btn--sm" : size === "lg" ? "cf-btn--lg" : "";
 
   return (
-    <button
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed ${variants[variant]} ${className}`}
-      {...props}
-    >
+    <button className={`cf-btn ${variantClass} ${sizeClass} ${className}`.trim()} {...props}>
       {children}
     </button>
+  );
+}
+
+/** Numéro de semaine ISO (lundi = début de semaine). */
+export function isoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+/**
+ * Barre de navigation de semaine (style partagé) : Précédente / Semaine N + dates / Suivante,
+ * avec actions optionnelles à droite (ex. « Caisse auto »).
+ */
+export function WeekNavigator({
+  weekStart,
+  onWeekChange,
+  actions,
+}: {
+  weekStart: Date;
+  onWeekChange: (next: Date) => void;
+  actions?: React.ReactNode;
+}) {
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekNum = isoWeekNumber(weekStart);
+
+  function shift(days: number) {
+    const next = new Date(weekStart);
+    next.setDate(next.getDate() + days);
+    onWeekChange(next);
+  }
+
+  return (
+    <div className="cf-week">
+      <div className="cf-week__nav">
+        <button
+          type="button"
+          aria-label="Semaine précédente"
+          className="cf-seg__btn shrink-0 px-3 sm:min-w-[9rem]"
+          onClick={() => shift(-7)}
+        >
+          <span aria-hidden="true">←</span>
+          <span className="hidden sm:inline">Précédente</span>
+        </button>
+        <div className="cf-week__label">
+          <span className="cf-week__eyebrow">Semaine {weekNum}</span>
+          <span className="cf-week__dates">
+            {weekStart.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
+            {" – "}
+            {weekEnd.toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })}
+          </span>
+        </div>
+        <button
+          type="button"
+          aria-label="Semaine suivante"
+          className="cf-seg__btn shrink-0 px-3 sm:min-w-[9rem]"
+          onClick={() => shift(7)}
+        >
+          <span className="hidden sm:inline">Suivante</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+      {actions && <div className="cf-week__actions">{actions}</div>}
+    </div>
   );
 }
 
@@ -89,6 +166,7 @@ export function TimeField({
   onChange,
   required,
   autoFocus,
+  disabled,
   min,
   max,
   className = "",
@@ -97,6 +175,7 @@ export function TimeField({
   onChange: (value: string) => void;
   required?: boolean;
   autoFocus?: boolean;
+  disabled?: boolean;
   min?: string;
   max?: string;
   className?: string;
@@ -117,6 +196,7 @@ export function TimeField({
       inputMode="numeric"
       autoFocus={autoFocus}
       required={required}
+      disabled={disabled}
       pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$"
       title={
         min && max
@@ -137,5 +217,7 @@ export function Alert({ children, tone = "error" }: { children: React.ReactNode;
     tone === "error"
       ? "bg-red-50 text-red-700 border-red-200"
       : "bg-emerald-50 text-emerald-700 border-emerald-200";
-  return <div className={`rounded-md border px-3 py-2 text-sm ${cls}`}>{children}</div>;
+  return (
+    <div className={`rounded-[var(--cf-radius-sm)] border px-3 py-2 text-sm ${cls}`}>{children}</div>
+  );
 }
