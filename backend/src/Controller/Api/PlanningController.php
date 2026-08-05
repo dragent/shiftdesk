@@ -57,6 +57,10 @@ class PlanningController extends AbstractApiController
         // créneaux de tous les caissiers/caissières (pas seulement les siens)
         // pour pouvoir leur attribuer un numéro de caisse.
         $caissiersOnly = $request->query->getBoolean('caissiersOnly', false);
+        // Vue plan de caisse (impression) : l'accueil doit aussi connaître
+        // la/le LAD en poste sur chaque demi-journée, sans diluer la grille
+        // caisses (paramètre dédié, parallèle à caissiersOnly).
+        $ladOnly = $request->query->getBoolean('ladOnly', false);
 
         $from = $from ? new \DateTimeImmutable($from) : new \DateTimeImmutable('monday this week');
         $to = $to ? new \DateTimeImmutable($to) : $from->modify('+6 days');
@@ -70,6 +74,11 @@ class PlanningController extends AbstractApiController
             $plannings = array_values(array_filter(
                 $plannings,
                 static fn (Planning $p) => $p->getUser()->hasRole(UserRole::CAISSIER) || $p->isEnCaisse(),
+            ));
+        } elseif ($ladOnly) {
+            $plannings = array_values(array_filter(
+                $plannings,
+                static fn (Planning $p) => $p->getUser()->hasRole(UserRole::LAD),
             ));
         } elseif ($mine || !$isDirectionOrAdmin) {
             // Seule la Direction/Admin voit le planning de tout le monde. Tout

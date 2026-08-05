@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Button, Alert, WeekNavigator, isoWeekNumber } from "@/components/ui";
@@ -112,6 +112,7 @@ export default function PlanDeCaissePage() {
 function PlanDeCaisseContent() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [plannings, setPlannings] = useState<Planning[]>([]);
+  const [ladPlannings, setLadPlannings] = useState<Planning[]>([]);
   const [caissiers, setCaissiers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,11 +147,13 @@ function PlanDeCaisseContent() {
     try {
       const from = toISODate(weekStart);
       const to = toISODate(weekDays[6]);
-      const [planningData, caissiersData] = await Promise.all([
+      const [planningData, ladPlanningData, caissiersData] = await Promise.all([
         api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}&caissiersOnly=1`),
+        api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}&ladOnly=1`),
         api.get<User[]>("/api/caissiers"),
       ]);
       setPlannings(planningData);
+      setLadPlannings(ladPlanningData);
       setCaissiers(caissiersData);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
@@ -220,6 +223,27 @@ function PlanDeCaisseContent() {
     }
     return map;
   }, [plannings]);
+
+  // LAD en poste (pas « en caisse ») par jour + demi-journée — pour le pied
+  // de page imprimé « LAD en charge ».
+  const ladOnDutyBySlot = useMemo(() => {
+    const map = new Map<string, Planning[]>();
+    for (const p of ladPlannings) {
+      if (p.enCaisse) continue;
+      if (!p.user.roles?.includes("ROLE_LAD")) continue;
+      const key = `${p.workDate}_${slotKeyForTime(p.startTime)}`;
+      const list = map.get(key);
+      if (list) list.push(p);
+      else map.set(key, [p]);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const byTime = a.startTime.localeCompare(b.startTime);
+        return byTime !== 0 ? byTime : compareUsersByName(a.user, b.user);
+      });
+    }
+    return map;
+  }, [ladPlannings]);
 
   // Personnes planifiées par demi-journée, triées par heure d'arrivée.
   const candidatesBySlot = useMemo(() => {
@@ -1012,6 +1036,7 @@ function PlanDeCaisseContent() {
       weekStart={weekStart}
       rowUsers={rowUsers}
       planningByCell={planningByCell}
+      ladOnDutyBySlot={ladOnDutyBySlot}
       siteName={rowUsers.find((u) => u.site?.name)?.site?.name ?? null}
     />
     </>
@@ -1020,17 +1045,64 @@ function PlanDeCaisseContent() {
 
 type PrintTeamRow = { user: User; entry: Planning };
 
+const MANUAL_NOTE_KINDS = [
+  { key: "absence", label: "Absence" },
+  { key: "retard", label: "Retard" },
+  { key: "supp", label: "Temps supplémentaire" },
+] as const;
+
+/** Deux lignes manuscrites (Absence / Retard / Temps supplémentaire) en tête de page. */
+function PrintManualNotes() {
+  return (
+    <div className="print-plan-caisse__notes" aria-label="Annotations manuscrites">
+      <table>
+        <thead>
+          <tr>
+            {MANUAL_NOTE_KINDS.map((kind) => (
+              <th key={kind.key} colSpan={2}>
+                {kind.label}
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {MANUAL_NOTE_KINDS.map((kind) => (
+              <Fragment key={kind.key}>
+                <th className="print-plan-caisse__notes-sub">Nom</th>
+                <th className="print-plan-caisse__notes-sub">Temps</th>
+              </Fragment>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[0, 1].map((row) => (
+            <tr key={row}>
+              {MANUAL_NOTE_KINDS.map((kind) => (
+                <Fragment key={kind.key}>
+                  <td className="print-plan-caisse__notes-name" aria-label={`${kind.label} — nom`} />
+                  <td className="print-plan-caisse__notes-time" aria-label={`${kind.label} — temps`} />
+                </Fragment>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function PrintablePlanDeCaisse({
   weekDays,
   weekStart,
   rowUsers,
   planningByCell,
+  ladOnDutyBySlot,
   siteName,
 }: {
   weekDays: Date[];
   weekStart: Date;
   rowUsers: User[];
   planningByCell: Map<string, Planning>;
+  ladOnDutyBySlot: Map<string, Planning[]>;
   siteName: string | null;
 }) {
   const weekNum = isoWeekNumber(weekStart);
@@ -1053,12 +1125,20 @@ function PrintablePlanDeCaisse({
     return rows;
   }
 
+  function ladForSlot(dayIndex: number, slotKey: HalfDayKey): Planning[] {
+    if (isClosedSlot(dayIndex, slotKey)) return [];
+    const dayKey = toISODate(weekDays[dayIndex]);
+    return ladOnDutyBySlot.get(`${dayKey}_${slotKey}`) ?? [];
+  }
+
   return (
     <div className="print-plan-caisse hidden print:block">
       {weekDays.map((day, dayIndex) => {
         const morning = teamForSlot(dayIndex, "MATIN");
         const evening = teamForSlot(dayIndex, "APRES_MIDI");
         const eveningClosed = isClosedSlot(dayIndex, "APRES_MIDI");
+        const morningLad = ladForSlot(dayIndex, "MATIN");
+        const eveningLad = ladForSlot(dayIndex, "APRES_MIDI");
 
         return (
           <section
@@ -1091,12 +1171,15 @@ function PrintablePlanDeCaisse({
               </p>
             </header>
 
+            <PrintManualNotes />
+
             <div className="print-plan-caisse__teams">
-              <PrintTeamPanel title="Équipe du matin" rows={morning} />
+              <PrintTeamPanel title="Équipe du matin" rows={morning} ladOnDuty={morningLad} />
               <PrintTeamPanel
                 title="Équipe de l'après-midi"
                 rows={evening}
                 closed={eveningClosed}
+                ladOnDuty={eveningLad}
               />
             </div>
 
@@ -1115,11 +1198,18 @@ function PrintTeamPanel({
   title,
   rows,
   closed = false,
+  ladOnDuty = [],
 }: {
   title: string;
   rows: PrintTeamRow[];
   closed?: boolean;
+  ladOnDuty?: Planning[];
 }) {
+  const ladRows =
+    ladOnDuty.length > 0
+      ? ladOnDuty
+      : [null];
+
   return (
     <div className="print-plan-caisse__team">
       <h2>{title}</h2>
@@ -1134,6 +1224,7 @@ function PrintTeamPanel({
               <th>Nom</th>
               <th>N°</th>
               <th>Arrivée</th>
+              <th>Fin</th>
               <th>Caisses</th>
               <th>Bascules</th>
               <th>Début pause</th>
@@ -1154,16 +1245,71 @@ function PrintTeamPanel({
                   </td>
                   <td className="print-plan-caisse__num">{user.cashierNumber ?? "—"}</td>
                   <td>{formatFrenchTime(entry.startTime)}</td>
+                  <td>{formatFrenchTime(entry.endTime)}</td>
                   <td className="print-plan-caisse__reg">{printRegisters(entry)}</td>
                   <td>{printBasculeTimes(entry)}</td>
-                  <td className="print-plan-caisse__write" aria-label="Début de pause à écrire" />
-                  <td className="print-plan-caisse__write" aria-label="Fin de pause à écrire" />
+                  <td className="print-plan-caisse__write" aria-label="Début de pause à écrire">
+                    {"\u00a0"}
+                  </td>
+                  <td className="print-plan-caisse__write" aria-label="Fin de pause à écrire">
+                    {"\u00a0"}
+                  </td>
                   <td className="print-plan-caisse__pause">{pauseMin} min</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      )}
+      {!closed && (
+        <div className="print-plan-caisse__lad">
+          <p className="print-plan-caisse__lad-title">LAD</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Arrivée</th>
+                <th>Fin</th>
+                <th>Début pause</th>
+                <th>Fin pause</th>
+                <th>Temps pause</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ladRows.map((entry, idx) => {
+                const pauseMin = entry
+                  ? pauseMinutesForWork(durationMinutes(entry.startTime, entry.endTime))
+                  : null;
+                return (
+                  <tr key={entry?.id ?? `lad-blank-${idx}`}>
+                    <td className="print-plan-caisse__lad-name">
+                      {entry ? (
+                        `${entry.user.firstName} ${entry.user.lastName}`
+                      ) : (
+                        "\u00a0"
+                      )}
+                    </td>
+                    <td>
+                      {entry ? formatFrenchTime(entry.startTime) : "\u00a0"}
+                    </td>
+                    <td>
+                      {entry ? formatFrenchTime(entry.endTime) : "\u00a0"}
+                    </td>
+                    <td className="print-plan-caisse__write" aria-label="Début de pause LAD à écrire">
+                      {"\u00a0"}
+                    </td>
+                    <td className="print-plan-caisse__write" aria-label="Fin de pause LAD à écrire">
+                      {"\u00a0"}
+                    </td>
+                    <td className="print-plan-caisse__pause">
+                      {pauseMin !== null ? `${pauseMin} min` : "\u00a0"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -870,6 +870,85 @@ body {
   color: #5b6b7c;
 }
 
+/* Annotations manuscrites : Absence / Retard / Temps supplémentaire */
+.print-plan-caisse__notes {
+  border: 1px solid #c5d4e8;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.print-plan-caisse__notes table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.68rem;
+}
+
+.print-plan-caisse__notes th,
+.print-plan-caisse__notes td {
+  border-bottom: 1px solid #e2eaf4;
+  border-right: 1px solid #edf2f8;
+  vertical-align: middle;
+}
+
+.print-plan-caisse__notes th:nth-child(2n),
+.print-plan-caisse__notes td:nth-child(2n) {
+  border-right: 1px solid #c5d4e8;
+}
+
+.print-plan-caisse__notes th:last-child,
+.print-plan-caisse__notes td:last-child {
+  border-right: none;
+}
+
+.print-plan-caisse__notes thead tr:first-child th {
+  padding: 0.28rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(180deg, var(--cf-blue-mid) 0%, var(--cf-blue) 100%);
+  border-bottom: 1px solid var(--cf-blue-dark);
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.print-plan-caisse__notes thead tr:first-child th:last-child {
+  border-right: none;
+}
+
+.print-plan-caisse__notes-sub {
+  padding: 0.18rem 0.35rem;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--cf-blue);
+  background: var(--cf-blue-light);
+  text-align: left;
+}
+
+.print-plan-caisse__notes tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.print-plan-caisse__notes-name,
+.print-plan-caisse__notes-time {
+  height: 1.55rem;
+  padding: 0.2rem 0.35rem;
+  background: #fff;
+}
+
+.print-plan-caisse__notes-name {
+  width: 22%;
+}
+
+.print-plan-caisse__notes-time {
+  width: 11%;
+}
+
 .print-plan-caisse__teams {
   display: flex;
   flex-direction: column;
@@ -950,16 +1029,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Cases à remplir à la main (début / fin de pause). */
+/* Cases à remplir à la main : cellules blanches vides, sans trait. */
 .print-plan-caisse__write {
   min-width: 3.2rem;
-  height: 1.15rem;
-  background: repeating-linear-gradient(
-    transparent 0,
-    transparent calc(100% - 1px),
-    #c5d4e8 calc(100% - 1px),
-    #c5d4e8 100%
-  );
+  min-height: 1.25rem;
+  height: 1.25rem;
+  background: #fff;
 }
 
 .print-plan-caisse__empty {
@@ -969,6 +1044,65 @@ body {
   color: #8fa3bd;
   text-align: center;
   font-style: italic;
+}
+
+.print-plan-caisse__lad {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #d8e0ea;
+  background: #fff;
+}
+
+.print-plan-caisse__lad-title {
+  margin: 0 0 0.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #334155;
+}
+
+.print-plan-caisse__lad table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.72rem;
+}
+
+.print-plan-caisse__lad th,
+.print-plan-caisse__lad td {
+  padding: 0.28rem 0.35rem;
+  border-bottom: 1px solid #e8edf3;
+  border-right: 1px solid #eef2f6;
+  text-align: left;
+  vertical-align: middle;
+  background: #fff;
+}
+
+.print-plan-caisse__lad th:last-child,
+.print-plan-caisse__lad td:last-child {
+  border-right: none;
+}
+
+.print-plan-caisse__lad tr:last-child td {
+  border-bottom: none;
+}
+
+.print-plan-caisse__lad th {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+  background: #f8fafc;
+  white-space: nowrap;
+}
+
+.print-plan-caisse__lad-name {
+  font-weight: 700;
+  color: #0f1b2d;
+  width: 28%;
 }
 
 .print-plan-caisse__legend {
