@@ -296,19 +296,6 @@ function PlanningContent() {
     }
   }
 
-  async function removeAbsence(absence: Absence, cellKey: string) {
-    setError(null);
-    setPendingKey(cellKey);
-    try {
-      await api.delete(`/api/absences/${absence.id}`);
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de retirer l'absence.");
-    } finally {
-      setPendingKey(null);
-    }
-  }
-
   function openClosureModal() {
     setClosureStart(toISODate(weekStart));
     setClosureEnd(toISODate(weekDays[6]));
@@ -413,7 +400,6 @@ function PlanningContent() {
     onCancelAdd: cancelAdd,
     onSubmitAdd: submitAdd,
     onRemove: removeSlot,
-    onRemoveAbsence: removeAbsence,
   };
 
   return (
@@ -818,7 +804,6 @@ type SlotHandlers = {
   onCancelAdd: () => void;
   onSubmitAdd: (e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) => void;
   onRemove: (planning: Planning, cellKey: string) => void;
-  onRemoveAbsence: (absence: Absence, cellKey: string) => void;
 };
 
 function totalColorClassFor(user: User, totalMinutes: number): string {
@@ -852,7 +837,6 @@ function SlotCell({
   onCancelAdd,
   onSubmitAdd,
   onRemove,
-  onRemoveAbsence,
 }: {
   user: User;
   dayKey: string;
@@ -871,7 +855,6 @@ function SlotCell({
   onCancelAdd: () => void;
   onSubmitAdd: (e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) => void;
   onRemove: (planning: Planning, cellKey: string) => void;
-  onRemoveAbsence: (absence: Absence, cellKey: string) => void;
 }) {
   const cellKey = `${user.id}_${dayKey}_${slot.key}`;
   const minStart = earliestStartForUser(user, slot.key);
@@ -884,26 +867,22 @@ function SlotCell({
         ? `${formatFrenchTime(absence.startTime)} - ${formatFrenchTime(absence.endTime)}`
         : null;
     return (
-      <button
-        type="button"
-        aria-label={`Retirer l'absence (${isConge ? "congé" : "arrêt de travail"}) de ${user.firstName} ${user.lastName}`}
-        title={
+      <div
+        role="status"
+        aria-label={
           isConge
-            ? "Congé — cliquer pour retirer"
-            : arretRange
-              ? `Arrêt de travail ${arretRange} — cliquer pour retirer`
-              : "Arrêt de travail — cliquer pour retirer"
+            ? `Congé — ${user.firstName} ${user.lastName}`
+            : `Arrêt de travail — ${user.firstName} ${user.lastName}`
         }
-        disabled={isPending}
-        onClick={() => onRemoveAbsence(absence, cellKey)}
-        className={`flex min-h-11 w-full items-center justify-center rounded-md border-2 px-1 text-[11px] font-semibold leading-tight transition hover:opacity-80 disabled:opacity-50 ${
+        title={isConge ? "Congé" : arretRange ? `Arrêt de travail ${arretRange}` : "Arrêt de travail"}
+        className={`flex min-h-11 w-full items-center justify-center rounded-md border-2 px-1 text-[11px] font-semibold leading-tight ${
           isConge
             ? "border-red-400 bg-red-100 text-red-800"
             : "border-slate-700 bg-slate-900 text-white"
         }`}
       >
         {arretRange}
-      </button>
+      </div>
     );
   }
 
@@ -1014,7 +993,6 @@ function MobileEmployeeGroup({
   onCancelAdd,
   onSubmitAdd,
   onRemove,
-  onRemoveAbsence,
 }: {
   label: string;
   users: User[];
@@ -1110,7 +1088,6 @@ function MobileEmployeeGroup({
                                 onCancelAdd={onCancelAdd}
                                 onSubmitAdd={onSubmitAdd}
                                 onRemove={onRemove}
-                                onRemoveAbsence={onRemoveAbsence}
                               />
                             )}
                           </div>
@@ -1185,7 +1162,6 @@ function EmployeeGroup({
   onCancelAdd,
   onSubmitAdd,
   onRemove,
-  onRemoveAbsence,
 }: {
   label: string;
   users: User[];
@@ -1283,7 +1259,6 @@ function EmployeeGroup({
                       onCancelAdd={onCancelAdd}
                       onSubmitAdd={onSubmitAdd}
                       onRemove={onRemove}
-                      onRemoveAbsence={onRemoveAbsence}
                     />
                   </td>
                 );
