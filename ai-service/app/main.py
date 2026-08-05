@@ -1,5 +1,5 @@
 """
-Micro-service IA — Supervision de planning (Carrefour Accueil).
+Micro-service IA — Supervision de planning (ShiftDesk).
 
 Ce service est volontairement isolé du backend Symfony afin de pouvoir
 faire évoluer la brique IA (modèles ML, librairies data-science type
@@ -21,7 +21,7 @@ from .rules import analyze_planning
 from .schemas import AnalyzePlanningRequest, AnalyzePlanningResponse
 
 app = FastAPI(
-    title="Carrefour Accueil — IA Supervision de planning",
+    title="ShiftDesk — IA Supervision de planning",
     description=(
         "Analyse les plannings et pauses de l'accueil pour détecter "
         "sous-effectifs, surcharges et conflits, et proposer des alertes "

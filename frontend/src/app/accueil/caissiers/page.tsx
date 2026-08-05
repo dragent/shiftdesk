@@ -31,6 +31,7 @@ function CaissiersContent() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [cashierNumber, setCashierNumber] = useState("");
   const [siteId, setSiteId] = useState<number | "">("");
 
   const load = useCallback(async () => {
@@ -63,10 +64,12 @@ function CaissiersContent() {
       await api.post<User>("/api/caissiers", {
         firstName,
         lastName,
+        cashierNumber: cashierNumber.trim() || null,
         siteId: siteId || null,
       });
       setFirstName("");
       setLastName("");
+      setCashierNumber("");
       setSuccess("Caissier(ère) ajouté(e) avec succès.");
       await load();
     } catch (err) {
@@ -96,6 +99,18 @@ function CaissiersContent() {
     }
   }
 
+  async function updateCashierNumber(caissier: User, value: string) {
+    setError(null);
+    try {
+      await api.patch(`/api/caissiers/${caissier.id}`, {
+        cashierNumber: value.trim() || null,
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour le n° caissier.");
+    }
+  }
+
   async function remove(caissier: User) {
     setError(null);
     if (!window.confirm(`Supprimer ${caissier.firstName} ${caissier.lastName} ?`)) return;
@@ -121,7 +136,7 @@ function CaissiersContent() {
 
       {canManage && (
         <Card title="Nouveau caissier">
-          <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-3">
+          <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Prénom</label>
               <input
@@ -141,6 +156,15 @@ function CaissiersContent() {
               />
             </div>
             <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">N° caissier</label>
+              <input
+                value={cashierNumber}
+                onChange={(e) => setCashierNumber(e.target.value)}
+                placeholder="Ex. 101"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Site</label>
               <select
                 value={siteId}
@@ -154,7 +178,7 @@ function CaissiersContent() {
                 ))}
               </select>
             </div>
-            <div className="sm:col-span-3">
+            <div className="sm:col-span-4">
               <Button type="submit" disabled={submitting}>
                 {submitting ? "Ajout..." : "Ajouter le caissier"}
               </Button>
@@ -174,6 +198,7 @@ function CaissiersContent() {
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="py-2 pr-4">Nom</th>
+                  <th className="py-2 pr-4">N° caissier</th>
                   <th className="py-2 pr-4">Site</th>
                   <th className="py-2 pr-4">Statut</th>
                   <th className="py-2">Action</th>
@@ -184,6 +209,19 @@ function CaissiersContent() {
                   <tr key={c.id} className="border-b border-slate-100">
                     <td className="py-2 pr-4 font-medium">
                       {c.firstName} {c.lastName}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <input
+                        defaultValue={c.cashierNumber ?? ""}
+                        key={`${c.id}-${c.cashierNumber ?? ""}`}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          const prev = (c.cashierNumber ?? "").trim();
+                          if (next !== prev) updateCashierNumber(c, next);
+                        }}
+                        placeholder="—"
+                        className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      />
                     </td>
                     <td className="py-2 pr-4">
                       <select

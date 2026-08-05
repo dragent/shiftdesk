@@ -1,4 +1,4 @@
-# Contribution — ShiftDesk / Carrefour Accueil
+# Contribution — ShiftDesk
 
 Ce document formalise les **règles de contribution** définies lors de la
 création du dépôt GitHub, ainsi que la démarche **TDD** attendue.

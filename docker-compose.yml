@@ -1,12 +1,12 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: carrefour_accueil_mysql
+    container_name: shiftdesk_mysql
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: carrefour_accueil
-      MYSQL_USER: carrefour
-      MYSQL_PASSWORD: carrefour
+      MYSQL_DATABASE: shiftdesk
+      MYSQL_USER: shiftdesk
+      MYSQL_PASSWORD: shiftdesk
       MYSQL_ROOT_PASSWORD: root
     ports:
       # Exposé sur 3307 côté hôte pour éviter les conflits avec un MySQL
@@ -22,7 +22,7 @@ services:
 
   adminer:
     image: adminer:latest
-    container_name: carrefour_accueil_adminer
+    container_name: shiftdesk_adminer
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -33,7 +33,7 @@ services:
   ai-service:
     build:
       context: ./ai-service
-    container_name: carrefour_accueil_ai_service
+    container_name: shiftdesk_ai_service
     restart: unless-stopped
     ports:
       - "8001:8001"
@@ -42,14 +42,14 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: carrefour_accueil_backend
+    container_name: shiftdesk_backend
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       APP_ENV: prod
       APP_SECRET: 8f61b0e7f6a1c3d9e2b4a7c8d5f0e3a1
-      DATABASE_URL: "mysql://carrefour:carrefour@mysql:3306/carrefour_accueil?serverVersion=8.0.36&charset=utf8mb4"
+      DATABASE_URL: "mysql://shiftdesk:shiftdesk@mysql:3306/shiftdesk?serverVersion=8.0.36&charset=utf8mb4"
       CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$$'
       AI_SERVICE_URL: "http://ai-service:8001"
       JWT_PASSPHRASE: "779d42ba92812f5fb1a0c4fa745f1d7fe6f7edbddd3354703410e2f62b6f9051"
@@ -65,7 +65,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: "http://localhost:8000"
-    container_name: carrefour_accueil_frontend
+    container_name: shiftdesk_frontend
     restart: unless-stopped
     ports:
       - "3000:3000"

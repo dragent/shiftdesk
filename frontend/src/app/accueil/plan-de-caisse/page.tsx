@@ -3,31 +3,39 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
-import { Card, Button, Alert, TimeField } from "@/components/ui";
+import { Card, Button, Alert, WeekNavigator, isoWeekNumber } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import {
+  buildReliefAssignment,
   DAY_LABELS,
+  durationMinutes,
   formatFrenchTime,
+  freeNumberedRegisters,
   HALF_DAY_SLOTS,
+  intervalsOverlap,
   isClosedSlot,
-  MAX_SPLIT_SEGMENTS,
+  isOnScoAtTime,
+  numberedRegisterAtTime,
+  pauseMinutesForWork,
   PAUSES_RETOUR_REGISTER,
+  planningIntervals,
+  printBasculeTimes,
+  printRegisters,
   REGISTER_NUMBERS,
   registerLabel,
   registerShortLabel,
+  scoReliefTimeOptions,
   SELF_CHECKOUT_REGISTER,
   slotKeyForTime,
-  SPLIT_REGISTER_NUMBERS,
+  timeInRange,
+  type HalfDayKey,
+  type RegisterInterval,
 } from "@/lib/planning";
 import type { Planning, User } from "@/lib/types";
 
-type FormMode = "simple" | "split";
+const SCO_RELIEF_TIMES = scoReliefTimeOptions();
 
-interface Interval {
-  start: string;
-  end: string;
-  registerNumber: number;
-}
+type Interval = RegisterInterval;
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
@@ -46,42 +54,49 @@ function toISODate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Options de caisse utilisables pour un segment de bascule (pas "Pauses / Retour"). */
-function SplitRegisterOptions() {
-  return (
-    <>
-      <option value="">Choisir...</option>
-      {SPLIT_REGISTER_NUMBERS.map((n) => (
-        <option key={n} value={String(n)}>
-          {registerLabel(n)}
-        </option>
-      ))}
-    </>
-  );
-}
-
-/**
- * Décompose un créneau (simple ou en bascule) en intervalles horaires avec
- * numéro de caisse, uniquement pour les caisses numérotées et automatiques
- * (utilisé pour la détection de conflit et la couverture des caisses auto).
- * "Pauses / Retour" n'apparaît jamais dans ces intervalles.
- */
 function entryIntervals(p: Planning): Interval[] {
-  if (p.registerSegments && p.registerSegments.length > 0) {
-    return p.registerSegments.map((seg, i) => ({
-      start: seg.startTime,
-      end: p.registerSegments![i + 1]?.startTime ?? p.endTime,
-      registerNumber: seg.registerNumber,
-    }));
-  }
-  if (p.registerNumber != null && p.registerNumber >= 0) {
-    return [{ start: p.startTime, end: p.endTime, registerNumber: p.registerNumber }];
-  }
-  return [];
+  return planningIntervals(p);
 }
 
-function intervalsOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
-  return aStart < bEnd && bStart < aEnd;
+/** Libellé court du poste d'origine pour un LAD / hôte prévu en caisse. */
+function originRoleLabel(user: User): string | null {
+  if (user.roles?.includes("ROLE_LAD")) return "LAD";
+  if (user.roles?.includes("ROLE_HOTE")) return "Accueil";
+  return null;
+}
+
+function compareUsersByName(a: User, b: User): number {
+  const last = a.lastName.localeCompare(b.lastName, "fr");
+  return last !== 0 ? last : a.firstName.localeCompare(b.firstName, "fr");
+}
+
+/** Première heure d'arrivée de la semaine (date + heure de début). */
+function earliestArrivalKey(plannings: Planning[]): string | null {
+  let earliest: string | null = null;
+  for (const p of plannings) {
+    const key = `${p.workDate}T${p.startTime}`;
+    if (earliest === null || key < earliest) earliest = key;
+  }
+  return earliest;
+}
+
+function scoSlotKey(dayKey: string, slotKey: HalfDayKey): string {
+  return `${dayKey}_${slotKey}`;
+}
+
+/** Caisse affichée à côté d'un candidat relève à une heure donnée. */
+function registerLabelAtTime(p: Planning, time: string): string {
+  if (!time) {
+    if (p.registerSegments && p.registerSegments.length > 0) {
+      return p.registerSegments.map((s) => registerShortLabel(s.registerNumber)).join(" → ");
+    }
+    if (p.registerNumber != null) return registerShortLabel(p.registerNumber);
+    return "—";
+  }
+  const reg = numberedRegisterAtTime(p, time);
+  if (reg != null) return registerShortLabel(reg);
+  if (isOnScoAtTime(p, time)) return registerShortLabel(SELF_CHECKOUT_REGISTER);
+  return "—";
 }
 
 export default function PlanDeCaissePage() {
@@ -105,10 +120,16 @@ function PlanDeCaisseContent() {
   // Case en cours d'édition (attribution d'une affectation de caisse à un
   // créneau déjà planifié).
   const [editingCell, setEditingCell] = useState<string | null>(null);
-  const [formMode, setFormMode] = useState<FormMode>("simple");
   const [formRegisterNumber, setFormRegisterNumber] = useState("");
-  const [formSegmentRegisters, setFormSegmentRegisters] = useState<string[]>(["", ""]);
-  const [formSwitchTimes, setFormSwitchTimes] = useState<string[]>([""]);
+
+  // Panneau « Caisse auto » : relève SCO (échange ou caisse libre).
+  const [scoOpen, setScoOpen] = useState(false);
+  const [scoDayIndex, setScoDayIndex] = useState(0);
+  const [scoReliefTime, setScoReliefTime] = useState("");
+  const [scoTimeMenuOpen, setScoTimeMenuOpen] = useState(false);
+  const [scoRelieverId, setScoRelieverId] = useState("");
+  const [scoFreeRegister, setScoFreeRegister] = useState("");
+  const [scoPending, setScoPending] = useState(false);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => {
@@ -143,6 +164,34 @@ function PlanDeCaisseContent() {
     load();
   }, [load]);
 
+  // Caissiers + LAD / Accueil prévus en caisse cette semaine (créneaux
+  // renvoyés par caissiersOnly, absents de /api/caissiers), triés par
+  // heure d'arrivée (premier créneau de la semaine).
+  const rowUsers = useMemo(() => {
+    const byId = new Map<number, User>();
+    const planningsByUser = new Map<number, Planning[]>();
+    for (const u of caissiers) {
+      byId.set(u.id, u);
+    }
+    for (const p of plannings) {
+      if (!byId.has(p.user.id)) {
+        byId.set(p.user.id, p.user);
+      }
+      const list = planningsByUser.get(p.user.id);
+      if (list) list.push(p);
+      else planningsByUser.set(p.user.id, [p]);
+    }
+    return Array.from(byId.values()).sort((a, b) => {
+      const aKey = earliestArrivalKey(planningsByUser.get(a.id) ?? []);
+      const bKey = earliestArrivalKey(planningsByUser.get(b.id) ?? []);
+      if (aKey === null && bKey === null) return compareUsersByName(a, b);
+      if (aKey === null) return 1;
+      if (bKey === null) return -1;
+      if (aKey !== bKey) return aKey < bKey ? -1 : 1;
+      return compareUsersByName(a, b);
+    });
+  }, [caissiers, plannings]);
+
   // Regroupe les créneaux par employé + jour + demi-journée pour un accès
   // rapide en O(1) depuis la grille.
   const planningByCell = useMemo(() => {
@@ -172,18 +221,233 @@ function PlanDeCaisseContent() {
     return map;
   }, [plannings]);
 
+  // Personnes planifiées par demi-journée, triées par heure d'arrivée.
+  const candidatesBySlot = useMemo(() => {
+    const map = new Map<string, Planning[]>();
+    for (const p of plannings) {
+      const key = scoSlotKey(p.workDate, slotKeyForTime(p.startTime));
+      const list = map.get(key);
+      if (list) list.push(p);
+      else map.set(key, [p]);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        const byTime = a.startTime.localeCompare(b.startTime);
+        return byTime !== 0 ? byTime : compareUsersByName(a.user, b.user);
+      });
+    }
+    return map;
+  }, [plannings]);
+
+  const scoDayKey = toISODate(weekDays[scoDayIndex] ?? weekDays[0]);
+  // Le créneau (matin / après-midi) se déduit de l'heure de relève.
+  const scoDerivedSlot = scoReliefTime ? slotKeyForTime(scoReliefTime) : null;
+  const scoSlotCandidates = scoOpen && scoDerivedSlot
+    ? (candidatesBySlot.get(scoSlotKey(scoDayKey, scoDerivedSlot)) ?? [])
+    : [];
+  // Personnes en service à l'heure choisie (créneau qui couvre l'heure).
+  const scoCandidates = useMemo(() => {
+    if (!scoReliefTime) return [];
+    return scoSlotCandidates.filter((p) => timeInRange(scoReliefTime, p.startTime, p.endTime));
+  }, [scoSlotCandidates, scoReliefTime]);
+
+  const scoPerson = useMemo(() => {
+    if (!scoReliefTime) return null;
+    return scoCandidates.find((p) => isOnScoAtTime(p, scoReliefTime)) ?? null;
+  }, [scoCandidates, scoReliefTime]);
+
+  const scoRelievers = useMemo(() => {
+    if (!scoPerson) return [];
+    return scoCandidates.filter((p) => p.id !== scoPerson.id);
+  }, [scoCandidates, scoPerson]);
+
+  /**
+   * Première affectation SCO : personnes du créneau (même sans filtre horaire
+   * strict) pour ne jamais se retrouver avec le message sans liste.
+   */
+  const scoInitialCandidates = !scoPerson && scoReliefTime
+    ? (scoCandidates.length > 0 ? scoCandidates : scoSlotCandidates)
+    : [];
+
+  const scoReliever = scoRelievers.find((p) => String(p.id) === scoRelieverId) ?? null;
+  const scoRelieverRegister = scoReliever && scoReliefTime
+    ? numberedRegisterAtTime(scoReliever, scoReliefTime)
+    : null;
+  const scoNeedsFreeRegister = Boolean(scoReliever && scoReliefTime && scoRelieverRegister == null);
+
+  const scoFreeRegisters = useMemo(() => {
+    if (!scoPerson || !scoReliefTime || !scoNeedsFreeRegister) return [];
+    return freeNumberedRegisters(
+      plannings,
+      scoDayKey,
+      scoReliefTime,
+      scoPerson.endTime,
+      [scoPerson.id, scoReliever?.id].filter((id): id is number => id != null),
+    );
+  }, [scoPerson, scoReliefTime, scoNeedsFreeRegister, plannings, scoDayKey, scoReliever?.id]);
+
+  function resetScoForm() {
+    setScoReliefTime("");
+    setScoTimeMenuOpen(false);
+    setScoRelieverId("");
+    setScoFreeRegister("");
+  }
+
+  function openScoPanel(dayIndex?: number, slotKey?: HalfDayKey) {
+    setEditingCell(null);
+    setError(null);
+    if (dayIndex != null) setScoDayIndex(dayIndex);
+    setScoRelieverId("");
+    setScoFreeRegister("");
+    setScoTimeMenuOpen(false);
+    // Préremplit une heure du créneau cliqué (sinon vide).
+    if (slotKey === "APRES_MIDI") setScoReliefTime("14:00");
+    else if (slotKey === "MATIN") setScoReliefTime("07:45");
+    else setScoReliefTime("");
+    setScoOpen(true);
+  }
+
+  // Escape ferme la popup / le menu d'heures.
+  useEffect(() => {
+    if (!scoOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape" || scoPending) return;
+      if (scoTimeMenuOpen) setScoTimeMenuOpen(false);
+      else closeScoPanel();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoOpen, scoPending, scoTimeMenuOpen]);
+
+  function closeScoPanel() {
+    setScoOpen(false);
+    resetScoForm();
+    setScoPending(false);
+  }
+
+  async function submitScoRelief(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!scoReliefTime) {
+      setError("Renseignez l'heure de relève.");
+      return;
+    }
+
+    // Cas 1 : personne aux SCO → première affectation.
+    if (!scoPerson) {
+      const assignee = scoInitialCandidates.find((p) => String(p.id) === scoRelieverId) ?? null;
+      if (!assignee) {
+        setError("Choisissez qui prend les caisses automatiques.");
+        return;
+      }
+      let payload;
+      try {
+        payload = buildReliefAssignment(assignee, scoReliefTime, SELF_CHECKOUT_REGISTER);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Impossible d'affecter les caisses automatiques.");
+        return;
+      }
+      setScoPending(true);
+      try {
+        await api.patch<Planning>(`/api/plannings/${assignee.id}/register-number`, payload);
+        closeScoPanel();
+        await load();
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : "Impossible d'affecter les caisses automatiques.");
+      } finally {
+        setScoPending(false);
+      }
+      return;
+    }
+
+    // Cas 2 : relève (échange ou caisse libre).
+    if (!scoReliever) {
+      setError("Choisissez la personne qui relève les caisses automatiques.");
+      return;
+    }
+    if (scoReliefTime > scoPerson.endTime || scoReliefTime > scoReliever.endTime) {
+      setError("L'heure de relève doit être couverte par les deux créneaux.");
+      return;
+    }
+    if (scoReliefTime < scoReliever.startTime) {
+      setError("Le relève n'est pas encore en service à cette heure.");
+      return;
+    }
+
+    const targetRegister = scoRelieverRegister;
+    let registerForFormerSco: number;
+    if (targetRegister != null) {
+      registerForFormerSco = targetRegister;
+    } else {
+      if (!scoFreeRegister) {
+        setError("Choisissez une caisse libre pour la personne qui quitte les automatiques.");
+        return;
+      }
+      registerForFormerSco = parseInt(scoFreeRegister, 10);
+      if (!REGISTER_NUMBERS.includes(registerForFormerSco)) {
+        setError("Caisse libre invalide.");
+        return;
+      }
+    }
+
+    let relieverPayload;
+    let formerPayload;
+    try {
+      relieverPayload = buildReliefAssignment(scoReliever, scoReliefTime, SELF_CHECKOUT_REGISTER);
+      formerPayload = buildReliefAssignment(scoPerson, scoReliefTime, registerForFormerSco);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de calculer la relève.");
+      return;
+    }
+
+    // Contrôle conflit caisse pour l'ancien SCO après la relève.
+    const formerIntervals: Interval[] =
+      formerPayload.segments != null
+        ? formerPayload.segments.map((seg, i) => ({
+            start: seg.startTime,
+            end: formerPayload.segments![i + 1]?.startTime ?? scoPerson.endTime,
+            registerNumber: seg.registerNumber,
+          }))
+        : [{ start: scoPerson.startTime, end: scoPerson.endTime, registerNumber: formerPayload.registerNumber! }];
+
+    const conflict = findRegisterConflict(
+      scoPerson,
+      formerIntervals.filter((iv) => iv.start >= scoReliefTime || iv.end > scoReliefTime),
+      [scoReliever.id],
+    );
+    if (conflict) {
+      setError(
+        `La caisse ${conflict.registerNumber} est déjà attribuée à ${conflict.other.user.firstName} ${conflict.other.user.lastName} sur ce créneau.`,
+      );
+      return;
+    }
+
+    setScoPending(true);
+    try {
+      await api.patch<Planning>(`/api/plannings/${scoReliever.id}/register-number`, relieverPayload);
+      await api.patch<Planning>(`/api/plannings/${scoPerson.id}/register-number`, formerPayload);
+      closeScoPanel();
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Impossible d'appliquer la relève SCO.");
+    } finally {
+      setScoPending(false);
+    }
+  }
+
   function startEdit(entry: Planning, cellKey: string) {
+    closeScoPanel();
     setEditingCell(cellKey);
     setError(null);
-    if (entry.registerSegments && entry.registerSegments.length > 0) {
-      setFormMode("split");
-      setFormSegmentRegisters(entry.registerSegments.map((s) => String(s.registerNumber)));
-      setFormSwitchTimes(entry.registerSegments.slice(1).map((s) => s.startTime));
+    // Affiche la caisse actuelle (ou le 1er segment d'une relève SCO).
+    if (entry.registerNumber != null) {
+      setFormRegisterNumber(String(entry.registerNumber));
+    } else if (entry.registerSegments && entry.registerSegments.length > 0) {
+      setFormRegisterNumber(String(entry.registerSegments[0].registerNumber));
     } else {
-      setFormMode("simple");
-      setFormRegisterNumber(entry.registerNumber != null ? String(entry.registerNumber) : "");
-      setFormSegmentRegisters(["", ""]);
-      setFormSwitchTimes([""]);
+      setFormRegisterNumber("");
     }
   }
 
@@ -191,36 +455,15 @@ function PlanDeCaisseContent() {
     setEditingCell(null);
   }
 
-  function switchToMode(mode: FormMode, entry: Planning) {
-    setFormMode(mode);
-    setError(null);
-    if (mode === "split" && formSegmentRegisters.every((v) => v === "")) {
-      // Première bascule vers ce mode : pré-remplit le premier segment avec
-      // l'affectation simple actuelle si c'était une caisse (pas pauses/retour).
-      const first = formRegisterNumber !== "" && parseInt(formRegisterNumber, 10) >= 0 ? formRegisterNumber : "";
-      setFormSegmentRegisters([first, ""]);
-      setFormSwitchTimes([""]);
-    }
-    void entry;
-  }
-
-  function addSwitch(entry: Planning) {
-    if (formSegmentRegisters.length >= MAX_SPLIT_SEGMENTS) return;
-    const lastSwitch = formSwitchTimes[formSwitchTimes.length - 1] || entry.startTime;
-    setFormSwitchTimes((prev) => [...prev, lastSwitch]);
-    setFormSegmentRegisters((prev) => [...prev, ""]);
-  }
-
-  function removeSwitch() {
-    if (formSegmentRegisters.length <= 2) return;
-    setFormSwitchTimes((prev) => prev.slice(0, -1));
-    setFormSegmentRegisters((prev) => prev.slice(0, -1));
-  }
-
   /** Cherche un conflit de caisse numérotée avec un autre créneau du même jour. */
-  function findRegisterConflict(entry: Planning, newIntervals: Interval[]): { registerNumber: number; other: Planning } | null {
+  function findRegisterConflict(
+    entry: Planning,
+    newIntervals: Interval[],
+    excludeIds: number[] = [],
+  ): { registerNumber: number; other: Planning } | null {
+    const exclude = new Set([entry.id, ...excludeIds]);
     for (const p of plannings) {
-      if (p.id === entry.id || p.workDate !== entry.workDate) continue;
+      if (exclude.has(p.id) || p.workDate !== entry.workDate) continue;
       const otherIntervals = entryIntervals(p);
       for (const ni of newIntervals) {
         if (!REGISTER_NUMBERS.includes(ni.registerNumber)) continue; // caisses auto : pas de conflit
@@ -262,60 +505,6 @@ function PlanDeCaisseContent() {
     }
   }
 
-  async function submitSplit(e: FormEvent, entry: Planning, cellKey: string) {
-    e.preventDefault();
-    setError(null);
-
-    if (formSegmentRegisters.some((v) => v === "")) {
-      setError("Choisissez une caisse pour chaque tranche de la bascule.");
-      return;
-    }
-    if (formSwitchTimes.some((v) => v === "")) {
-      setError("Renseignez l'heure de chaque bascule.");
-      return;
-    }
-    const times = [entry.startTime, ...formSwitchTimes];
-    for (let i = 1; i < times.length; i++) {
-      if (times[i] <= times[i - 1]) {
-        setError("Les heures de bascule doivent être strictement croissantes.");
-        return;
-      }
-    }
-    if (formSwitchTimes[formSwitchTimes.length - 1] >= entry.endTime) {
-      setError("Une heure de bascule doit être avant la fin du créneau.");
-      return;
-    }
-
-    const segments = [entry.startTime, ...formSwitchTimes].map((startTime, i) => ({
-      startTime,
-      registerNumber: parseInt(formSegmentRegisters[i], 10),
-    }));
-
-    const newIntervals: Interval[] = segments.map((seg, i) => ({
-      start: seg.startTime,
-      end: segments[i + 1]?.startTime ?? entry.endTime,
-      registerNumber: seg.registerNumber,
-    }));
-    const conflict = findRegisterConflict(entry, newIntervals);
-    if (conflict) {
-      setError(
-        `La caisse ${conflict.registerNumber} est déjà attribuée à ${conflict.other.user.firstName} ${conflict.other.user.lastName} sur une partie de ce créneau.`,
-      );
-      return;
-    }
-
-    setPendingKey(cellKey);
-    try {
-      await api.patch<Planning>(`/api/plannings/${entry.id}/register-number`, { segments });
-      setEditingCell(null);
-      await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible d'attribuer cette bascule.");
-    } finally {
-      setPendingKey(null);
-    }
-  }
-
   async function clearRegister(entry: Planning, cellKey: string) {
     setError(null);
     setPendingKey(cellKey);
@@ -331,51 +520,48 @@ function PlanDeCaisseContent() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
+    <>
+    <div className="flex flex-col gap-6 print:hidden">
+      <div className="flex flex-col gap-4">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-slate-900">Plan de caisse</h1>
           <p className="mt-1 text-base text-slate-700">
             Attribuez une caisse (1 à 8), les caisses automatiques ou une affectation &quot;Pauses / Retour&quot;
-            aux créneaux déjà planifiés pour chaque caissier(ère) — avec, si besoin, une bascule en
-            cours de créneau (ex. caisse puis caisses automatiques à une heure donnée). Les horaires
-            sont fixés par la direction dans le planning ; seule l&apos;affectation se modifie ici. Au
-            moins un(e) caissier(ère) doit superviser les caisses automatiques sur chaque créneau ouvert.
+            aux créneaux déjà planifiés — caissiers, et LAD / Accueil lorsqu&apos;ils sont prévus en
+            caisse. Les relèves SCO se gèrent via le bouton Caisse auto. Les horaires sont fixés
+            par la direction ; seule l&apos;affectation se modifie ici. Au moins un(e) caissier(ère)
+            doit superviser les caisses automatiques sur chaque créneau ouvert.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-          <Button
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={() => setWeekStart((d) => {
-              const nd = new Date(d);
-              nd.setDate(nd.getDate() - 7);
-              return nd;
-            })}
-          >
-            ← Semaine précédente
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={() => setWeekStart((d) => {
-              const nd = new Date(d);
-              nd.setDate(nd.getDate() + 7);
-              return nd;
-            })}
-          >
-            Semaine suivante →
-          </Button>
-        </div>
+        <WeekNavigator weekStart={weekStart} onWeekChange={setWeekStart} />
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && !scoOpen && <Alert>{error}</Alert>}
 
-      <Card title={`Semaine du ${weekDays[0].toLocaleDateString("fr-FR")} au ${weekDays[6].toLocaleDateString("fr-FR")}`}>
+      <Card
+        title="Affectations de la semaine"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => window.print()}
+              disabled={loading || rowUsers.length === 0}
+            >
+              Imprimer
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => (scoOpen ? closeScoPanel() : openScoPanel())}
+            >
+              Caisse auto
+            </Button>
+          </div>
+        }
+      >
         {loading ? (
           <p className="text-sm text-slate-400">Chargement...</p>
-        ) : caissiers.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucun caissier(ère) enregistré(e).</p>
+        ) : rowUsers.length === 0 ? (
+          <p className="text-sm text-slate-500">Aucun(e) employé(e) à afficher pour cette semaine.</p>
         ) : (
           <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:px-0">
             <p className="mb-3 text-sm font-medium text-slate-600 lg:hidden">
@@ -388,7 +574,7 @@ function PlanDeCaisseContent() {
                     rowSpan={2}
                     className="sticky left-0 z-10 min-w-[160px] border-b border-r border-slate-200 bg-white p-2 text-left align-bottom text-sm font-semibold text-slate-700"
                   >
-                    Caissier(ère)
+                    Employé(e)
                   </th>
                   {weekDays.map((day, idx) => (
                     <th
@@ -403,24 +589,27 @@ function PlanDeCaisseContent() {
                 <tr>
                   {weekDays.map((day, idx) =>
                     HALF_DAY_SLOTS.map((slot) => {
+                      const dayKey = toISODate(day);
                       const closed = isClosedSlot(idx, slot.key);
-                      const coverage = selfCheckoutCoverage.get(`${toISODate(day)}_${slot.key}`);
+                      const coverage = selfCheckoutCoverage.get(scoSlotKey(dayKey, slot.key));
                       const uncovered = !closed && coverage?.hasCaissier && !coverage.covered;
                       return (
                         <th
-                          key={`${toISODate(day)}_${slot.key}`}
+                          key={scoSlotKey(dayKey, slot.key)}
                           className={`min-w-[110px] border-b border-r border-slate-200 p-1.5 text-center font-medium ${
                             closed ? "bg-slate-100 text-slate-400" : "text-slate-500"
                           }`}
                         >
                           {closed ? "Fermé" : slot.label}
                           {uncovered && (
-                            <div
-                              title="Aucun(e) caissier(ère) n'est affecté(e) aux caisses automatiques sur ce créneau."
-                              className="mt-0.5 text-[10px] font-normal text-amber-600"
+                            <button
+                              type="button"
+                              title="Ouvrir la relève Caisse auto"
+                              onClick={() => openScoPanel(idx, slot.key)}
+                              className="mt-0.5 block w-full text-[10px] font-normal text-amber-600 underline decoration-amber-300 underline-offset-2 hover:text-amber-700"
                             >
                               ⚠ Auto non couvertes
-                            </div>
+                            </button>
                           )}
                         </th>
                       );
@@ -429,10 +618,19 @@ function PlanDeCaisseContent() {
                 </tr>
               </thead>
               <tbody>
-                {caissiers.map((user) => (
+                {rowUsers.map((user) => {
+                  const origin = originRoleLabel(user);
+                  return (
                   <tr key={user.id}>
                     <td className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white p-2 text-left font-medium text-slate-700">
-                      {user.firstName} {user.lastName}
+                      <div className="flex flex-col gap-0.5">
+                        <span>
+                          {user.firstName} {user.lastName}
+                        </span>
+                        {origin && (
+                          <span className="text-[10px] font-normal text-slate-400">{origin}</span>
+                        )}
+                      </div>
                     </td>
                     {weekDays.map((day, idx) =>
                       HALF_DAY_SLOTS.map((slot) => {
@@ -472,168 +670,44 @@ function PlanDeCaisseContent() {
                           <td key={cellKey} className="border-b border-r border-slate-200 p-1">
                             {isEditing ? (
                               <div className="flex flex-col gap-1 rounded-md border border-slate-200 bg-slate-50/60 p-1.5">
-                                <div className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => switchToMode("simple", entry)}
-                                    className={`flex-1 rounded-md px-1 py-0.5 text-[10px] font-medium transition ${
-                                      formMode === "simple"
-                                        ? "bg-[var(--cf-blue)] text-white"
-                                        : "bg-white text-slate-500 hover:bg-slate-100"
-                                    }`}
+                                <form
+                                  onSubmit={(e) => submitSimple(e, entry, cellKey)}
+                                  className="flex flex-col gap-1"
+                                >
+                                  <select
+                                    required
+                                    autoFocus
+                                    value={formRegisterNumber}
+                                    onChange={(e) => setFormRegisterNumber(e.target.value)}
+                                    className="w-full rounded-md border border-slate-300 px-1 py-0.5 text-[11px]"
                                   >
-                                    Simple
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => switchToMode("split", entry)}
-                                    className={`flex-1 rounded-md px-1 py-0.5 text-[10px] font-medium transition ${
-                                      formMode === "split"
-                                        ? "bg-[var(--cf-blue)] text-white"
-                                        : "bg-white text-slate-500 hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    Bascule
-                                  </button>
-                                </div>
-
-                                {formMode === "simple" ? (
-                                  <form
-                                    onSubmit={(e) => submitSimple(e, entry, cellKey)}
-                                    className="flex flex-col gap-1"
-                                  >
-                                    <select
-                                      required
-                                      autoFocus
-                                      value={formRegisterNumber}
-                                      onChange={(e) => setFormRegisterNumber(e.target.value)}
-                                      className="w-full rounded-md border border-slate-300 px-1 py-0.5 text-[11px]"
-                                    >
-                                      <option value="">Choisir...</option>
-                                      <option value={String(SELF_CHECKOUT_REGISTER)}>Caisses automatiques</option>
-                                      <option value={String(PAUSES_RETOUR_REGISTER)}>Pauses / Retour</option>
-                                      {REGISTER_NUMBERS.map((n) => (
-                                        <option key={n} value={String(n)}>
-                                          Caisse {n}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <div className="flex gap-1">
-                                      <Button
-                                        type="submit"
-                                        disabled={isPending}
-                                        className="w-full justify-center px-1 py-0.5 text-[10px]"
-                                      >
-                                        OK
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="secondary"
-                                        className="w-full justify-center px-1 py-0.5 text-[10px]"
-                                        onClick={cancelEdit}
-                                      >
-                                        Annuler
-                                      </Button>
-                                    </div>
-                                  </form>
-                                ) : (
-                                  <form
-                                    onSubmit={(e) => submitSplit(e, entry, cellKey)}
-                                    className="flex flex-col gap-1"
-                                  >
-                                    <div className="text-[10px] text-slate-500">Dès {formatFrenchTime(entry.startTime)}</div>
-                                    <select
-                                      required
-                                      autoFocus
-                                      value={formSegmentRegisters[0]}
-                                      onChange={(e) =>
-                                        setFormSegmentRegisters((prev) => {
-                                          const next = [...prev];
-                                          next[0] = e.target.value;
-                                          return next;
-                                        })
-                                      }
-                                      className="w-full rounded-md border border-slate-300 px-1 py-0.5 text-[11px]"
-                                    >
-                                      <SplitRegisterOptions />
-                                    </select>
-
-                                    {formSwitchTimes.map((switchTime, i) => (
-                                      <div key={i} className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-1">
-                                          <span className="text-[10px] text-slate-500">Bascule à</span>
-                                          <TimeField
-                                            required
-                                            min={entry.startTime}
-                                            max={entry.endTime}
-                                            value={switchTime}
-                                            onChange={(v) =>
-                                              setFormSwitchTimes((prev) => {
-                                                const next = [...prev];
-                                                next[i] = v;
-                                                return next;
-                                              })
-                                            }
-                                            className="flex-1 rounded-md border border-slate-300 px-1 py-0.5 text-[11px]"
-                                          />
-                                        </div>
-                                        <select
-                                          required
-                                          value={formSegmentRegisters[i + 1]}
-                                          onChange={(e) =>
-                                            setFormSegmentRegisters((prev) => {
-                                              const next = [...prev];
-                                              next[i + 1] = e.target.value;
-                                              return next;
-                                            })
-                                          }
-                                          className="w-full rounded-md border border-slate-300 px-1 py-0.5 text-[11px]"
-                                        >
-                                          <SplitRegisterOptions />
-                                        </select>
-                                      </div>
+                                    <option value="">Choisir...</option>
+                                    <option value={String(SELF_CHECKOUT_REGISTER)}>Caisses automatiques</option>
+                                    <option value={String(PAUSES_RETOUR_REGISTER)}>Pauses / Retour</option>
+                                    {REGISTER_NUMBERS.map((n) => (
+                                      <option key={n} value={String(n)}>
+                                        Caisse {n}
+                                      </option>
                                     ))}
-
-                                    <div className="flex gap-1">
-                                      {formSegmentRegisters.length < MAX_SPLIT_SEGMENTS && (
-                                        <button
-                                          type="button"
-                                          onClick={() => addSwitch(entry)}
-                                          className="flex-1 text-[10px] text-[var(--cf-blue)] underline"
-                                        >
-                                          + Bascule
-                                        </button>
-                                      )}
-                                      {formSegmentRegisters.length > 2 && (
-                                        <button
-                                          type="button"
-                                          onClick={removeSwitch}
-                                          className="flex-1 text-[10px] text-slate-400 underline"
-                                        >
-                                          − Retirer
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    <div className="flex gap-1">
-                                      <Button
-                                        type="submit"
-                                        disabled={isPending}
-                                        className="w-full justify-center px-1 py-0.5 text-[10px]"
-                                      >
-                                        OK
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="secondary"
-                                        className="w-full justify-center px-1 py-0.5 text-[10px]"
-                                        onClick={cancelEdit}
-                                      >
-                                        Annuler
-                                      </Button>
-                                    </div>
-                                  </form>
-                                )}
+                                  </select>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      type="submit"
+                                      disabled={isPending}
+                                      className="w-full justify-center px-1 py-0.5 text-[10px]"
+                                    >
+                                      OK
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="secondary"
+                                      className="w-full justify-center px-1 py-0.5 text-[10px]"
+                                      onClick={cancelEdit}
+                                    >
+                                      Annuler
+                                    </Button>
+                                  </div>
+                                </form>
 
                                 {hasAssignment && (
                                   <button
@@ -684,12 +758,413 @@ function PlanDeCaisseContent() {
                       }),
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Card>
+
+      {scoOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-10 sm:pt-16"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sco-modal-title"
+          onClick={() => !scoPending && closeScoPanel()}
+        >
+          <form
+            onSubmit={submitScoRelief}
+            className="mb-16 w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (scoTimeMenuOpen) setScoTimeMenuOpen(false);
+            }}
+          >
+            <h2 id="sco-modal-title" className="text-lg font-semibold text-slate-800">
+              Caisse auto — Relève
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Si personne n&apos;est encore aux automatiques, désignez qui les prend. Sinon,
+              choisissez qui relève : échange de postes s&apos;il est en caisse, ou caisse libre
+              s&apos;il entre en service.
+            </p>
+
+            {error && <div className="mt-3"><Alert>{error}</Alert></div>}
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <label className="flex min-w-[160px] flex-1 flex-col gap-1 text-sm font-medium text-slate-700">
+                Jour
+                <select
+                  value={String(scoDayIndex)}
+                  onChange={(e) => {
+                    setScoDayIndex(parseInt(e.target.value, 10));
+                    setScoRelieverId("");
+                    setScoFreeRegister("");
+                    setError(null);
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-normal"
+                >
+                  {weekDays.map((day, idx) => (
+                    <option key={toISODate(day)} value={String(idx)}>
+                      {DAY_LABELS[idx]} {day.getDate()}/{day.getMonth() + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div
+                className="relative flex min-w-[140px] flex-col gap-1 text-sm font-medium text-slate-700"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span>Heure de relève</span>
+                <button
+                  type="button"
+                  aria-haspopup="listbox"
+                  aria-expanded={scoTimeMenuOpen}
+                  onClick={() => setScoTimeMenuOpen((open) => !open)}
+                  className="flex w-full items-center justify-between rounded-md border border-slate-300 bg-white px-2.5 py-2 text-left text-sm font-normal text-slate-800"
+                >
+                  <span className={scoReliefTime ? "text-slate-800" : "text-slate-400"}>
+                    {scoReliefTime ? formatFrenchTime(scoReliefTime) : "Choisir..."}
+                  </span>
+                  <span className="ml-2 text-slate-400" aria-hidden>▾</span>
+                </button>
+                {scoTimeMenuOpen && (
+                  <ul
+                    role="listbox"
+                    className="absolute top-full left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+                  >
+                    {SCO_RELIEF_TIMES.map((time) => (
+                      <li key={time} role="option" aria-selected={scoReliefTime === time}>
+                        <button
+                          type="button"
+                          className={`w-full px-2.5 py-1.5 text-left text-sm hover:bg-slate-100 ${
+                            scoReliefTime === time ? "bg-slate-50 font-medium text-[var(--cf-blue)]" : "text-slate-800"
+                          }`}
+                          onClick={() => {
+                            setScoReliefTime(time);
+                            setScoRelieverId("");
+                            setScoFreeRegister("");
+                            setScoTimeMenuOpen(false);
+                            setError(null);
+                          }}
+                        >
+                          {formatFrenchTime(time)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {/* Champ requis invisible pour la validation HTML du formulaire. */}
+                <input type="hidden" required value={scoReliefTime} onChange={() => {}} />
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              {!scoReliefTime ? (
+                <span className="text-slate-400">Indiquez l&apos;heure pour voir qui est aux SCO.</span>
+              ) : scoPerson ? (
+                <span>
+                  Aux SCO :{" "}
+                  <strong>
+                    {scoPerson.user.firstName} {scoPerson.user.lastName}
+                  </strong>
+                </span>
+              ) : scoInitialCandidates.length > 0 ? (
+                <span>Aucune couverture SCO — choisissez qui prend les automatiques.</span>
+              ) : (
+                <span className="text-amber-700">Personne n&apos;est planifié(e) sur ce créneau.</span>
+              )}
+            </div>
+
+            {scoReliefTime && !scoPerson && scoInitialCandidates.length > 0 && (
+              <div className="mt-4 flex flex-col gap-3">
+                <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                  Qui prend les automatiques ?
+                  <select
+                    required
+                    value={scoRelieverId}
+                    onChange={(e) => {
+                      setScoRelieverId(e.target.value);
+                      setError(null);
+                    }}
+                    className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-normal"
+                  >
+                    <option value="">Choisir...</option>
+                    {scoInitialCandidates.map((p) => {
+                      const origin = originRoleLabel(p.user);
+                      const reg = registerLabelAtTime(p, scoReliefTime);
+                      return (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.user.firstName} {p.user.lastName}
+                          {origin ? ` (${origin})` : ""} · {reg}
+                          {" · "}
+                          {formatFrenchTime(p.startTime)}–{formatFrenchTime(p.endTime)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {scoPerson && (
+              <div className="mt-4 flex flex-col gap-3">
+                <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                  Relève
+                  <select
+                    required
+                    value={scoRelieverId}
+                    onChange={(e) => {
+                      setScoRelieverId(e.target.value);
+                      setScoFreeRegister("");
+                      setError(null);
+                    }}
+                    className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-normal"
+                  >
+                    <option value="">Choisir...</option>
+                    {scoRelievers.map((p) => {
+                      const origin = originRoleLabel(p.user);
+                      const reg = registerLabelAtTime(p, scoReliefTime);
+                      return (
+                        <option key={p.id} value={String(p.id)}>
+                          {p.user.firstName} {p.user.lastName}
+                          {origin ? ` (${origin})` : ""} · {reg}
+                          {" · dès "}
+                          {formatFrenchTime(p.startTime)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                {scoReliever && scoRelieverRegister != null && (
+                  <p className="text-sm text-slate-600">
+                    Échange : {scoReliever.user.firstName} → Auto,{" "}
+                    {scoPerson.user.firstName} → {registerShortLabel(scoRelieverRegister)}
+                  </p>
+                )}
+
+                {scoNeedsFreeRegister && (
+                  <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+                    Caisse pour {scoPerson.user.firstName} (après la relève)
+                    <select
+                      required
+                      value={scoFreeRegister}
+                      onChange={(e) => {
+                        setScoFreeRegister(e.target.value);
+                        setError(null);
+                      }}
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm font-normal"
+                    >
+                      <option value="">Choisir une caisse libre...</option>
+                      {scoFreeRegisters.map((n) => (
+                        <option key={n} value={String(n)}>
+                          Caisse {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {scoNeedsFreeRegister && scoFreeRegisters.length === 0 && (
+                  <p className="text-sm text-amber-700">
+                    Aucune caisse libre sur ce créneau pour accueillir {scoPerson.user.firstName}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={scoPending}
+                onClick={closeScoPanel}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  scoPending
+                  || !scoReliefTime
+                  || !scoRelieverId
+                  || (Boolean(scoPerson) && scoNeedsFreeRegister && scoFreeRegisters.length === 0)
+                  || (!scoPerson && scoInitialCandidates.length === 0)
+                }
+              >
+                {scoPending
+                  ? "Enregistrement…"
+                  : scoPerson
+                    ? "Valider la relève"
+                    : "Mettre aux SCO"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+
+    <PrintablePlanDeCaisse
+      weekDays={weekDays}
+      weekStart={weekStart}
+      rowUsers={rowUsers}
+      planningByCell={planningByCell}
+      siteName={rowUsers.find((u) => u.site?.name)?.site?.name ?? null}
+    />
+    </>
+  );
+}
+
+type PrintTeamRow = { user: User; entry: Planning };
+
+function PrintablePlanDeCaisse({
+  weekDays,
+  weekStart,
+  rowUsers,
+  planningByCell,
+  siteName,
+}: {
+  weekDays: Date[];
+  weekStart: Date;
+  rowUsers: User[];
+  planningByCell: Map<string, Planning>;
+  siteName: string | null;
+}) {
+  const weekNum = isoWeekNumber(weekStart);
+
+  function teamForSlot(dayIndex: number, slotKey: HalfDayKey): PrintTeamRow[] {
+    if (isClosedSlot(dayIndex, slotKey)) return [];
+    const dayKey = toISODate(weekDays[dayIndex]);
+    const rows: PrintTeamRow[] = [];
+    for (const user of rowUsers) {
+      const entry = planningByCell.get(`${user.id}_${dayKey}_${slotKey}`);
+      if (!entry) continue;
+      rows.push({ user, entry });
+    }
+    rows.sort((a, b) => {
+      if (a.entry.startTime !== b.entry.startTime) {
+        return a.entry.startTime < b.entry.startTime ? -1 : 1;
+      }
+      return compareUsersByName(a.user, b.user);
+    });
+    return rows;
+  }
+
+  return (
+    <div className="print-plan-caisse hidden print:block">
+      {weekDays.map((day, dayIndex) => {
+        const morning = teamForSlot(dayIndex, "MATIN");
+        const evening = teamForSlot(dayIndex, "APRES_MIDI");
+        const eveningClosed = isClosedSlot(dayIndex, "APRES_MIDI");
+
+        return (
+          <section
+            key={toISODate(day)}
+            className="print-plan-caisse__page"
+          >
+            <header className="print-plan-caisse__header">
+              <div className="print-plan-caisse__brand">
+                {/* eslint-disable-next-line @next/next/no-img-element -- img classique plus fiable à l'impression */}
+                <img
+                  src="/carrefour-logo.png"
+                  alt="Carrefour"
+                  className="print-plan-caisse__logo"
+                  width={28}
+                  height={28}
+                />
+                <span>Plan de caisse</span>
+              </div>
+              <p className="print-plan-caisse__date">
+                {DAY_LABELS[dayIndex]}{" "}
+                {day.toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+              <p className="print-plan-caisse__meta">
+                Semaine {weekNum}
+                {siteName ? ` · ${siteName}` : ""}
+              </p>
+            </header>
+
+            <div className="print-plan-caisse__teams">
+              <PrintTeamPanel title="Équipe du matin" rows={morning} />
+              <PrintTeamPanel
+                title="Équipe de l'après-midi"
+                rows={evening}
+                closed={eveningClosed}
+              />
+            </div>
+
+            <p className="print-plan-caisse__legend">
+              <strong>SCO</strong> = caisses automatiques · <strong>P/R</strong> = pauses / retour ·{" "}
+              Pause = 3 min / heure travaillée · Fin de pause à compléter à la main
+            </p>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function PrintTeamPanel({
+  title,
+  rows,
+  closed = false,
+}: {
+  title: string;
+  rows: PrintTeamRow[];
+  closed?: boolean;
+}) {
+  return (
+    <div className="print-plan-caisse__team">
+      <h2>{title}</h2>
+      {closed ? (
+        <p className="print-plan-caisse__empty">Fermé</p>
+      ) : rows.length === 0 ? (
+        <p className="print-plan-caisse__empty">Aucun agent prévu</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>N°</th>
+              <th>Arrivée</th>
+              <th>Caisses</th>
+              <th>Bascules</th>
+              <th>Début pause</th>
+              <th>Fin pause</th>
+              <th>Temps pause</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ user, entry }) => {
+              const origin = originRoleLabel(user);
+              const workMin = durationMinutes(entry.startTime, entry.endTime);
+              const pauseMin = pauseMinutesForWork(workMin);
+              return (
+                <tr key={user.id}>
+                  <td className="print-plan-caisse__name">
+                    {user.firstName} {user.lastName}
+                    {origin ? ` (${origin})` : ""}
+                  </td>
+                  <td className="print-plan-caisse__num">{user.cashierNumber ?? "—"}</td>
+                  <td>{formatFrenchTime(entry.startTime)}</td>
+                  <td className="print-plan-caisse__reg">{printRegisters(entry)}</td>
+                  <td>{printBasculeTimes(entry)}</td>
+                  <td className="print-plan-caisse__write" aria-label="Début de pause à écrire" />
+                  <td className="print-plan-caisse__write" aria-label="Fin de pause à écrire" />
+                  <td className="print-plan-caisse__pause">{pauseMin} min</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

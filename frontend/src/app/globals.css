@@ -3,14 +3,27 @@
 :root {
   --background: #eef3fb;
   --foreground: #0f1b2d;
+  --muted: #5b6b7c;
+  --border: #d5e0ef;
+  --surface: #ffffff;
+  --surface-muted: #f4f7fb;
 
   /* Palette de marque Carrefour */
   --cf-blue: #0a4b9f;
   --cf-blue-dark: #06316b;
+  --cf-blue-mid: #1462c4;
   --cf-blue-light: #eaf1fb;
   --cf-red: #e30613;
   --cf-red-dark: #b8040f;
   --cf-white: #ffffff;
+
+  /* Thème boutons / contrôles (partagé toutes pages) */
+  --cf-radius: 0.55rem;
+  --cf-radius-sm: 0.4rem;
+  --cf-shadow-sm: 0 1px 2px rgba(6, 49, 107, 0.08);
+  --cf-shadow: 0 2px 8px rgba(6, 49, 107, 0.12);
+  --cf-shadow-primary: 0 2px 10px rgba(10, 75, 159, 0.28);
+  --cf-focus-ring: 0 0 0 3px rgba(10, 75, 159, 0.22);
 }
 
 @theme inline {
@@ -30,12 +43,41 @@ html {
      Sur mobile on reste un peu au-dessus du défaut pour la lisibilité,
      sans saturer les grilles denses. */
   font-size: 112.5%;
+  scrollbar-width: auto;
+  scrollbar-color: var(--cf-blue) transparent;
 }
 
 @media (max-width: 640px) {
   html {
     font-size: 106.25%;
   }
+}
+
+/* Barres de défilement visibles partout (Firefox + Chromium). */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: var(--cf-blue) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--cf-blue);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--cf-blue-dark);
+  background-clip: padding-box;
 }
 
 body {
@@ -73,5 +115,865 @@ body {
 }
 
 .cf-header-gradient {
-  background: linear-gradient(115deg, var(--cf-blue-dark) 0%, var(--cf-blue) 55%, #1462c4 100%);
+  background: linear-gradient(115deg, var(--cf-blue-dark) 0%, var(--cf-blue) 55%, var(--cf-blue-mid) 100%);
+}
+
+/* --- Boutons (thème global) --- */
+.cf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 1.05rem;
+  border-radius: var(--cf-radius);
+  border: 1px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.cf-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--cf-focus-ring);
+}
+
+.cf-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cf-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.cf-btn--primary {
+  background: linear-gradient(180deg, var(--cf-blue-mid) 0%, var(--cf-blue) 100%);
+  color: #fff;
+  border-color: var(--cf-blue-dark);
+  box-shadow: var(--cf-shadow-primary);
+}
+
+.cf-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--cf-blue) 0%, var(--cf-blue-dark) 100%);
+  box-shadow: 0 3px 12px rgba(6, 49, 107, 0.32);
+}
+
+.cf-btn--secondary {
+  background: var(--cf-blue-light);
+  color: var(--cf-blue-dark);
+  border-color: rgba(10, 75, 159, 0.14);
+  box-shadow: none;
+}
+
+.cf-btn--secondary:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(10, 75, 159, 0.28);
+  color: var(--cf-blue-dark);
+  box-shadow: var(--cf-shadow-sm);
+}
+
+.cf-btn--danger {
+  background: linear-gradient(180deg, #f01824 0%, var(--cf-red) 100%);
+  color: #fff;
+  border-color: var(--cf-red-dark);
+  box-shadow: 0 2px 10px rgba(227, 6, 19, 0.28);
+}
+
+.cf-btn--danger:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--cf-red) 0%, var(--cf-red-dark) 100%);
+  box-shadow: 0 3px 12px rgba(184, 4, 15, 0.34);
+}
+
+.cf-btn--ghost {
+  background: transparent;
+  color: var(--cf-blue);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.cf-btn--ghost:hover:not(:disabled) {
+  background: var(--cf-blue-light);
+  color: var(--cf-blue-dark);
+}
+
+.cf-btn--sm {
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8125rem;
+  border-radius: var(--cf-radius-sm);
+}
+
+.cf-btn--lg {
+  min-height: 2.85rem;
+  padding: 0.65rem 1.35rem;
+  font-size: 0.9375rem;
+}
+
+/* Navigateur de semaine (partagé toutes pages) */
+.cf-week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(10, 75, 159, 0.12);
+  background: #fff;
+  box-shadow: var(--cf-shadow-sm);
+}
+
+.cf-week__nav {
+  display: flex;
+  flex: 1 1 16rem;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.cf-week__label {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--cf-blue-light);
+  text-align: center;
+}
+
+.cf-week__eyebrow {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cf-blue);
+}
+
+.cf-week__dates {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-week__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .cf-week__dates {
+    font-size: 1rem;
+  }
+}
+
+/* --- Navigation (onglets thème Carrefour) --- */
+.cf-nav-track {
+  display: flex;
+  align-items: center;
+}
+
+.cf-nav-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cf-blue-dark);
+  background: transparent;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.cf-nav-item:hover {
+  background: var(--cf-blue-light);
+  color: var(--cf-blue-dark);
+}
+
+.cf-nav-item--active {
+  background: var(--cf-blue);
+  color: #fff;
+}
+
+.cf-nav-item--active:hover {
+  background: var(--cf-blue-dark);
+  color: #fff;
+}
+
+/* Segmented control (semaine / catégories planning) */
+.cf-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 0.9rem;
+  background: var(--cf-blue-light);
+  border: 1px solid rgba(10, 75, 159, 0.12);
+}
+
+.cf-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 0.7rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--cf-blue-dark);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cf-seg__btn:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(10, 75, 159, 0.15);
+}
+
+.cf-seg__btn--active {
+  background: var(--cf-blue);
+  color: #fff;
+  border-color: var(--cf-blue);
+  box-shadow: 0 1px 2px rgba(6, 49, 107, 0.2);
+}
+
+.cf-seg__btn--active:hover:not(:disabled) {
+  background: var(--cf-blue-dark);
+  border-color: var(--cf-blue-dark);
+  color: #fff;
+}
+
+.cf-seg__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cf-seg__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.22);
+  color: inherit;
+}
+
+.cf-seg__btn:not(.cf-seg__btn--active) .cf-seg__count {
+  background: #fff;
+  color: var(--cf-blue);
+  border: 1px solid rgba(10, 75, 159, 0.15);
+}
+
+/* Planning desktop : zone de scroll des jours. */
+.planning-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.35rem;
+  scrollbar-gutter: stable;
+}
+
+/* Planning desktop : colonne Employé collée à gauche dans la zone scrollable. */
+.planning-col-employee {
+  box-shadow: 4px 0 6px -4px rgba(15, 23, 42, 0.15);
+}
+
+/* Planning desktop : colonne Total hors zone de scroll, collée à droite. */
+.planning-col-total {
+  background-clip: padding-box;
+}
+
+/* Impression : document planning professionnel en paysage.
+   Important : annuler min-h-screen / flex-1 / background-attachment:fixed,
+   sinon Chrome génère souvent une 2ᵉ page blanche. */
+@media print {
+  @page {
+    size: landscape;
+    /* Marges serrées pour caser ~20 employés (horaires + signature) par page. */
+    margin: 5mm;
+  }
+
+  html {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    background-image: none !important;
+    background-attachment: scroll !important;
+    font-size: 100%;
+    color: #0f1b2d;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Conteneurs layout (AppShell, etc.) : plus de hauteur viewport. */
+  body * {
+    max-height: none !important;
+  }
+
+  .min-h-screen,
+  .min-h-full,
+  .h-full {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  .flex-1 {
+    flex: none !important;
+  }
+
+  body > div,
+  main {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+  }
+
+  /* Masquage / affichage fiables (spécificité + !important). */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Styles dédiés à la feuille imprimable du planning (écran + print).
+   Densité élevée : viser ~20 personnes (horaires + signature) par page A4 paysage. */
+.print-schedule {
+  color: #0f1b2d;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.print-schedule__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid var(--cf-blue);
+}
+
+.print-schedule__brand-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.print-schedule__logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 3px;
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  padding: 1px;
+}
+
+.print-schedule__brand-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--cf-blue);
+}
+
+.print-schedule__brand-tag {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cf-red);
+}
+
+.print-schedule__doc-title {
+  text-align: right;
+}
+
+.print-schedule__doc-title h1 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #0f1b2d;
+}
+
+.print-schedule__doc-title p {
+  margin: 0.05rem 0 0;
+  font-size: 0.58rem;
+  color: #5b6b7c;
+}
+
+.print-schedule__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  margin: 0.3rem 0 0.35rem;
+  padding: 0.2rem 0.4rem;
+  background: #eaf1fb;
+  border: 1px solid #c5d6ef;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.print-schedule__meta strong {
+  color: var(--cf-blue);
+}
+
+.print-schedule__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 8px;
+  line-height: 1.1;
+}
+
+.print-schedule__table th,
+.print-schedule__table td {
+  border: 1px solid #8fa3bd;
+  padding: 0.08rem 0.1rem;
+  vertical-align: middle;
+}
+
+.print-schedule__table thead th {
+  background: var(--cf-blue);
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.12rem 0.1rem;
+}
+
+.print-schedule__table thead .print-schedule__day {
+  font-size: 8px;
+  letter-spacing: 0;
+  /* Séparation nette entre les jours (plus marquée que matin/après-midi). */
+  border-right: 2.5px solid #06316b !important;
+}
+
+.print-schedule__table thead .print-schedule__slot {
+  background: #1462c4;
+  font-size: 7px;
+  font-weight: 600;
+}
+
+.print-schedule__table thead .print-schedule__slot--closed {
+  background: #5b6b7c;
+}
+
+/* Entre matin et après-midi : trait fin, moins marqué que la coupure de jour. */
+.print-schedule__half-end {
+  border-right: 1.5px solid #4a6fa5 !important;
+}
+
+/* Dernière demi-journée du jour : trait fort à droite pour découper la semaine. */
+.print-schedule__day-end {
+  border-right: 2.5px solid #06316b !important;
+}
+
+/* Alternance légère de fond par jour (pair / impair) pour mieux les distinguer. */
+.print-schedule__day-band--alt {
+  background-color: #f3f7fc;
+}
+
+.print-schedule__slot-cell--filled.print-schedule__day-band--alt {
+  background-color: #dce8f8;
+}
+
+.print-schedule__slot-cell--closed.print-schedule__day-band--alt {
+  background-color: #dde3eb;
+}
+
+.print-schedule__employee {
+  width: 11%;
+  text-align: left !important;
+  background: #f4f7fb !important;
+  color: #0f1b2d !important;
+  font-size: 8px !important;
+}
+
+.print-schedule__group td {
+  background: #0a4b9f;
+  color: #fff;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.3rem !important;
+}
+
+.print-schedule__name {
+  font-weight: 700;
+  font-size: 8px;
+  line-height: 1.15;
+  background: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.print-schedule__contract {
+  display: inline;
+  margin-left: 0.25rem;
+  font-size: 7px;
+  font-weight: 600;
+  color: #5b6b7c;
+  white-space: nowrap;
+}
+
+/* Horaires toujours sur une seule ligne (évite le wrapping qui gonfle les lignes). */
+.print-schedule__time {
+  display: block;
+  white-space: nowrap;
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.print-schedule__slot-cell--filled {
+  background: #e8f0fb;
+  color: var(--cf-blue);
+  font-weight: 700;
+}
+
+.print-schedule__slot-cell--caisse {
+  background: #ffedd5;
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.print-schedule__slot-cell--lad {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+}
+
+.print-schedule__slot-cell--hote {
+  background: #bae6fd;
+  color: #0c4a6e;
+  font-weight: 700;
+}
+
+.print-schedule__slot-cell--arret {
+  background: #111827;
+  color: #fff;
+  font-weight: 700;
+}
+
+.print-schedule__slot-cell--conge {
+  background: #fecaca;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.print-schedule__slot-cell--closed {
+  background: #e5e9ef;
+  color: #6b7c8f;
+  font-weight: 600;
+}
+
+.print-schedule__total {
+  width: 5%;
+  font-weight: 800;
+  text-align: center;
+  font-size: 7.5px;
+  white-space: nowrap;
+}
+
+.print-schedule__total--ok {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.print-schedule__total--over {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.print-schedule__total--neutral {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Trait fin entre la ligne d'horaires et la ligne de signature. */
+.print-schedule__hours td {
+  border-bottom: 0.5px solid #c5d6ef !important;
+  height: 0.7rem;
+  padding-top: 0.04rem !important;
+  padding-bottom: 0.04rem !important;
+}
+
+.print-schedule__sig td {
+  height: 1.15rem;
+  padding-top: 0.1rem !important;
+  padding-bottom: 0.1rem !important;
+  background: #fff;
+  border-top: 0.5px solid #c5d6ef !important;
+  /* Trait gras sous la signature = séparation nette entre employés. */
+  border-bottom: 2px solid #06316b !important;
+}
+
+/* Sans ligne de signature : le gras sépare directement les employés. */
+.print-schedule__hours--solo td {
+  border-bottom: 2px solid #06316b !important;
+}
+
+/* Nom / total en rowSpan : leur bordure basse suit le bloc employé (gras). */
+.print-schedule__hours .print-schedule__name,
+.print-schedule__hours .print-schedule__total {
+  border-bottom: 2px solid #06316b !important;
+}
+
+.print-schedule__sig td.print-schedule__slot-cell--closed {
+  background: #e5e9ef;
+}
+
+/* Pas de case signature pour un jour d'absence (arrêt / congé). */
+.print-schedule__sig td.print-schedule__sig--blocked {
+  background: #d1d5db !important;
+}
+
+.print-schedule__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  margin-top: 0.3rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid #c5d6ef;
+  font-size: 0.55rem;
+  color: #5b6b7c;
+}
+
+.print-schedule__swatch {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.2rem;
+  border: 1px solid #8fa3bd;
+  vertical-align: -1px;
+}
+
+.print-schedule__footer {
+  margin-top: 0.2rem;
+  font-size: 0.5rem;
+  color: #8fa3bd;
+  text-align: right;
+}
+
+/* Plan de caisse imprimé : 1 page / jour, matin + soir côte à côte */
+.print-plan-caisse {
+  color: #0f1b2d;
+  width: 100%;
+}
+
+.print-plan-caisse__page {
+  break-after: page;
+  page-break-after: always;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+}
+
+.print-plan-caisse__page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+.print-plan-caisse__header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--cf-blue);
+  padding-bottom: 0.4rem;
+}
+
+.print-plan-caisse__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--cf-blue-dark);
+}
+
+.print-plan-caisse__logo {
+  width: 1.4rem;
+  height: 1.4rem;
+  object-fit: contain;
+}
+
+.print-plan-caisse__date {
+  margin: 0;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f1b2d;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.print-plan-caisse__meta {
+  margin: 0;
+  text-align: right;
+  font-size: 0.7rem;
+  color: #5b6b7c;
+}
+
+.print-plan-caisse__teams {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.print-plan-caisse__team {
+  border: 1px solid #c5d4e8;
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.print-plan-caisse__team h2 {
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, var(--cf-blue-mid) 0%, var(--cf-blue) 100%);
+}
+
+.print-plan-caisse__team table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.print-plan-caisse__team th,
+.print-plan-caisse__team td {
+  padding: 0.28rem 0.35rem;
+  border-bottom: 1px solid #e2eaf4;
+  border-right: 1px solid #edf2f8;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.print-plan-caisse__team th:last-child,
+.print-plan-caisse__team td:last-child {
+  border-right: none;
+}
+
+.print-plan-caisse__team th {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--cf-blue);
+  background: var(--cf-blue-light);
+  white-space: nowrap;
+}
+
+.print-plan-caisse__team tr:last-child td {
+  border-bottom: none;
+}
+
+.print-plan-caisse__name {
+  font-weight: 600;
+  min-width: 7rem;
+}
+
+.print-plan-caisse__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.print-plan-caisse__reg {
+  font-weight: 700;
+  color: #9a3412;
+  white-space: nowrap;
+}
+
+.print-plan-caisse__pause {
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cases à remplir à la main (début / fin de pause). */
+.print-plan-caisse__write {
+  min-width: 3.2rem;
+  height: 1.15rem;
+  background: repeating-linear-gradient(
+    transparent 0,
+    transparent calc(100% - 1px),
+    #c5d4e8 calc(100% - 1px),
+    #c5d4e8 100%
+  );
+}
+
+.print-plan-caisse__empty {
+  margin: 0;
+  padding: 1.25rem 0.65rem;
+  font-size: 0.8rem;
+  color: #8fa3bd;
+  text-align: center;
+  font-style: italic;
+}
+
+.print-plan-caisse__legend {
+  margin: 0;
+  font-size: 0.65rem;
+  color: #8fa3bd;
+  text-align: right;
 }

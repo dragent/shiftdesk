@@ -84,7 +84,7 @@ function LoginForm() {
                 priority
               />
             </span>
-            <h1 className="text-lg font-semibold text-slate-800">Carrefour Accueil</h1>
+            <h1 className="text-lg font-semibold text-slate-800">ShiftDesk</h1>
             <p className="text-center text-sm text-slate-500">
               Connectez-vous pour accéder à la gestion de l&apos;accueil.
             </p>

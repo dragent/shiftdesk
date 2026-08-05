@@ -1,4 +1,4 @@
-# Carrefour Accueil — Gestion de l'accueil
+# ShiftDesk — Gestion de l'accueil
 
 Application de gestion de l'accueil pour un site Carrefour : gestion des
 **pauses** des hôtes/hôtesses, **plannings** créés par la Direction,
@@ -19,7 +19,7 @@ modèles ML).
 ## Structure du repo
 
 ```
-Carrefour-Accueil/
+shiftdesk/
 ├── .github/         # Workflows CI (GitHub Actions)
 ├── backend/         # API Symfony (métier, auth, base de données)
 ├── frontend/        # Application Next.js (UI)
@@ -79,7 +79,7 @@ docker compose up -d mysql adminer
 MySQL est exposé sur `127.0.0.1:3307` (pour éviter un conflit avec un
 MySQL déjà installé localement sur le port 3306 par défaut). Adminer est
 disponible sur http://localhost:8080 (serveur `mysql`, utilisateur
-`carrefour`, mot de passe `carrefour`, base `carrefour_accueil`).
+`shiftdesk`, mot de passe `shiftdesk`, base `shiftdesk`).
 
 > Si vous n'avez pas de MySQL local sur le port 3306, vous pouvez changer
 > le mapping de port dans `docker-compose.yml` (`"3306:3306"`) et adapter
@@ -215,6 +215,20 @@ sur chaque push/PR vers `dev` ou `main`.
   auth actuel (`AuthApiTest`).
 - Notifications temps réel (ex. Mercure) lors d'une alerte IA critique
   ou d'une nouvelle demande urgente.
-- Export/impression des plannings.
 - Gestion multi-sites plus fine (filtrage par site sur tous les écrans
   Direction/Admin).
+
+## Impression du planning (Direction)
+
+Sur l'écran `Direction > Planning`, une carte **Imprimer le planning**
+(sous le tableau) permet de :
+
+- Imprimer **tout le planning** de la semaine affichée : une ligne vierge
+  est alors ajoutée sous les horaires de chaque employé, destinée à la
+  **signature de présence** de chaque demi-journée.
+- Ou imprimer **le planning d'une seule personne**, sélectionnée dans la
+  liste déroulante (sans ligne de signature).
+
+L'impression réutilise les données déjà chargées à l'écran (même semaine),
+via une vue imprimable dédiée (masquée à l'écran, affichée uniquement au
+moment de l'impression grâce aux media queries `print`).

@@ -18,7 +18,7 @@ const lexend = Lexend({
 });
 
 export const metadata: Metadata = {
-  title: "Carrefour Accueil",
+  title: "ShiftDesk",
   description: "Gestion de l'accueil - pauses, plannings, demandes et supervision IA",
   icons: {
     icon: "/carrefour-logo.png",
@@ -34,7 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={`${lexend.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col print:block print:min-h-0 print:h-auto">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
