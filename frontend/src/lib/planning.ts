@@ -1,7 +1,11 @@
 /**
  * Créneaux fixes de demi-journée utilisés par le planning : le magasin est
- * couvert de 07h30 à 20h15, coupé en deux demi-journées (matin / après-midi).
- * Le dimanche après-midi est fermé : personne n'y travaille.
+ * couvert en semaine de 07h00 à 20h15, coupé en deux demi-journées
+ * (matin / après-midi). Le dimanche après-midi est fermé ; le dimanche
+ * matin se termine à 13h15.
+ *
+ * Les heures de début exactes dépendent du rôle (accueil, caissiers, etc.)
+ * — voir `earliestStartForUser` / `latestEndForDay`.
  */
 export type HalfDayKey = "MATIN" | "APRES_MIDI";
 
@@ -27,6 +31,17 @@ export const HALF_DAY_SLOTS: HalfDaySlot[] = [
  */
 export const STORE_OPEN = HALF_DAY_SLOTS[0].start;
 export const STORE_CLOSE = HALF_DAY_SLOTS[HALF_DAY_SLOTS.length - 1].end;
+
+/** Fermeture du dimanche (matin uniquement). */
+export const SUNDAY_CLOSE = "13:15";
+
+/** Début Accueil (ROLE_HOTE) : 7h00 en semaine, 7h30 le dimanche. */
+export const ACCUEIL_WEEKDAY_START = "07:00";
+export const ACCUEIL_SUNDAY_START = "07:30";
+
+/** Début Caissiers : 7h30 en semaine, 8h00 le dimanche. */
+export const CAISSIER_WEEKDAY_START = "07:30";
+export const CAISSIER_SUNDAY_START = "08:00";
 
 /** Première heure proposée pour une relève SCO (select). */
 export const SCO_RELIEF_START = "07:45";
@@ -60,15 +75,39 @@ export function scoReliefTimeOptions(
 
 /**
  * Direction et Rayon peuvent démarrer dès 04h00 le matin (préparation
- * magasin) ; les autres rôles restent bornés à l'ouverture magasin 07h30.
+ * magasin). Accueil dès 07h00 en semaine / 07h30 le dimanche. Caissiers
+ * dès 07h30 en semaine / 08h00 le dimanche. Autres rôles : ouverture
+ * magasin 07h30.
  */
 export const EARLY_SHIFT_START = "04:00";
 export const EARLY_SHIFT_ROLES = ["ROLE_DIRECTION", "ROLE_RAYON"] as const;
+
+export const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+/** Index du dimanche dans la semaine (lundi = 0). */
+export const SUNDAY_INDEX = 6;
+
+/** Heure de fin maximale autorisée un jour donné (13h15 le dimanche). */
+export function latestEndForDay(dayIndex: number): string {
+  return dayIndex === SUNDAY_INDEX ? SUNDAY_CLOSE : STORE_CLOSE;
+}
+
+/**
+ * Heure de fin proposée par défaut pour une demi-journée : fin du créneau
+ * le matin en semaine (14h00), fermeture dimanche (13h15) le dimanche matin,
+ * fermeture magasin (20h15) l'après-midi.
+ */
+export function defaultEndForSlot(slotKey: HalfDayKey, dayIndex: number): string {
+  if (dayIndex === SUNDAY_INDEX) return SUNDAY_CLOSE;
+  const slot = HALF_DAY_SLOTS.find((s) => s.key === slotKey);
+  return slot?.end ?? STORE_CLOSE;
+}
 
 /** Heure de début minimale autorisée pour un utilisateur sur une demi-journée. */
 export function earliestStartForUser(
   user: { roles?: string[] | null },
   slotKey: HalfDayKey,
+  dayIndex: number = 0,
 ): string {
   const slot = HALF_DAY_SLOTS.find((s) => s.key === slotKey);
   const defaultStart = slot?.start ?? STORE_OPEN;
@@ -77,13 +116,15 @@ export function earliestStartForUser(
   if (EARLY_SHIFT_ROLES.some((role) => roles.includes(role))) {
     return EARLY_SHIFT_START;
   }
+  const isSunday = dayIndex === SUNDAY_INDEX;
+  if (roles.includes("ROLE_HOTE")) {
+    return isSunday ? ACCUEIL_SUNDAY_START : ACCUEIL_WEEKDAY_START;
+  }
+  if (roles.includes("ROLE_CAISSIER")) {
+    return isSunday ? CAISSIER_SUNDAY_START : CAISSIER_WEEKDAY_START;
+  }
   return defaultStart;
 }
-
-export const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-
-/** Index du dimanche dans la semaine (lundi = 0). */
-export const SUNDAY_INDEX = 6;
 
 /**
  * Détermine à quelle demi-journée appartient un créneau à partir de son
