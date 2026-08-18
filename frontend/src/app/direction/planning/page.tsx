@@ -8,14 +8,15 @@ import { api, ApiError } from "@/lib/api";
 import {
   addHours,
   DAY_LABELS,
+  defaultEndForSlot,
   durationMinutes,
   formatFrenchTime,
   formatMinutesAsHours,
   earliestStartForUser,
   HALF_DAY_SLOTS,
   isPlanningSlotClosed,
+  latestEndForDay,
   slotKeyForTime,
-  STORE_CLOSE,
   type HalfDayKey,
 } from "@/lib/planning";
 import type { Absence, Planning, StoreClosure, User } from "@/lib/types";
@@ -214,13 +215,13 @@ function PlanningContent() {
     return map;
   }, [plannings, absenceByUserDay]);
 
-  function startAdd(user: User, dayKey: string, slotKey: HalfDayKey) {
+  function startAdd(user: User, dayKey: string, slotKey: HalfDayKey, dayIndex: number) {
     if (absenceByUserDay.has(`${user.id}_${dayKey}`)) return;
     const cellKey = `${user.id}_${dayKey}_${slotKey}`;
-    const slot = HALF_DAY_SLOTS.find((s) => s.key === slotKey);
-    // Direction / Rayon : matin dès 04h00 ; sinon ouverture magasin 07h30.
-    let defaultStart = earliestStartForUser(user, slotKey);
-    const defaultEnd = slot?.end ?? "20:15";
+    // Accueil 7h / caissiers 7h30 en semaine ; dimanche 7h30 / 8h.
+    // Direction / Rayon : matin dès 04h00.
+    let defaultStart = earliestStartForUser(user, slotKey, dayIndex);
+    const defaultEnd = defaultEndForSlot(slotKey, dayIndex);
 
     // Si la personne travaille déjà le matin ce jour-là, l'après-midi
     // commence une heure après la fin du matin (pause déjeuner).
@@ -411,14 +412,17 @@ function PlanningContent() {
           <p className="mt-1 text-sm text-slate-500">
             <span className="sm:hidden">
               Appuyez sur <strong className="font-semibold text-slate-600">+</strong> pour planifier, ou
-              sur un créneau pour le retirer. Direction / Rayon dès 4h. Dimanche après-midi fermé.
+              sur un créneau pour le retirer. Accueil 7h–20h15, caissiers 7h30–20h15 ; dimanche jusqu&apos;à
+              13h15.
             </span>
             <span className="hidden sm:inline">
               Cliquez sur une case <strong className="font-semibold text-slate-600">vide (+)</strong> pour
               planifier un créneau, ou sur un{" "}
               <strong className="font-semibold text-slate-600">créneau existant</strong> pour le retirer.
-              Direction et Rayon peuvent démarrer dès <strong className="font-semibold text-slate-600">4h00</strong> ;
-              les autres rôles à partir de 7h30. Le dimanche après-midi est fermé.
+              En semaine : accueil <strong className="font-semibold text-slate-600">7h00–20h15</strong>,
+              caissiers <strong className="font-semibold text-slate-600">7h30–20h15</strong>. Dimanche :
+              accueil <strong className="font-semibold text-slate-600">7h30–13h15</strong>, caissiers{" "}
+              <strong className="font-semibold text-slate-600">8h00–13h15</strong> (après-midi fermé).
             </span>
           </p>
         </div>
@@ -496,7 +500,7 @@ function PlanningContent() {
               ))}
             </div>
 
-            {/* Desktop : jours en scroll horizontal ; Total collé à droite (hors scroll). */}
+            {/* Desktop : une seule table — Total sticky à droite (pas de 2e table = pas de décalage). */}
             <div className="-mx-4 hidden min-w-0 px-4 sm:-mx-5 sm:px-5 lg:block">
               <div className="mb-2 flex items-center justify-end gap-2">
                 <span className="mr-auto text-sm text-slate-500">
@@ -509,11 +513,10 @@ function PlanningContent() {
                   Jours →
                 </Button>
               </div>
-              <div className="flex min-w-0 overflow-hidden rounded-md border border-slate-200">
-                <div
-                  ref={planningScrollRef}
-                  className="planning-scroll min-w-0 flex-1"
-                >
+              <div
+                ref={planningScrollRef}
+                className="planning-scroll min-w-0 rounded-md border border-slate-200"
+              >
                 <table className="w-max min-w-full border-separate border-spacing-0 text-base">
                   <thead>
                     <tr>
@@ -542,6 +545,12 @@ function PlanningContent() {
                           </th>
                         );
                       })}
+                      <th
+                        rowSpan={2}
+                        className={`${TOTAL_COL_CLASS} planning-col-total-sticky sticky right-0 z-30 border-b-2 bg-slate-50 p-2.5 align-bottom text-sm font-bold uppercase tracking-wide text-slate-600`}
+                      >
+                        Total
+                      </th>
                     </tr>
                     <tr>
                       {weekDays.map((day, idx) => {
@@ -580,32 +589,8 @@ function PlanningContent() {
                         todayISO={todayISO}
                         planningByCell={planningByCell}
                         totalMinutesByUser={totalMinutesByUser}
-                        showTotal={false}
+                        showTotal
                         {...slotHandlers}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-
-                {/* Colonne Total hors scroll : toujours collée à la fin (droite). */}
-                <table className="w-[5.75rem] shrink-0 border-separate border-spacing-0 text-base">
-                  <thead>
-                    <tr>
-                      <th
-                        className={`${TOTAL_COL_CLASS} h-[4.75rem] border-b-2 bg-slate-50 p-2.5 text-sm font-bold uppercase tracking-wide text-slate-600`}
-                      >
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleEmployeeGroups.map((group) => (
-                      <TotalColumnGroup
-                        key={`total-${group.key}`}
-                        label={group.label}
-                        users={group.users}
-                        totalMinutesByUser={totalMinutesByUser}
                       />
                     ))}
                   </tbody>
@@ -800,7 +785,7 @@ type SlotHandlers = {
   onFormStartChange: (v: string) => void;
   onFormEndChange: (v: string) => void;
   onFormEnCaisseChange: (v: boolean) => void;
-  onStartAdd: (user: User, dayKey: string, slotKey: HalfDayKey) => void;
+  onStartAdd: (user: User, dayKey: string, slotKey: HalfDayKey, dayIndex: number) => void;
   onCancelAdd: () => void;
   onSubmitAdd: (e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) => void;
   onRemove: (planning: Planning, cellKey: string) => void;
@@ -822,6 +807,7 @@ const TOTAL_COL_CLASS =
 function SlotCell({
   user,
   dayKey,
+  dayIndex,
   slot,
   entry,
   absence,
@@ -840,6 +826,7 @@ function SlotCell({
 }: {
   user: User;
   dayKey: string;
+  dayIndex: number;
   slot: (typeof HALF_DAY_SLOTS)[number];
   entry: Planning | undefined;
   absence: Absence | undefined;
@@ -851,13 +838,16 @@ function SlotCell({
   onFormStartChange: (v: string) => void;
   onFormEndChange: (v: string) => void;
   onFormEnCaisseChange: (v: boolean) => void;
-  onStartAdd: (user: User, dayKey: string, slotKey: HalfDayKey) => void;
+  onStartAdd: (user: User, dayKey: string, slotKey: HalfDayKey, dayIndex: number) => void;
   onCancelAdd: () => void;
   onSubmitAdd: (e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) => void;
   onRemove: (planning: Planning, cellKey: string) => void;
 }) {
   const cellKey = `${user.id}_${dayKey}_${slot.key}`;
-  const minStart = earliestStartForUser(user, slot.key);
+  const minStart = earliestStartForUser(user, slot.key, dayIndex);
+  const maxEnd = latestEndForDay(dayIndex);
+  // Le dimanche, la fermeture (13h15) borne aussi le début du créneau.
+  const maxStart = slot.end <= maxEnd ? slot.end : maxEnd;
   const showEnCaisse = canMarkEnCaisse(user);
 
   if (absence) {
@@ -896,7 +886,7 @@ function SlotCell({
           required
           autoFocus
           min={minStart}
-          max={slot.end}
+          max={maxStart}
           value={formStart}
           onChange={onFormStartChange}
           className="w-full rounded-md border border-slate-300 px-1.5 py-1.5 text-sm"
@@ -904,7 +894,7 @@ function SlotCell({
         <TimeField
           required
           min={formStart || minStart}
-          max={STORE_CLOSE}
+          max={maxEnd}
           value={formEnd}
           onChange={onFormEndChange}
           className="w-full rounded-md border border-slate-300 px-1.5 py-1.5 text-sm"
@@ -963,7 +953,7 @@ function SlotCell({
       type="button"
       title={`Choisir les heures pour ${user.firstName} ${user.lastName}`}
       disabled={isPending}
-      onClick={() => onStartAdd(user, dayKey, slot.key)}
+      onClick={() => onStartAdd(user, dayKey, slot.key, dayIndex)}
       className="flex min-h-11 w-full items-center justify-center rounded-md border-2 border-dashed border-slate-400 py-2.5 text-lg font-bold text-slate-500 transition hover:border-cf-blue hover:bg-(--cf-blue)/5 hover:text-cf-blue disabled:opacity-50"
     >
       +
@@ -1073,6 +1063,7 @@ function MobileEmployeeGroup({
                               <SlotCell
                                 user={user}
                                 dayKey={dayKey}
+                                dayIndex={idx}
                                 slot={slot}
                                 entry={planningByCell.get(cellKey)}
                                 absence={absenceByUserDay.get(`${user.id}_${dayKey}`)}
@@ -1102,41 +1093,6 @@ function MobileEmployeeGroup({
         );
       })}
     </div>
-  );
-}
-
-function TotalColumnGroup({
-  label,
-  users,
-  totalMinutesByUser,
-}: {
-  label: string;
-  users: User[];
-  totalMinutesByUser: Map<number, number>;
-}) {
-  if (users.length === 0) return null;
-  const thickRowSep = label === "Caissiers";
-  const nameBorder = thickRowSep ? "border-b-2 border-slate-400" : "border-b border-slate-300";
-
-  return (
-    <>
-      <tr>
-        <td className={`${TOTAL_COL_CLASS} border-b-2 bg-slate-100 py-2`}>&nbsp;</td>
-      </tr>
-      {users.map((user, rowIndex) => {
-        const totalMinutes = totalMinutesByUser.get(user.id) ?? 0;
-        const totalColorClass = totalColorClassFor(user, totalMinutes);
-        return (
-          <tr key={user.id}>
-            <td
-              className={`${TOTAL_COL_CLASS} ${nameBorder} ${totalColorClass} min-h-[3.25rem] px-2 py-2.5 text-sm font-bold tabular-nums`}
-            >
-              {formatMinutesAsHours(totalMinutes)}
-            </td>
-          </tr>
-        );
-      })}
-    </>
   );
 }
 
@@ -1173,12 +1129,10 @@ function EmployeeGroup({
 } & SlotHandlers) {
   if (users.length === 0) return null;
 
-  // Trait plus marqué entre les lignes de caissiers pour les distinguer.
-  const thickRowSep = label === "Caissiers";
-  const rowBorder = thickRowSep ? "border-b-2 border-slate-400" : "border-b border-slate-200";
-  const nameBorder = thickRowSep
-    ? "border-b-2 border-slate-400"
-    : "border-b border-slate-300";
+  // Trait plus marqué entre les lignes de caissiers et d'hôtes ; toujours
+  // marqué sous la dernière ligne d'un groupe (ex. LAD → Hôtes).
+  const thickBetweenRows =
+    label === "Caissiers" || label === "Hôtes / hôtesses d'accueil";
 
   return (
     <>
@@ -1190,13 +1144,23 @@ function EmployeeGroup({
           colSpan={weekDays.length * HALF_DAY_SLOTS.length}
           className="border-b-2 border-slate-300 bg-slate-100"
         />
-        {showTotal && <td className={`${TOTAL_COL_CLASS} border-b-2 bg-slate-100`} />}
+        {showTotal && (
+          <td
+            className={`${TOTAL_COL_CLASS} planning-col-total-sticky sticky right-0 z-20 border-b-2 border-slate-300 bg-slate-100`}
+          >
+            &nbsp;
+          </td>
+        )}
       </tr>
       {users.map((user, rowIndex) => {
         const totalMinutes = totalMinutesByUser.get(user.id) ?? 0;
         const contractMinutes = user.contractMinutes ?? 0;
         const totalColorClass = totalColorClassFor(user, totalMinutes);
         const rowBg = rowIndex % 2 === 1 ? "bg-slate-50" : "bg-white";
+        const isLast = rowIndex === users.length - 1;
+        const thick = isLast || thickBetweenRows;
+        const rowBorder = thick ? "border-b-2 border-slate-400" : "border-b border-slate-200";
+        const nameBorder = thick ? "border-b-2 border-slate-400" : "border-b border-slate-300";
 
         return (
           <tr key={user.id} className={`group ${rowBg} hover:bg-sky-50`}>
@@ -1244,6 +1208,7 @@ function EmployeeGroup({
                     <SlotCell
                       user={user}
                       dayKey={dayKey}
+                      dayIndex={idx}
                       slot={slot}
                       entry={planningByCell.get(cellKey)}
                       absence={absenceByUserDay.get(`${user.id}_${dayKey}`)}
@@ -1266,7 +1231,7 @@ function EmployeeGroup({
             )}
             {showTotal && (
               <td
-                className={`${TOTAL_COL_CLASS} ${nameBorder} px-2 py-2.5 text-sm font-bold tabular-nums ${totalColorClass}`}
+                className={`${TOTAL_COL_CLASS} planning-col-total-sticky sticky right-0 z-20 ${nameBorder} px-2 py-2.5 text-sm font-bold tabular-nums ${totalColorClass}`}
               >
                 {formatMinutesAsHours(totalMinutes)}
               </td>

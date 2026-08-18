@@ -28,7 +28,7 @@ function LoginForm() {
   // ne comprend pas pourquoi on se retrouve sur la connexion, ni pourquoi
   // l'action en cours (ex. sauvegarder un créneau de planning) a échoué.
   const [error, setError] = useState<string | null>(
-    searchParams.get("expired") ? "Votre session a expiré. Veuillez vous reconnecter." : null,
+    searchParams.get("expired") ? "Session expirée. Veuillez vous reconnecter." : null,
   );
   const [loading, setLoading] = useState(false);
 

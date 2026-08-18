@@ -405,7 +405,11 @@ body {
   box-shadow: 4px 0 6px -4px rgba(15, 23, 42, 0.15);
 }
 
-/* Planning desktop : colonne Total hors zone de scroll, collée à droite. */
+/* Planning desktop : colonne Total sticky à droite (même table = alignement garanti). */
+.planning-col-total-sticky {
+  box-shadow: -4px 0 6px -4px rgba(15, 23, 42, 0.15);
+}
+
 .planning-col-total {
   background-clip: padding-box;
 }

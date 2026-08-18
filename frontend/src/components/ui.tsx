@@ -218,6 +218,8 @@ export function Alert({ children, tone = "error" }: { children: React.ReactNode;
       ? "bg-red-50 text-red-700 border-red-200"
       : "bg-emerald-50 text-emerald-700 border-emerald-200";
   return (
-    <div className={`rounded-[var(--cf-radius-sm)] border px-3 py-2.5 text-base ${cls}`}>{children}</div>
+    <div className={`rounded-[var(--cf-radius-sm)] border px-3 py-1.5 text-xs leading-snug ${cls}`}>
+      {children}
+    </div>
   );
 }

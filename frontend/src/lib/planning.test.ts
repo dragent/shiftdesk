@@ -5,12 +5,14 @@ import {
   durationMinutes,
   pauseMinutesForWork,
   earliestStartForUser,
+  defaultEndForSlot,
   formatFrenchTime,
   formatMinutesAsHours,
   freeNumberedRegisters,
   coversStoreClosureSlot,
   isClosedSlot,
   isOnScoAtTime,
+  latestEndForDay,
   numberedRegisterAtTime,
   normalizeTimeHHmm,
   printBasculeTimes,
@@ -45,9 +47,32 @@ describe("earliestStartForUser", () => {
     expect(earliestStartForUser({ roles: ["ROLE_RAYON"] }, "MATIN")).toBe("04:00");
   });
 
+  it("place l'accueil à 07h00 en semaine et 07h30 le dimanche", () => {
+    expect(earliestStartForUser({ roles: ["ROLE_HOTE"] }, "MATIN", 0)).toBe("07:00");
+    expect(earliestStartForUser({ roles: ["ROLE_HOTE"] }, "MATIN", 6)).toBe("07:30");
+  });
+
+  it("place les caissiers à 07h30 en semaine et 08h00 le dimanche", () => {
+    expect(earliestStartForUser({ roles: ["ROLE_CAISSIER"] }, "MATIN", 0)).toBe("07:30");
+    expect(earliestStartForUser({ roles: ["ROLE_CAISSIER"] }, "MATIN", 6)).toBe("08:00");
+  });
+
   it("garde 07h30 pour les autres rôles et l'après-midi", () => {
-    expect(earliestStartForUser({ roles: ["ROLE_CAISSIER"] }, "MATIN")).toBe("07:30");
+    expect(earliestStartForUser({ roles: ["ROLE_LAD"] }, "MATIN")).toBe("07:30");
     expect(earliestStartForUser({ roles: ["ROLE_DIRECTION"] }, "APRES_MIDI")).toBe("14:00");
+  });
+});
+
+describe("latestEndForDay / defaultEndForSlot", () => {
+  it("ferme à 13h15 le dimanche et 20h15 en semaine", () => {
+    expect(latestEndForDay(6)).toBe("13:15");
+    expect(latestEndForDay(0)).toBe("20:15");
+  });
+
+  it("propose 13h15 le dimanche matin et la fin de créneau en semaine", () => {
+    expect(defaultEndForSlot("MATIN", 6)).toBe("13:15");
+    expect(defaultEndForSlot("MATIN", 0)).toBe("14:00");
+    expect(defaultEndForSlot("APRES_MIDI", 1)).toBe("20:15");
   });
 });
 
