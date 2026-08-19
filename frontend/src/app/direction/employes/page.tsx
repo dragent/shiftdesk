@@ -490,21 +490,25 @@ function EmployesContent() {
                   ))}
                 </select>
               </label>
+              {/* Magasin unique dans la plupart des installations : on n'affiche
+                  le choix du site que s'il y en a réellement plusieurs. */}
+              {sites.length > 1 && (
+                <label className="block text-sm font-medium text-slate-700">
+                  Site
+                  <select
+                    value={siteId}
+                    onChange={(e) => setSiteId(Number(e.target.value))}
+                    className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
+                  >
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="block text-sm font-medium text-slate-700">
-                Site
-                <select
-                  value={siteId}
-                  onChange={(e) => setSiteId(Number(e.target.value))}
-                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
-                >
-                  {sites.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
                 Mot de passe provisoire
                 <input
                   type="password"
