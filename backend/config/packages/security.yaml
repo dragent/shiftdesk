@@ -40,7 +40,9 @@ security:
         - { path: ^/api/categories, roles: ROLE_ADMIN }
         - { path: ^/api/sites, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET] }
         - { path: ^/api/sites, roles: ROLE_ADMIN }
-        - { path: ^/api/users, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET] }
+        # La direction gère les employés (recrutement, licenciement, coordonnées) ;
+        # seule l'administration peut supprimer définitivement un compte.
+        - { path: ^/api/users, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET, POST, PUT, PATCH] }
         - { path: ^/api/users, roles: ROLE_ADMIN }
         - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET, PUT, PATCH] }
         - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION] }

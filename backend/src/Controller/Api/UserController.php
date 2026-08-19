@@ -64,6 +64,11 @@ class UserController extends AbstractApiController
         $user->setFirstName($data['firstName'] ?? '');
         $user->setLastName($data['lastName'] ?? '');
         $user->setRoles($this->resolveRoles($data['role'] ?? 'HOTE'));
+        $user->setPhone($data['phone'] ?? null);
+
+        if (array_key_exists('contractMinutes', $data)) {
+            $user->setContractMinutes((int) $data['contractMinutes']);
+        }
 
         if (isset($data['siteId'])) {
             $site = $this->siteRepository->find($data['siteId']);
@@ -114,6 +119,9 @@ class UserController extends AbstractApiController
         }
         if (array_key_exists('active', $data)) {
             $user->setActive((bool) $data['active']);
+        }
+        if (array_key_exists('phone', $data)) {
+            $user->setPhone($data['phone']);
         }
         if (array_key_exists('siteId', $data)) {
             $site = $data['siteId'] ? $this->siteRepository->find($data['siteId']) : null;

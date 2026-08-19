@@ -29,6 +29,8 @@ export interface User {
   contractMinutes?: number;
   /** Numéro de caissier (login caisse), distinct du n° de caisse physique. */
   cashierNumber?: string | null;
+  /** Téléphone de contact affiché sur la fiche employés. */
+  phone?: string | null;
 }
 
 export interface RequestCategory {

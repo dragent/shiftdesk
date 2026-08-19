@@ -36,6 +36,7 @@ const NAV_ITEMS: NavEntry[] = [
       { href: "/accueil/plan-de-caisse", label: "Plan de caisse", roles: ["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_ADMIN"] },
     ],
   },
+  { href: "/direction/employes", label: "Employés", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   { href: "/direction/supervision-ia", label: "Supervision IA", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ROLE_ADMIN"] },
   { href: "/admin/categories", label: "Catégories", roles: ["ROLE_ADMIN"] },

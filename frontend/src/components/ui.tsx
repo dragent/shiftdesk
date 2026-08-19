@@ -47,7 +47,7 @@ export function Badge({ children, tone }: { children: React.ReactNode; tone?: st
   );
 }
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export function Button({
@@ -65,9 +65,11 @@ export function Button({
       ? "cf-btn--secondary"
       : variant === "danger"
         ? "cf-btn--danger"
-        : variant === "ghost"
-          ? "cf-btn--ghost"
-          : "cf-btn--primary";
+        : variant === "success"
+          ? "cf-btn--success"
+          : variant === "ghost"
+            ? "cf-btn--ghost"
+            : "cf-btn--primary";
   const sizeClass = size === "sm" ? "cf-btn--sm" : size === "lg" ? "cf-btn--lg" : "";
 
   return (

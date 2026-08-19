@@ -162,12 +162,14 @@ function PlanningContent() {
       setPlannings(planningData);
       setAbsences(absencesData);
       setClosures(closuresData);
-      setCaissiers(usersData.filter((u) => u.roles?.includes("ROLE_CAISSIER")));
-      setLad(usersData.filter((u) => u.roles?.includes("ROLE_LAD")));
-      setHotes(usersData.filter((u) => u.roles?.includes("ROLE_HOTE")));
-      setDirectionStaff(usersData.filter((u) => u.roles?.includes("ROLE_DIRECTION")));
-      setRayon(usersData.filter((u) => u.roles?.includes("ROLE_RAYON")));
-      setSecurite(usersData.filter((u) => u.roles?.includes("ROLE_SECURITE")));
+      // Les employés licenciés (compte désactivé) ne sont plus planifiables.
+      const employed = usersData.filter((u) => u.active);
+      setCaissiers(employed.filter((u) => u.roles?.includes("ROLE_CAISSIER")));
+      setLad(employed.filter((u) => u.roles?.includes("ROLE_LAD")));
+      setHotes(employed.filter((u) => u.roles?.includes("ROLE_HOTE")));
+      setDirectionStaff(employed.filter((u) => u.roles?.includes("ROLE_DIRECTION")));
+      setRayon(employed.filter((u) => u.roles?.includes("ROLE_RAYON")));
+      setSecurite(employed.filter((u) => u.roles?.includes("ROLE_SECURITE")));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
     } finally {

@@ -75,6 +75,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['user:read', 'user:write'])]
     private ?string $cashierNumber = null;
 
+    /** Téléphone de contact de l'employé (fiche employés direction). */
+    #[ORM\Column(length: 30, nullable: true)]
+    #[Groups(['user:read', 'user:write'])]
+    private ?string $phone = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -239,6 +244,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $value = $cashierNumber !== null ? trim($cashierNumber) : null;
         $this->cashierNumber = $value === '' ? null : $value;
+
+        return $this;
+    }
+
+    public function getPhone(): ?string
+    {
+        return $this->phone;
+    }
+
+    public function setPhone(?string $phone): static
+    {
+        $value = $phone !== null ? trim($phone) : null;
+        $this->phone = $value === '' ? null : $value;
 
         return $this;
     }

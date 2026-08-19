@@ -84,6 +84,16 @@ class SeedDemoDataCommand extends Command
         $this->setCashierNumber('karim.benali@caissier.carrefour-accueil.local', '102', $io);
         $this->setCashierNumber('sophie.durand@caissier.carrefour-accueil.local', '103', $io);
 
+        // Téléphones de contact affichés sur la fiche employés (direction).
+        $this->setPhone('direction@carrefour-accueil.local', '06 12 00 01 01', $io);
+        $this->setPhone('hote@carrefour-accueil.local', '06 12 00 02 02', $io);
+        $this->setPhone('lad@carrefour-accueil.local', '06 12 00 03 03', $io);
+        $this->setPhone('rayon@carrefour-accueil.local', '06 12 00 04 04', $io);
+        $this->setPhone('securite@carrefour-accueil.local', '06 12 00 05 05', $io);
+        $this->setPhone('julie.martin@caissier.carrefour-accueil.local', '06 12 00 06 06', $io);
+        $this->setPhone('karim.benali@caissier.carrefour-accueil.local', '06 12 00 07 07', $io);
+        $this->setPhone('sophie.durand@caissier.carrefour-accueil.local', '06 12 00 08 08', $io);
+
         $this->createCategoryIfMissing('CAROLINE', 'Caroline', 'Demandes liées à l\'outil Caroline.', 1, $io);
         $this->createCategoryIfMissing('SIEBEL', 'Siebel', 'Demandes liées au CRM Siebel.', 2, $io);
         $this->createCategoryIfMissing('MENU_CARREFOUR', 'Menu Carrefour', 'Demandes liées au menu / catalogue de services Carrefour.', 3, $io);
@@ -137,6 +147,17 @@ class SeedDemoDataCommand extends Command
 
         $user->setCashierNumber($number);
         $io->text(sprintf('N° caissier mis à jour : %s -> %s', $email, $number));
+    }
+
+    private function setPhone(string $email, string $phone, SymfonyStyle $io): void
+    {
+        $user = $this->userRepository->findOneByEmail($email);
+        if (!$user || $user->getPhone() !== null) {
+            return;
+        }
+
+        $user->setPhone($phone);
+        $io->text(sprintf('Téléphone mis à jour : %s -> %s', $email, $phone));
     }
 
     private function createCategoryIfMissing(string $code, string $label, string $description, int $position, SymfonyStyle $io): void
