@@ -8,17 +8,65 @@ import { api, ApiError } from "@/lib/api";
 import type { AbsenceReason, Site, User, UserRole } from "@/lib/types";
 
 /**
- * Sous-groupes affichés dans chaque catégorie, dans le même ordre que la
- * grille du planning direction pour que la direction retrouve ses repères.
+ * Catégories du sélecteur, reprises du planning direction : une catégorie
+ * regroupe un ou plusieurs postes, affichés séparément dans la liste.
+ * « Autres » recueille les comptes sans poste métier (ex. administration)
+ * pour qu'aucun employé ne disparaisse de la page.
  */
-const ROLE_GROUPS: { key: string; label: string; role: UserRole }[] = [
-  { key: "DIRECTION", label: "Direction", role: "ROLE_DIRECTION" },
-  { key: "CAISSIER", label: "Caissiers", role: "ROLE_CAISSIER" },
-  { key: "LAD", label: "LAD", role: "ROLE_LAD" },
-  { key: "HOTE", label: "Hôtes / hôtesses d'accueil", role: "ROLE_HOTE" },
-  { key: "SECURITE", label: "Sécurité", role: "ROLE_SECURITE" },
-  { key: "RAYON", label: "Rayon", role: "ROLE_RAYON" },
-];
+const CATEGORY_DEFS = [
+  {
+    key: "DIRECTION",
+    label: "Direction",
+    shortLabel: "Direction",
+    groups: [{ key: "DIRECTION", label: "Direction", role: "ROLE_DIRECTION" }],
+  },
+  {
+    key: "ACCUEIL_CAISSE",
+    label: "Accueil / Caisse",
+    shortLabel: "Accueil",
+    groups: [
+      { key: "CAISSIER", label: "Caissiers", role: "ROLE_CAISSIER" },
+      { key: "LAD", label: "LAD", role: "ROLE_LAD" },
+      { key: "HOTE", label: "Hôtes / hôtesses d'accueil", role: "ROLE_HOTE" },
+    ],
+  },
+  {
+    key: "SECURITE",
+    label: "Sécurité",
+    shortLabel: "Sécurité",
+    groups: [{ key: "SECURITE", label: "Sécurité", role: "ROLE_SECURITE" }],
+  },
+  {
+    key: "RAYON",
+    label: "Rayon",
+    shortLabel: "Rayon",
+    groups: [{ key: "RAYON", label: "Rayon", role: "ROLE_RAYON" }],
+  },
+  {
+    key: "AUTRES",
+    label: "Autres",
+    shortLabel: "Autres",
+    groups: [{ key: "AUTRES", label: "Autres", role: null }],
+  },
+] as const satisfies readonly Category[];
+
+/** Poste (sous-groupe) auquel un employé est rattaché dans la liste. */
+interface RoleGroup {
+  key: string;
+  label: string;
+  role: UserRole | null;
+}
+
+interface Category {
+  key: string;
+  label: string;
+  shortLabel: string;
+  groups: readonly RoleGroup[];
+}
+
+type CategoryKey = (typeof CATEGORY_DEFS)[number]["key"];
+
+const ROLE_GROUPS: RoleGroup[] = CATEGORY_DEFS.flatMap((category) => [...category.groups]);
 
 /** Rôles proposés au recrutement (l'administration se crée côté admin). */
 const RECRUITMENT_ROLES = [
@@ -47,6 +95,23 @@ function sortByName(users: User[]): User[] {
   );
 }
 
+function fullName(user: User): string {
+  return `${user.lastName} ${user.firstName}`;
+}
+
+/** Poste d'un employé : premier rôle connu, « Autres » à défaut. */
+function groupKeyOf(user: User): string {
+  return ROLE_GROUPS.find((group) => group.role && user.roles?.includes(group.role))?.key ?? "AUTRES";
+}
+
+/** Recherche par nom insensible à la casse et aux accents. */
+function normalize(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export default function EmployesPage() {
   return (
     <RoleGuard roles={["ROLE_DIRECTION", "ROLE_ADMIN"]}>
@@ -64,6 +129,11 @@ function EmployesContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Catégorie affichée (une seule à la fois, comme le planning) et recherche
+  // par nom, qui elle porte sur l'ensemble des employés.
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>(CATEGORY_DEFS[0].key);
+  const [search, setSearch] = useState("");
 
   // Absence en cours de saisie (arrêt de travail ou vacances) pour un employé.
   const [absenceTarget, setAbsenceTarget] = useState<{ user: User; reason: AbsenceReason } | null>(
@@ -107,30 +177,56 @@ function EmployesContent() {
     load();
   }, [load]);
 
-  // Employés répartis par statut d'emploi, puis par rôle (groupes planning).
-  // Un compte sans rôle métier connu (ex. administration) reste visible dans
-  // « Autres » pour ne jamais disparaître silencieusement de la liste.
-  const groupsByStatus = useMemo(() => {
-    function buildGroups(subset: User[]) {
-      const remaining = new Set(subset.map((u) => u.id));
-      const groups = ROLE_GROUPS.map((group) => {
-        const members = subset.filter((u) => u.roles?.includes(group.role));
-        members.forEach((u) => remaining.delete(u.id));
-        return { key: group.key, label: group.label, users: sortByName(members) };
-      }).filter((group) => group.users.length > 0);
+  const searchTerm = normalize(search.trim());
+  const searching = searchTerm.length > 0;
 
-      const others = subset.filter((u) => remaining.has(u.id));
-      if (others.length > 0) {
-        groups.push({ key: "AUTRES", label: "Autres", users: sortByName(others) });
-      }
-      return groups;
+  const countByCategory = useMemo(() => {
+    const counts = Object.fromEntries(CATEGORY_DEFS.map((c) => [c.key, 0])) as Record<
+      CategoryKey,
+      number
+    >;
+    for (const user of users) {
+      const groupKey = groupKeyOf(user);
+      const category = CATEGORY_DEFS.find((c) => c.groups.some((g) => g.key === groupKey));
+      if (category) counts[category.key] += 1;
+    }
+    return counts;
+  }, [users]);
+
+  /** Noms proposés en auto-complétion dans le champ de recherche. */
+  const employeeNames = useMemo(() => sortByName(users).map(fullName), [users]);
+
+  // Employés répartis par statut d'emploi, puis par poste. Une recherche par
+  // nom porte sur tous les postes : elle prend le pas sur la catégorie
+  // sélectionnée, sinon l'employé cherché resterait invisible.
+  const groupsByStatus = useMemo(() => {
+    const visibleGroups = searching
+      ? ROLE_GROUPS
+      : CATEGORY_DEFS.find((c) => c.key === selectedCategory)?.groups ?? [];
+
+    function matchesSearch(user: User): boolean {
+      return (
+        normalize(`${user.firstName} ${user.lastName}`).includes(searchTerm) ||
+        normalize(fullName(user)).includes(searchTerm)
+      );
+    }
+
+    function buildGroups(subset: User[]) {
+      const matching = searching ? subset.filter(matchesSearch) : subset;
+      return visibleGroups
+        .map((group) => ({
+          key: group.key,
+          label: group.label,
+          users: sortByName(matching.filter((u) => groupKeyOf(u) === group.key)),
+        }))
+        .filter((group) => group.users.length > 0);
     }
 
     return {
       employed: buildGroups(users.filter((u) => u.active)),
       dismissed: buildGroups(users.filter((u) => !u.active)),
     };
-  }, [users]);
+  }, [users, selectedCategory, searching, searchTerm]);
 
   function openAbsence(user: User, reason: AbsenceReason) {
     setError(null);
@@ -245,6 +341,69 @@ function EmployesContent() {
           </Button>
         </div>
 
+        {!loading && (
+          <div className="flex flex-col gap-2">
+            <div
+              role="radiogroup"
+              aria-label="Catégorie d'employés à afficher"
+              className="cf-seg grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center"
+            >
+              {CATEGORY_DEFS.map((category) => {
+                const count = countByCategory[category.key];
+                const active = !searching && selectedCategory === category.key;
+                return (
+                  <button
+                    key={category.key}
+                    type="button"
+                    disabled={count === 0 || searching}
+                    onClick={() => setSelectedCategory(category.key)}
+                    role="radio"
+                    aria-checked={active}
+                    title={category.label}
+                    className={`cf-seg__btn justify-between sm:justify-center ${
+                      active ? "cf-seg__btn--active" : ""
+                    }`}
+                  >
+                    <span className="truncate">
+                      <span className="sm:hidden">{category.shortLabel}</span>
+                      <span className="hidden sm:inline">{category.label}</span>
+                    </span>
+                    <span className="cf-seg__count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <input
+              type="search"
+              list="employes-noms"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un employé par nom…"
+              aria-label="Rechercher un employé par nom"
+              className="w-full rounded-(--cf-radius-sm) border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+            <datalist id="employes-noms">
+              {employeeNames.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+
+            {searching && (
+              <p className="text-xs text-slate-500">
+                Recherche sur toutes les catégories.{" "}
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="font-semibold text-cf-blue underline"
+                >
+                  Effacer
+                </button>
+              </p>
+            )}
+          </div>
+        )}
+
         {error && <Alert>{error}</Alert>}
         {success && <Alert tone="success">{success}</Alert>}
 
@@ -256,7 +415,11 @@ function EmployesContent() {
           <>
             <Card title="En emploi">
               {groupsByStatus.employed.length === 0 ? (
-                <p className="text-sm text-slate-500">Aucun employé en poste.</p>
+                <p className="text-sm text-slate-500">
+                  {searching
+                    ? "Aucun employé en poste ne correspond à cette recherche."
+                    : "Aucun employé en poste dans cette catégorie."}
+                </p>
               ) : (
                 <div className="flex flex-col gap-5">
                   {groupsByStatus.employed.map((group) => (
@@ -300,7 +463,11 @@ function EmployesContent() {
 
             <Card title="Licenciés">
               {groupsByStatus.dismissed.length === 0 ? (
-                <p className="text-sm text-slate-500">Aucun employé licencié.</p>
+                <p className="text-sm text-slate-500">
+                  {searching
+                    ? "Aucun employé licencié ne correspond à cette recherche."
+                    : "Aucun employé licencié dans cette catégorie."}
+                </p>
               ) : (
                 <div className="flex flex-col gap-5">
                   {groupsByStatus.dismissed.map((group) => (
