@@ -235,7 +235,12 @@ function EmployesContent() {
               licenciement et recrutement.
             </p>
           </div>
-          <Button variant="success" onClick={() => setRecruitOpen(true)} disabled={loading}>
+          <Button
+            variant="success"
+            className="w-full sm:w-auto"
+            onClick={() => setRecruitOpen(true)}
+            disabled={loading}
+          >
             Recrutement
           </Button>
         </div>
@@ -261,14 +266,16 @@ function EmployesContent() {
                           <Button
                             variant="dark"
                             size="sm"
+                            className="flex-1 sm:flex-none"
                             disabled={saving}
                             onClick={() => openAbsence(user, "ARRET_TRAVAIL")}
                           >
-                            Arrêt de travail
+                            <ActionLabel short="Arrêt" full="Arrêt de travail" />
                           </Button>
                           <Button
                             variant="primary"
                             size="sm"
+                            className="flex-1 sm:flex-none"
                             disabled={saving}
                             onClick={() => openAbsence(user, "CONGE")}
                           >
@@ -277,10 +284,11 @@ function EmployesContent() {
                           <Button
                             variant="danger"
                             size="sm"
+                            className="flex-1 sm:flex-none"
                             disabled={saving}
                             onClick={() => setDismissTarget(user)}
                           >
-                            Licenciement
+                            <ActionLabel short="Licencier" full="Licenciement" />
                           </Button>
                         </EmployeeRow>
                       ))}
@@ -302,6 +310,7 @@ function EmployesContent() {
                           <Button
                             variant="success"
                             size="sm"
+                            className="flex-1 sm:flex-none"
                             disabled={saving}
                             onClick={() => setEmployed(user, true)}
                           >
@@ -553,32 +562,54 @@ function RoleSection({ label, children }: { label: string; children: React.React
   );
 }
 
+/**
+ * Une ligne par employé : coordonnées puis actions. Sur mobile, les
+ * coordonnées s'empilent et les actions occupent une seule rangée en se
+ * partageant la largeur, pour garder des cartes courtes et lisibles.
+ */
 function EmployeeRow({ user, children }: { user: User; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-(--cf-radius-sm) border border-slate-200 bg-white px-3 py-2.5">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
-        <span className="font-semibold text-slate-800">
+    <div className="flex flex-col gap-2 rounded-(--cf-radius-sm) border border-slate-200 bg-white px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4">
+      {/* Mobile : nom et téléphone sur la première ligne, mail en dessous.
+          À partir de sm, tout revient sur une seule ligne. */}
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 sm:flex sm:flex-wrap">
+        <p className="col-start-1 row-start-1 truncate font-semibold text-slate-800">
           {user.lastName} {user.firstName}
-        </span>
+        </p>
         <a
           href={`mailto:${user.email}`}
-          className="truncate text-sm text-slate-500 hover:text-cf-blue hover:underline"
+          className="col-span-2 col-start-1 row-start-2 truncate text-sm text-slate-500 hover:text-cf-blue hover:underline"
         >
           {user.email}
         </a>
         {user.phone ? (
           <a
             href={`tel:${user.phone.replace(/\s/g, "")}`}
-            className="text-sm text-slate-500 hover:text-cf-blue hover:underline"
+            className="col-start-2 row-start-1 shrink-0 text-sm text-slate-500 hover:text-cf-blue hover:underline"
           >
             {user.phone}
           </a>
         ) : (
-          <span className="text-sm text-slate-400">Téléphone non renseigné</span>
+          <span className="col-start-2 row-start-1 shrink-0 text-sm text-slate-400">
+            Téléphone non renseigné
+          </span>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">{children}</div>
+      <div className="flex gap-2 sm:shrink-0">{children}</div>
     </div>
+  );
+}
+
+/**
+ * Libellé d'action raccourci sur mobile : les trois boutons doivent tenir
+ * côte à côte sur la largeur d'un téléphone.
+ */
+function ActionLabel({ short, full }: { short: string; full: string }) {
+  return (
+    <>
+      <span className="sm:hidden">{short}</span>
+      <span className="hidden sm:inline">{full}</span>
+    </>
   );
 }
 
