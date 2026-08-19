@@ -343,51 +343,53 @@ function EmployesContent() {
 
         {!loading && (
           <div className="flex flex-col gap-2">
-            <div
-              role="radiogroup"
-              aria-label="Catégorie d'employés à afficher"
-              className="cf-seg grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center"
-            >
-              {CATEGORY_DEFS.map((category) => {
-                const count = countByCategory[category.key];
-                const active = !searching && selectedCategory === category.key;
-                return (
-                  <button
-                    key={category.key}
-                    type="button"
-                    disabled={count === 0 || searching}
-                    onClick={() => setSelectedCategory(category.key)}
-                    role="radio"
-                    aria-checked={active}
-                    title={category.label}
-                    className={`cf-seg__btn justify-between sm:justify-center ${
-                      active ? "cf-seg__btn--active" : ""
-                    }`}
-                  >
-                    <span className="truncate">
-                      <span className="sm:hidden">{category.shortLabel}</span>
-                      <span className="hidden sm:inline">{category.label}</span>
-                    </span>
-                    <span className="cf-seg__count">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div
+                role="radiogroup"
+                aria-label="Catégorie d'employés à afficher"
+                className="cf-seg grid grid-cols-2 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:justify-center"
+              >
+                {CATEGORY_DEFS.map((category) => {
+                  const count = countByCategory[category.key];
+                  const active = !searching && selectedCategory === category.key;
+                  return (
+                    <button
+                      key={category.key}
+                      type="button"
+                      disabled={count === 0 || searching}
+                      onClick={() => setSelectedCategory(category.key)}
+                      role="radio"
+                      aria-checked={active}
+                      title={category.label}
+                      className={`cf-seg__btn justify-between sm:justify-center ${
+                        active ? "cf-seg__btn--active" : ""
+                      }`}
+                    >
+                      <span className="truncate">
+                        <span className="sm:hidden">{category.shortLabel}</span>
+                        <span className="hidden sm:inline">{category.label}</span>
+                      </span>
+                      <span className="cf-seg__count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-            <input
-              type="search"
-              list="employes-noms"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un employé par nom…"
-              aria-label="Rechercher un employé par nom"
-              className="w-full rounded-(--cf-radius-sm) border border-slate-300 bg-white px-3 py-2 text-sm"
-            />
-            <datalist id="employes-noms">
-              {employeeNames.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
+              <input
+                type="search"
+                list="employes-noms"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un employé…"
+                aria-label="Rechercher un employé par nom"
+                className="w-full rounded-(--cf-radius-sm) border border-slate-300 bg-white px-3 py-2.5 text-sm sm:w-64 sm:shrink-0"
+              />
+              <datalist id="employes-noms">
+                {employeeNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </div>
 
             {searching && (
               <p className="text-xs text-slate-500">
