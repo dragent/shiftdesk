@@ -208,6 +208,18 @@ body {
   box-shadow: 0 3px 12px rgba(20, 83, 45, 0.34);
 }
 
+.cf-btn--dark {
+  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+  color: #fff;
+  border-color: #020617;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.3);
+}
+
+.cf-btn--dark:hover:not(:disabled) {
+  background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  box-shadow: 0 3px 12px rgba(2, 6, 23, 0.36);
+}
+
 .cf-btn--ghost {
   background: transparent;
   color: var(--cf-blue);

@@ -259,7 +259,7 @@ function EmployesContent() {
                       {group.users.map((user) => (
                         <EmployeeRow key={user.id} user={user}>
                           <Button
-                            variant="danger"
+                            variant="dark"
                             size="sm"
                             disabled={saving}
                             onClick={() => openAbsence(user, "ARRET_TRAVAIL")}
@@ -267,7 +267,7 @@ function EmployesContent() {
                             Arrêt de travail
                           </Button>
                           <Button
-                            variant="danger"
+                            variant="primary"
                             size="sm"
                             disabled={saving}
                             onClick={() => openAbsence(user, "CONGE")}

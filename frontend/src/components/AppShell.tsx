@@ -27,6 +27,7 @@ function isDropdown(entry: NavEntry): entry is NavDropdown {
 
 const NAV_ITEMS: NavEntry[] = [
   { href: "/dashboard", label: "Tableau de bord" },
+  { href: "/direction/employes", label: "Employés", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   {
     label: "Planning",
     roles: ["ROLE_HOTE", "ROLE_CAISSIER", "ROLE_LAD", "ROLE_RAYON", "ROLE_SECURITE", "ROLE_DIRECTION", "ROLE_ADMIN"],
@@ -36,7 +37,6 @@ const NAV_ITEMS: NavEntry[] = [
       { href: "/accueil/plan-de-caisse", label: "Plan de caisse", roles: ["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_ADMIN"] },
     ],
   },
-  { href: "/direction/employes", label: "Employés", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   { href: "/direction/supervision-ia", label: "Supervision IA", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ROLE_ADMIN"] },
   { href: "/admin/categories", label: "Catégories", roles: ["ROLE_ADMIN"] },
