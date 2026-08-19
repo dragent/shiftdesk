@@ -130,9 +130,10 @@ function EmployesContent() {
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Catégorie affichée (une seule à la fois, comme le planning) et recherche
-  // par nom, qui elle porte sur l'ensemble des employés.
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>(CATEGORY_DEFS[0].key);
+  // Aucune catégorie sélectionnée au départ : toute l'équipe est visible, et
+  // un clic filtre sur une catégorie (un second clic revient à tout voir).
+  // La recherche par nom, elle, porte toujours sur l'ensemble des employés.
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null);
   const [search, setSearch] = useState("");
 
   // Absence en cours de saisie (arrêt de travail ou vacances) pour un employé.
@@ -200,9 +201,10 @@ function EmployesContent() {
   // nom porte sur tous les postes : elle prend le pas sur la catégorie
   // sélectionnée, sinon l'employé cherché resterait invisible.
   const groupsByStatus = useMemo(() => {
-    const visibleGroups = searching
-      ? ROLE_GROUPS
-      : CATEGORY_DEFS.find((c) => c.key === selectedCategory)?.groups ?? [];
+    const visibleGroups =
+      searching || !selectedCategory
+        ? ROLE_GROUPS
+        : CATEGORY_DEFS.find((c) => c.key === selectedCategory)?.groups ?? [];
 
     function matchesSearch(user: User): boolean {
       return (
@@ -344,37 +346,6 @@ function EmployesContent() {
         {!loading && (
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div
-                role="radiogroup"
-                aria-label="Catégorie d'employés à afficher"
-                className="cf-seg grid grid-cols-2 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:justify-center"
-              >
-                {CATEGORY_DEFS.map((category) => {
-                  const count = countByCategory[category.key];
-                  const active = !searching && selectedCategory === category.key;
-                  return (
-                    <button
-                      key={category.key}
-                      type="button"
-                      disabled={count === 0 || searching}
-                      onClick={() => setSelectedCategory(category.key)}
-                      role="radio"
-                      aria-checked={active}
-                      title={category.label}
-                      className={`cf-seg__btn justify-between sm:justify-center ${
-                        active ? "cf-seg__btn--active" : ""
-                      }`}
-                    >
-                      <span className="truncate">
-                        <span className="sm:hidden">{category.shortLabel}</span>
-                        <span className="hidden sm:inline">{category.label}</span>
-                      </span>
-                      <span className="cf-seg__count">{count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
               <input
                 type="search"
                 list="employes-noms"
@@ -389,6 +360,43 @@ function EmployesContent() {
                   <option key={name} value={name} />
                 ))}
               </datalist>
+
+              <div
+                aria-label="Filtrer par catégorie d'employés"
+                className="cf-seg grid grid-cols-2 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:justify-center"
+              >
+                {CATEGORY_DEFS.map((category) => {
+                  const count = countByCategory[category.key];
+                  const active = !searching && selectedCategory === category.key;
+                  return (
+                    <button
+                      key={category.key}
+                      type="button"
+                      disabled={count === 0 || searching}
+                      onClick={() =>
+                        setSelectedCategory((current) =>
+                          current === category.key ? null : category.key,
+                        )
+                      }
+                      aria-pressed={active}
+                      title={
+                        active
+                          ? `${category.label} — cliquer pour afficher toutes les catégories`
+                          : category.label
+                      }
+                      className={`cf-seg__btn justify-between sm:justify-center ${
+                        active ? "cf-seg__btn--active" : ""
+                      }`}
+                    >
+                      <span className="truncate">
+                        <span className="sm:hidden">{category.shortLabel}</span>
+                        <span className="hidden sm:inline">{category.label}</span>
+                      </span>
+                      <span className="cf-seg__count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {searching && (
@@ -420,7 +428,9 @@ function EmployesContent() {
                 <p className="text-sm text-slate-500">
                   {searching
                     ? "Aucun employé en poste ne correspond à cette recherche."
-                    : "Aucun employé en poste dans cette catégorie."}
+                    : selectedCategory
+                      ? "Aucun employé en poste dans cette catégorie."
+                      : "Aucun employé en poste."}
                 </p>
               ) : (
                 <div className="flex flex-col gap-5">
@@ -468,7 +478,9 @@ function EmployesContent() {
                 <p className="text-sm text-slate-500">
                   {searching
                     ? "Aucun employé licencié ne correspond à cette recherche."
-                    : "Aucun employé licencié dans cette catégorie."}
+                    : selectedCategory
+                      ? "Aucun employé licencié dans cette catégorie."
+                      : "Aucun employé licencié."}
                 </p>
               ) : (
                 <div className="flex flex-col gap-5">
