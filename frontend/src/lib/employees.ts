@@ -162,6 +162,16 @@ export function isDepartureScheduled(dismissedAt: string, today: string = todayI
   return dismissedAt > today;
 }
 
+/**
+ * True when this employee must not receive new schedule hours on `dayKey`
+ * (`YYYY-MM-DD`): inactive account, or work day on/after the dismissal date.
+ */
+export function isUnschedulableOnDate(user: Pick<User, "active" | "dismissedAt">, dayKey: string): boolean {
+  if (!user.active) return true;
+  if (!user.dismissedAt) return false;
+  return dayKey >= user.dismissedAt.slice(0, 10);
+}
+
 export function sortByName(users: User[]): User[] {
   return [...users].sort((a, b) =>
     `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, "fr"),

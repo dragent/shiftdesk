@@ -9,6 +9,7 @@ import {
   fullName,
   groupKeyOf,
   isDepartureScheduled,
+  isUnschedulableOnDate,
   matchesName,
   normalize,
   positionLabel,
@@ -68,6 +69,28 @@ describe("isDepartureScheduled", () => {
 
   it("compare à aujourd'hui par défaut", () => {
     expect(isDepartureScheduled(todayISO())).toBe(false);
+  });
+});
+
+describe("isUnschedulableOnDate", () => {
+  it("autorise les jours avant le licenciement", () => {
+    const u = user("Martin", "Alice", "ROLE_CAISSIER", {
+      dismissedAt: "2026-08-25",
+    });
+    expect(isUnschedulableOnDate(u, "2026-08-24")).toBe(false);
+  });
+
+  it("bloque le jour du licenciement et les suivants", () => {
+    const u = user("Martin", "Alice", "ROLE_CAISSIER", {
+      dismissedAt: "2026-08-25",
+    });
+    expect(isUnschedulableOnDate(u, "2026-08-25")).toBe(true);
+    expect(isUnschedulableOnDate(u, "2026-08-26")).toBe(true);
+  });
+
+  it("bloque les comptes inactifs même sans date", () => {
+    const u = user("Martin", "Alice", "ROLE_CAISSIER", { active: false });
+    expect(isUnschedulableOnDate(u, "2026-08-20")).toBe(true);
   });
 });
 

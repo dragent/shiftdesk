@@ -488,6 +488,80 @@ final class PlanningApiTest extends WebTestCase
         self::assertSame($expected, $userIds);
     }
 
+    public function testCannotScheduleOnOrAfterDismissalDate(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+        $employee = $this->createUser('caissier@test.local', UserRole::CAISSIER, $site);
+        $auth = $this->loginAs($client, 'direction@test.local');
+
+        $dismissedAt = (new \DateTimeImmutable('today'))->modify('+5 days')->format('Y-m-d');
+        $before = (new \DateTimeImmutable('today'))->modify('+4 days')->format('Y-m-d');
+        $onOrAfter = $dismissedAt;
+
+        $employee->setDismissedAt(new \DateTimeImmutable($dismissedAt));
+        $employee->setActive(true);
+        $this->em()->flush();
+
+        $client->request(
+            'POST',
+            '/api/plannings',
+            server: $this->authHeaders($auth['token']),
+            content: json_encode([
+                'userId' => $employee->getId(),
+                'workDate' => $before,
+                'startTime' => '09:00',
+                'endTime' => '12:00',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(201);
+
+        $client->request(
+            'POST',
+            '/api/plannings',
+            server: $this->authHeaders($auth['token']),
+            content: json_encode([
+                'userId' => $employee->getId(),
+                'workDate' => $onOrAfter,
+                'startTime' => '09:00',
+                'endTime' => '12:00',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(422);
+        $payload = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('error', $payload);
+        self::assertStringContainsString('licenciement', $payload['error']);
+    }
+
+    public function testCannotScheduleInactiveEmployee(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+        $employee = $this->createUser('caissier@test.local', UserRole::CAISSIER, $site);
+        $employee->setActive(false);
+        $this->em()->flush();
+        $auth = $this->loginAs($client, 'direction@test.local');
+
+        $client->request(
+            'POST',
+            '/api/plannings',
+            server: $this->authHeaders($auth['token']),
+            content: json_encode([
+                'userId' => $employee->getId(),
+                'workDate' => '2026-07-27',
+                'startTime' => '09:00',
+                'endTime' => '12:00',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(422);
+    }
+
     /** @return array{token: string, user: User} */
     private function loginAs(KernelBrowser $client, string $email, string $password = 'Password123!'): array
     {

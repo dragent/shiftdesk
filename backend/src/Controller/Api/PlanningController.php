@@ -107,6 +107,11 @@ class PlanningController extends AbstractApiController
         $startTime = new \DateTimeImmutable($data['startTime']);
         $endTime = new \DateTimeImmutable($data['endTime']);
 
+        $schedulableError = $this->assertUserSchedulableOnDate($user, $workDate);
+        if ($schedulableError) {
+            return $this->respondError($schedulableError, 422);
+        }
+
         $breakError = $this->checkMinimumBreak($user, $workDate, $startTime, $endTime, null);
         if ($breakError) {
             return $this->respondError($breakError, 422);
@@ -185,6 +190,11 @@ class PlanningController extends AbstractApiController
         }
 
         if (array_key_exists('workDate', $data) || array_key_exists('startTime', $data) || array_key_exists('endTime', $data)) {
+            $schedulableError = $this->assertUserSchedulableOnDate($planning->getUser(), $planning->getWorkDate());
+            if ($schedulableError) {
+                return $this->respondError($schedulableError, 422);
+            }
+
             $breakError = $this->checkMinimumBreak(
                 $planning->getUser(),
                 $planning->getWorkDate(),
@@ -201,6 +211,32 @@ class PlanningController extends AbstractApiController
         $this->em->flush();
 
         return $this->respond($planning, 200, ['planning:read', 'user:read', 'site:read']);
+    }
+
+    /**
+     * Blocks scheduling on or after the dismissal effective date, and for
+     * inactive accounts. Until that date the employee remains planifiable.
+     */
+    private function assertUserSchedulableOnDate(User $user, \DateTimeImmutable $workDate): ?string
+    {
+        $workDay = $workDate->setTime(0, 0);
+        $dismissedAt = $user->getDismissedAt();
+
+        if ($dismissedAt !== null) {
+            $dismissDay = $dismissedAt->setTime(0, 0);
+            if ($workDay >= $dismissDay) {
+                return sprintf(
+                    'Cet employé ne peut plus être planifié à partir du %s (date de licenciement).',
+                    $dismissDay->format('d/m/Y'),
+                );
+            }
+        }
+
+        if (!$user->isActive()) {
+            return 'Cet employé n\'est plus en poste et ne peut pas être planifié.';
+        }
+
+        return null;
     }
 
     /**

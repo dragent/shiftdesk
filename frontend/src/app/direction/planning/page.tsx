@@ -19,6 +19,7 @@ import {
   slotKeyForTime,
   type HalfDayKey,
 } from "@/lib/planning";
+import { formatDateFR, isUnschedulableOnDate } from "@/lib/employees";
 import type { Absence, Planning, StoreClosure, User } from "@/lib/types";
 
 const HALF_DAY_OPTIONS: { value: HalfDayKey; label: string }[] = [
@@ -219,6 +220,7 @@ function PlanningContent() {
 
   function startAdd(user: User, dayKey: string, slotKey: HalfDayKey, dayIndex: number) {
     if (absenceByUserDay.has(`${user.id}_${dayKey}`)) return;
+    if (isUnschedulableOnDate(user, dayKey)) return;
     const cellKey = `${user.id}_${dayKey}_${slotKey}`;
     // Reception 7:00 / cashiers 7:30 on weekdays; Sunday 7:30 / 8:00.
     // Management / shop floor: morning from 04:00.
@@ -248,6 +250,15 @@ function PlanningContent() {
   async function submitAdd(e: FormEvent, user: User, dayKey: string, cellKey: string, slotKey: HalfDayKey) {
     e.preventDefault();
     setError(null);
+
+    if (isUnschedulableOnDate(user, dayKey)) {
+      setError(
+        user.dismissedAt
+          ? `Cet employé ne peut plus être planifié à partir du ${formatDateFR(user.dismissedAt)}.`
+          : "Cet employé n'est plus en poste et ne peut pas être planifié.",
+      );
+      return;
+    }
 
     // The lunch break between morning and afternoon must be at least 1h: the
     // save is blocked before the API is even called when the gap with the
@@ -851,6 +862,7 @@ function SlotCell({
   // On Sunday, the closing time (13:15) also caps the start of the slot.
   const maxStart = slot.end <= maxEnd ? slot.end : maxEnd;
   const showEnCaisse = canMarkEnCaisse(user);
+  const dismissedOnDay = isUnschedulableOnDate(user, dayKey);
 
   if (absence) {
     const isConge = absence.reason === "CONGE";
@@ -874,6 +886,24 @@ function SlotCell({
         }`}
       >
         {arretRange}
+      </div>
+    );
+  }
+
+  // After the dismissal date, hours can no longer be selected. Existing slots
+  // (if any) stay removable so the week can be cleaned up.
+  if (dismissedOnDay && !entry && !isEditing) {
+    const label = user.dismissedAt
+      ? `Départ le ${formatDateFR(user.dismissedAt)}`
+      : "Plus en poste";
+    return (
+      <div
+        role="status"
+        aria-label={`Départ — ${user.firstName} ${user.lastName}`}
+        title={label}
+        className="flex min-h-11 w-full items-center justify-center rounded-md border-2 border-red-400 bg-red-100 px-1 text-[11px] font-semibold leading-tight text-red-800"
+      >
+        Départ
       </div>
     );
   }
@@ -1439,6 +1469,7 @@ function PrintableSchedule({
                           const dayKey = toISODate(day);
                           const closed = isPlanningSlotClosed(idx, dayKey, slot.key, closures);
                           const absence = absenceByUserDay.get(`${user.id}_${dayKey}`);
+                          const dismissed = isUnschedulableOnDate(user, dayKey);
                           const entry = planningByCell.get(`${user.id}_${dayKey}_${slot.key}`);
                           const dayEnd = slotIdx === HALF_DAY_SLOTS.length - 1;
                           const halfEnd = !dayEnd;
@@ -1453,12 +1484,16 @@ function PrintableSchedule({
                                     ? absence.reason === "CONGE"
                                       ? "print-schedule__slot-cell--conge"
                                       : "print-schedule__slot-cell--arret"
-                                    : entry
-                                      ? SLOT_DUTY_PRINT_CLASS[slotDutyTone(user, entry)]
-                                      : "",
+                                    : dismissed && !entry
+                                      ? "print-schedule__slot-cell--conge"
+                                      : entry
+                                        ? SLOT_DUTY_PRINT_CLASS[slotDutyTone(user, entry)]
+                                        : "",
                                 halfEnd ? "print-schedule__half-end" : "",
                                 dayEnd ? "print-schedule__day-end" : "",
-                                dayAlt && !absence ? "print-schedule__day-band--alt" : "",
+                                dayAlt && !absence && !(dismissed && !entry)
+                                  ? "print-schedule__day-band--alt"
+                                  : "",
                               ]
                                 .filter(Boolean)
                                 .join(" ")}
@@ -1476,6 +1511,8 @@ function PrintableSchedule({
                                 ) : (
                                   ""
                                 )
+                              ) : dismissed && !entry ? (
+                                ""
                               ) : entry ? (
                                 <span className="print-schedule__time">
                                   {formatPrintRange(entry.startTime, entry.endTime)}
@@ -1501,20 +1538,22 @@ function PrintableSchedule({
                             const dayKey = toISODate(day);
                             const closed = isPlanningSlotClosed(idx, dayKey, slot.key, closures);
                             const absence = absenceByUserDay.get(`${user.id}_${dayKey}`);
+                            const dismissed = isUnschedulableOnDate(user, dayKey);
                             const dayEnd = slotIdx === HALF_DAY_SLOTS.length - 1;
                             const halfEnd = !dayEnd;
                             const dayAlt = idx % 2 === 1;
+                            const blocked = Boolean(closed || absence || dismissed);
                             return (
                               <td
                                 key={`${dayKey}_${slot.key}_sig`}
                                 className={[
-                                  closed || absence
-                                    ? "print-schedule__slot-cell--closed"
-                                    : "",
-                                  absence ? "print-schedule__sig--blocked" : "",
+                                  blocked ? "print-schedule__slot-cell--closed" : "",
+                                  absence || dismissed ? "print-schedule__sig--blocked" : "",
                                   halfEnd ? "print-schedule__half-end" : "",
                                   dayEnd ? "print-schedule__day-end" : "",
-                                  dayAlt && !absence ? "print-schedule__day-band--alt" : "",
+                                  dayAlt && !absence && !dismissed
+                                    ? "print-schedule__day-band--alt"
+                                    : "",
                                 ]
                                   .filter(Boolean)
                                   .join(" ")}
@@ -1551,7 +1590,7 @@ function PrintableSchedule({
         </span>
         <span>
           <span className="print-schedule__swatch" style={{ background: "#fecaca" }} />
-          Congé
+          Congé / Départ
         </span>
         <span>
           <span className="print-schedule__swatch" style={{ background: "#e5e9ef" }} />
