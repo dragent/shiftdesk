@@ -91,6 +91,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Context([DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
     private ?\DateTimeImmutable $dismissedAt = null;
 
+    /**
+     * When true, the user must set a personal password before using the app
+     * (set on recruitment with a temporary password emailed to them).
+     */
+    #[ORM\Column(name: 'must_change_password')]
+    #[Groups(['user:read'])]
+    private bool $mustChangePassword = false;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -280,6 +288,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setDismissedAt(?\DateTimeImmutable $dismissedAt): static
     {
         $this->dismissedAt = $dismissedAt;
+
+        return $this;
+    }
+
+    public function isMustChangePassword(): bool
+    {
+        return $this->mustChangePassword;
+    }
+
+    public function setMustChangePassword(bool $mustChangePassword): static
+    {
+        $this->mustChangePassword = $mustChangePassword;
 
         return $this;
     }

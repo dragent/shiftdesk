@@ -5,6 +5,8 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     app.ai_service_url: '%env(AI_SERVICE_URL)%'
+    app.mailer_from: '%env(MAILER_FROM)%'
+    app.frontend_url: '%env(FRONTEND_URL)%'
 
 services:
     # default configuration for services in *this* file
@@ -26,3 +28,8 @@ services:
     App\Service\PlanningSupervisorService:
         arguments:
             $aiServiceUrl: '%app.ai_service_url%'
+
+    App\Service\RecruitmentMailer:
+        arguments:
+            $fromAddress: '%app.mailer_from%'
+            $frontendUrl: '%app.frontend_url%'

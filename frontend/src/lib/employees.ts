@@ -100,6 +100,22 @@ export const DEFAULT_RECRUITMENT_ROLE = "CAISSIER";
 export const DEFAULT_CONTRACT_HOURS = 36;
 export const DEFAULT_CONTRACT_MINUTES = 45;
 
+/**
+ * Dev-only UI tools (e.g. hard-delete of a dismissed cashier). Hidden on a
+ * real production host; shown on localhost / `next dev`, or when explicitly
+ * enabled with `NEXT_PUBLIC_ENABLE_DEV_TOOLS=1`.
+ */
+export function isDevToolsEnabled(): boolean {
+  if (process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "1") return true;
+  if (process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "0") return false;
+  if (process.env.NODE_ENV === "development") return true;
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1";
+  }
+  return false;
+}
+
 /** Quarter-hour steps offered next to the hours field. */
 export const CONTRACT_MINUTE_OPTIONS = [0, 15, 30, 45] as const;
 

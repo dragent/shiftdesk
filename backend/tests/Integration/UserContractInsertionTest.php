@@ -101,7 +101,7 @@ final class UserContractInsertionTest extends WebTestCase
         $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
 
         // La fiche employés n'envoie plus de mot de passe : le backend en génère
-        // un aléatoire, l'employé le définira lui-même plus tard.
+        // un temporaire et l'envoie par email à la personne recrutée.
         $client->request(
             'POST',
             '/api/users',

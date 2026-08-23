@@ -34,7 +34,7 @@ function LoginForm() {
 
   useEffect(() => {
     if (user) {
-      router.replace("/dashboard");
+      router.replace(user.mustChangePassword ? "/changer-mot-de-passe" : "/dashboard");
     }
   }, [user, router]);
 
@@ -43,8 +43,8 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     try {
-      await login(email, password);
-      router.replace("/dashboard");
+      const me = await login(email, password);
+      router.replace(me.mustChangePassword ? "/changer-mot-de-passe" : "/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
         // The backend returns "Invalid credentials." (in English) for a 401:

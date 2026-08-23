@@ -40,9 +40,9 @@ security:
         - { path: ^/api/categories, roles: ROLE_ADMIN }
         - { path: ^/api/sites, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET] }
         - { path: ^/api/sites, roles: ROLE_ADMIN }
-        # La direction gère les employés (recrutement, licenciement, coordonnées) ;
-        # seule l'administration peut supprimer définitivement un compte.
-        - { path: ^/api/users, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET, POST, PUT, PATCH] }
+        # La direction gère les employés (recrutement, licenciement, coordonnées,
+        # et suppression définitive d'un licencié en environnement de dev).
+        - { path: ^/api/users, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET, POST, PUT, PATCH, DELETE] }
         - { path: ^/api/users, roles: ROLE_ADMIN }
         - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET, PUT, PATCH] }
         - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
@@ -56,7 +56,8 @@ security:
         - { path: ^/api/pauses, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
         - { path: ^/api/requests, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
         - { path: ^/api/ai, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
-        - { path: ^/api/me, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }
+        - { path: ^/api/me/password, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE], methods: [POST] }
+        - { path: ^/api/me, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }
         - { path: ^/api, roles: ROLE_USER }
 
 when@test:

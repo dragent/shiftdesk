@@ -33,6 +33,8 @@ export interface User {
   phone?: string | null;
   /** Effective date of the dismissal (`YYYY-MM-DD`), null when the employee is still employed. */
   dismissedAt?: string | null;
+  /** When true, the user must set a personal password before using the app. */
+  mustChangePassword?: boolean;
 }
 
 export interface RequestCategory {

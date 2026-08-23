@@ -7,11 +7,13 @@ use App\Entity\User;
 use App\Enum\UserRole;
 use App\Repository\SiteRepository;
 use App\Repository\UserRepository;
+use App\Service\RecruitmentMailer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -29,6 +31,7 @@ class UserController extends AbstractApiController
         private readonly EntityManagerInterface $em,
         private readonly ValidatorInterface $validator,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly RecruitmentMailer $recruitmentMailer,
     ) {
         parent::__construct($serializer);
     }
@@ -82,18 +85,19 @@ class UserController extends AbstractApiController
             $user->setSite($site);
         }
 
-        // Recruitment no longer collects a provisional password: a random one is
-        // stored so the account exists, and the employee will set their own later.
+        // Recruitment no longer collects a provisional password in the form: a
+        // temporary one is generated and emailed to the employee.
         $plainPassword = $data['password'] ?? null;
         if ($plainPassword && strlen((string) $plainPassword) < 8) {
             return $this->respondError('Le mot de passe doit contenir au moins 8 caractères.', 422);
         }
-        $user->setPassword(
-            $this->passwordHasher->hashPassword(
-                $user,
-                $plainPassword ?: bin2hex(random_bytes(16)),
-            ),
-        );
+        if (!$plainPassword) {
+            $plainPassword = bin2hex(random_bytes(8));
+            // Temporary password from the welcome email: the employee must
+            // replace it on first login.
+            $user->setMustChangePassword(true);
+        }
+        $user->setPassword($this->passwordHasher->hashPassword($user, $plainPassword));
 
         $violations = $this->validator->validate($user);
         if (count($violations) > 0) {
@@ -102,6 +106,8 @@ class UserController extends AbstractApiController
 
         $this->em->persist($user);
         $this->em->flush();
+
+        $this->recruitmentMailer->sendWelcome($user, $plainPassword);
 
         return $this->respond($user, 201, ['user:read', 'site:read']);
     }
@@ -171,11 +177,28 @@ class UserController extends AbstractApiController
     }
 
     #[Route('/{id}', name: 'api_users_delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
         $user = $this->userRepository->find($id);
         if (!$user) {
             return $this->respondError('Utilisateur introuvable', 404);
+        }
+
+        // Direction may only hard-delete dismissed cashiers (dev cleanup tool).
+        // Admins keep full deletion rights.
+        if (!$currentUser->hasRole(UserRole::ADMIN)) {
+            if ($user->isActive()) {
+                return $this->respondError(
+                    'Seul un employé licencié peut être supprimé définitivement.',
+                    422,
+                );
+            }
+            if (!$user->hasRole(UserRole::CAISSIER)) {
+                return $this->respondError(
+                    'Seuls les caissiers licenciés peuvent être supprimés depuis cet outil.',
+                    422,
+                );
+            }
         }
 
         $this->em->remove($user);

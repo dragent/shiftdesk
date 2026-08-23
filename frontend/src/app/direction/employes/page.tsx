@@ -18,6 +18,7 @@ import {
   formatDateFR,
   fullName,
   isDepartureScheduled,
+  isDevToolsEnabled,
   MAX_CONTRACT_HOURS,
   normalize,
   RECRUITMENT_CATEGORIES,
@@ -205,6 +206,32 @@ function EmployesContent() {
     );
   }
 
+  /** Dev-only: permanently remove a dismissed cashier from the database. */
+  async function deleteDismissedCashier(user: User) {
+    if (!isDevToolsEnabled()) return;
+    if (!user.roles?.includes("ROLE_CAISSIER") || user.active) return;
+    if (
+      !window.confirm(
+        `Supprimer définitivement ${fullName(user)} ? Cette action est irréversible (outil de développement).`,
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await api.delete(`/api/users/${user.id}`);
+      setSuccess(`${user.firstName} ${user.lastName} a été supprimé(e) définitivement.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Impossible de supprimer cet employé.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function submitRecruitment(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -227,7 +254,9 @@ function EmployesContent() {
       setContractHours(String(DEFAULT_CONTRACT_HOURS));
       setContractExtraMinutes(DEFAULT_CONTRACT_MINUTES);
       setRecruitOpen(false);
-      setSuccess(`${firstName} ${lastName} a été recruté(e).`);
+      setSuccess(
+        `${firstName} ${lastName} a été recruté(e). Un email avec les identifiants a été envoyé.`,
+      );
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de recruter cet employé.");
@@ -448,6 +477,20 @@ function EmployesContent() {
                           >
                             Recrutement
                           </Button>
+                          {/* Hard delete is a local-dev convenience for cleaning
+                              demo cashiers; never rendered on a production host. */}
+                          {isDevToolsEnabled() && user.roles?.includes("ROLE_CAISSIER") && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              className="flex-1 sm:flex-none"
+                              disabled={saving}
+                              aria-label={`Supprimer définitivement ${fullName(user)}`}
+                              onClick={() => deleteDismissedCashier(user)}
+                            >
+                              <ActionLabel short="Suppr." full="Supprimer" />
+                            </Button>
+                          )}
                         </EmployeeRow>
                       ))}
                     </RoleSection>

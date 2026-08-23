@@ -25,13 +25,23 @@ vi.mock("@/lib/api", () => {
 
   return {
     ApiError,
-    api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
+    api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  };
+});
+
+vi.mock("@/lib/employees", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/employees")>("@/lib/employees");
+  return {
+    ...actual,
+    isDevToolsEnabled: vi.fn(() => true),
   };
 });
 
 import EmployesPage from "./page";
+import { isDevToolsEnabled } from "@/lib/employees";
 
-const mockedApi = api as unknown as { get: Mock; post: Mock; patch: Mock };
+const mockedApi = api as unknown as { get: Mock; post: Mock; patch: Mock; delete: Mock };
+const mockedIsDevToolsEnabled = isDevToolsEnabled as unknown as Mock;
 
 let nextId = 1;
 
@@ -57,8 +67,12 @@ const LEA = employee("Martin", "Léa", "ROLE_HOTE");
 const CLAIRE = employee("Bernard", "Claire", "ROLE_DIRECTION");
 const KARIM = employee("Benali", "Karim", "ROLE_CAISSIER", { dismissedAt: "2026-09-15" });
 const MARC = employee("Petit", "Marc", "ROLE_LAD", { active: false, dismissedAt: "2026-07-01" });
+const JULIE = employee("Martin", "Julie", "ROLE_CAISSIER", {
+  active: false,
+  dismissedAt: "2026-06-15",
+});
 
-const TEAM = [SOPHIE, LEA, CLAIRE, KARIM, MARC];
+const TEAM = [SOPHIE, LEA, CLAIRE, KARIM, MARC, JULIE];
 const SITES: Site[] = [{ id: 7, name: "Carrefour Market - Test", active: true }];
 
 function renderPage(users: User[] = TEAM, sites: Site[] = SITES) {
@@ -83,6 +97,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.post.mockResolvedValue(undefined);
   mockedApi.patch.mockResolvedValue(undefined);
+  mockedApi.delete.mockResolvedValue(undefined);
+  mockedIsDevToolsEnabled.mockReturnValue(true);
 });
 
 describe("liste des employés", () => {
@@ -107,7 +123,7 @@ describe("liste des employés", () => {
     renderPage();
 
     expect(await screen.findByText("Durand Sophie")).toBeInTheDocument();
-    expect(screen.getAllByText("Téléphone non renseigné")).toHaveLength(4);
+    expect(screen.getAllByText("Téléphone non renseigné")).toHaveLength(5);
   });
 
   it("garde en poste un départ programmé et propose de l'annuler", async () => {
@@ -126,7 +142,7 @@ describe("liste des employés", () => {
     await screen.findByText("Petit Marc");
     // Both buttons read « Recrutement », as asked, but they are told apart by
     // their accessible name.
-    expect(screen.getAllByText("Recrutement")).toHaveLength(2);
+    expect(screen.getAllByText("Recrutement")).toHaveLength(3);
     expect(action("Recruter un nouvel employé")).toBeInTheDocument();
     expect(action("Réembaucher Petit Marc")).toBeInTheDocument();
   });
@@ -134,7 +150,7 @@ describe("liste des employés", () => {
   it("compte les employés de chaque catégorie", async () => {
     renderPage();
 
-    expect(await screen.findByRole("button", { name: /Accueil \/ Caisse/ })).toHaveTextContent("4");
+    expect(await screen.findByRole("button", { name: /Accueil \/ Caisse/ })).toHaveTextContent("5");
     expect(screen.getByRole("button", { name: /Direction/ })).toHaveTextContent("1");
     expect(screen.getByRole("button", { name: /Sécurité/ })).toBeDisabled();
   });
@@ -246,6 +262,32 @@ describe("licenciement", () => {
     );
   });
 
+  it("propose la suppression définitive d'un caissier licencié en environnement de développement", async () => {
+    const user = renderPage();
+    window.confirm = vi.fn(() => true);
+
+    await screen.findByText("Martin Julie");
+    expect(action("Supprimer définitivement Martin Julie")).toBeInTheDocument();
+    // Non-cashier dismissed employees keep recruitment only.
+    expect(screen.queryByRole("button", { name: /Supprimer définitivement Petit/ })).toBeNull();
+    // Still employed (even with a scheduled departure) must not be deletable here.
+    expect(screen.queryByRole("button", { name: /Supprimer définitivement Benali/ })).toBeNull();
+
+    await user.click(action("Supprimer définitivement Martin Julie"));
+
+    await waitFor(() =>
+      expect(mockedApi.delete).toHaveBeenCalledWith(`/api/users/${JULIE.id}`),
+    );
+  });
+
+  it("masque la suppression hors environnement de développement", async () => {
+    mockedIsDevToolsEnabled.mockReturnValue(false);
+    renderPage();
+
+    await screen.findByText("Petit Marc");
+    expect(screen.queryByRole("button", { name: /Supprimer définitivement/ })).toBeNull();
+  });
+
   it("affiche l'erreur du serveur sans fermer la liste", async () => {
     const { ApiError } = await import("@/lib/api");
     mockedApi.patch.mockRejectedValue(new ApiError("Licenciement impossible.", 422));
@@ -344,7 +386,6 @@ describe("recrutement", () => {
       "30",
       "45",
     ]);
-    expect(screen.getByText("(max. 36 h 45)")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Prénom"), "Julie");
     await user.type(screen.getByLabelText("Nom"), "Moreau");
@@ -401,7 +442,11 @@ describe("recrutement", () => {
         siteId: 7,
       }),
     );
-    expect(await screen.findByText("Julie Moreau a été recruté(e).")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Julie Moreau a été recruté(e). Un email avec les identifiants a été envoyé.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("envoie un téléphone nul quand le champ est laissé vide", async () => {

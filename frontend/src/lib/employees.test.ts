@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildStatusGroups,
   contractMinutesFromParts,
   countByCategory,
+  isDevToolsEnabled,
   MAX_CONTRACT_MINUTES,
   formatDateFR,
   fullName,
@@ -16,6 +17,10 @@ import {
   todayISO,
 } from "./employees";
 import type { User, UserRole } from "./types";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 let nextId = 1;
 
@@ -98,6 +103,44 @@ describe("contractMinutesFromParts", () => {
     expect(contractMinutesFromParts("temps plein")).toBe(0);
     expect(contractMinutesFromParts(-10)).toBe(0);
     expect(contractMinutesFromParts(0, 0)).toBe(0);
+  });
+});
+
+describe("isDevToolsEnabled", () => {
+  it("s'active en NODE_ENV development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEV_TOOLS", undefined);
+    expect(isDevToolsEnabled()).toBe(true);
+  });
+
+  it("reste désactivé en production hors localhost", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEV_TOOLS", undefined);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { hostname: "shift.carrefour.fr" },
+    });
+
+    expect(isDevToolsEnabled()).toBe(false);
+  });
+
+  it("s'active sur localhost même en build production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEV_TOOLS", undefined);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { hostname: "localhost" },
+    });
+
+    expect(isDevToolsEnabled()).toBe(true);
+  });
+
+  it("peut être forcé par NEXT_PUBLIC_ENABLE_DEV_TOOLS", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEV_TOOLS", "1");
+    expect(isDevToolsEnabled()).toBe(true);
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_DEV_TOOLS", "0");
+    expect(isDevToolsEnabled()).toBe(false);
   });
 });
 
