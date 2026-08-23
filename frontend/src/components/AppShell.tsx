@@ -27,6 +27,7 @@ function isDropdown(entry: NavEntry): entry is NavDropdown {
 
 const NAV_ITEMS: NavEntry[] = [
   { href: "/dashboard", label: "Tableau de bord" },
+  { href: "/direction/employes", label: "Employés", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   {
     label: "Planning",
     roles: ["ROLE_HOTE", "ROLE_CAISSIER", "ROLE_LAD", "ROLE_RAYON", "ROLE_SECURITE", "ROLE_DIRECTION", "ROLE_ADMIN"],
@@ -71,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col print:block print:min-h-0 print:h-auto">
       <header className="sticky top-0 z-30 print:hidden">
-        {/* Ligne marque */}
+        {/* Brand row */}
         <div className="bg-[var(--cf-blue)]">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
             <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
@@ -142,7 +143,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Barre d'onglets desktop */}
+        {/* Desktop tab bar */}
         <div className="border-b border-slate-200 bg-white shadow-sm">
           <nav
             aria-label="Navigation principale"
@@ -167,7 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </nav>
 
-          {/* Menu mobile */}
+          {/* Mobile menu */}
           {menuOpen && (
             <nav
               aria-label="Navigation mobile"

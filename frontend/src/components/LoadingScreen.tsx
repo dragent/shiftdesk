@@ -1,9 +1,8 @@
 import Image from "next/image";
 
 /**
- * Écran de chargement plein écran, utilisé pendant la résolution de
- * l'authentification (avant de savoir si l'utilisateur doit être redirigé
- * vers /login ou /dashboard).
+ * Full-screen loading screen, displayed while authentication is being resolved (before knowing
+ * whether the user must be redirected to /login or /dashboard).
  */
 export function LoadingScreen({ label = "Chargement..." }: { label?: string }) {
   return (

@@ -21,18 +21,18 @@ export function Card({
 }
 
 const BADGE_COLORS: Record<string, string> = {
-  // Statuts génériques
+  // Generic statuses
   NOUVELLE: "bg-blue-100 text-blue-700",
   EN_COURS: "bg-amber-100 text-amber-700",
   TRAITEE: "bg-emerald-100 text-emerald-700",
   ANNULEE: "bg-slate-200 text-slate-600",
   VUE: "bg-amber-100 text-amber-700",
   IGNOREE: "bg-slate-200 text-slate-600",
-  // Sévérités IA
+  // AI severities
   INFO: "bg-sky-100 text-sky-700",
   ATTENTION: "bg-amber-100 text-amber-700",
   CRITIQUE: "bg-red-100 text-red-700",
-  // Statuts planning
+  // Schedule statuses
   PLANIFIE: "bg-blue-100 text-blue-700",
   CONFIRME: "bg-emerald-100 text-emerald-700",
   ANNULE: "bg-slate-200 text-slate-600",
@@ -47,7 +47,7 @@ export function Badge({ children, tone }: { children: React.ReactNode; tone?: st
   );
 }
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "success" | "dark" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export function Button({
@@ -65,9 +65,13 @@ export function Button({
       ? "cf-btn--secondary"
       : variant === "danger"
         ? "cf-btn--danger"
-        : variant === "ghost"
-          ? "cf-btn--ghost"
-          : "cf-btn--primary";
+        : variant === "success"
+          ? "cf-btn--success"
+          : variant === "dark"
+            ? "cf-btn--dark"
+            : variant === "ghost"
+              ? "cf-btn--ghost"
+              : "cf-btn--primary";
   const sizeClass = size === "sm" ? "cf-btn--sm" : size === "lg" ? "cf-btn--lg" : "";
 
   return (
@@ -77,7 +81,7 @@ export function Button({
   );
 }
 
-/** Numéro de semaine ISO (lundi = début de semaine). */
+/** ISO week number (Monday = start of week). */
 export function isoWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -87,8 +91,8 @@ export function isoWeekNumber(date: Date): number {
 }
 
 /**
- * Barre de navigation de semaine (style partagé) : Précédente / Semaine N + dates / Suivante,
- * avec actions optionnelles à droite (ex. « Caisse auto »).
+ * Week navigation bar (shared style): Previous / Week N + dates / Next, with optional actions on
+ * the right (e.g. « Caisse auto »).
  */
 export function WeekNavigator({
   weekStart,
@@ -149,17 +153,14 @@ export function WeekNavigator({
 }
 
 /**
- * Champ de saisie d'heure au format français 24h ("07:30", "20:15"), qui
- * n'affiche jamais AM/PM. Contrairement à `<input type="time">`, dont le
- * rendu 12h/24h dépend des réglages régionaux du système d'exploitation
- * (et non de la langue de la page), ce champ masque la saisie en un simple
- * texte "HH:mm" pour garantir un format 24h quel que soit l'environnement
- * de l'utilisateur.
+ * Time input field in the French 24-hour format ("07:30", "20:15"), which never displays AM/PM.
+ * Unlike `<input type="time">`, whose 12h/24h rendering depends on the operating system regional
+ * settings (and not on the page language), this field masks the input as plain "HH:mm" text to
+ * guarantee a 24-hour format whatever the user's environment.
  *
- * `min`/`max` (au format "HH:mm") bornent la saisie à une amplitude donnée
- * (ex. la demi-journée matin/après-midi, ou les bornes d'un créneau) : une
- * fois l'heure complète saisie, elle est automatiquement ramenée à la borne
- * la plus proche plutôt que d'être simplement rejetée.
+ * `min`/`max` (in "HH:mm" format) bound the input to a given range (e.g. the morning/afternoon
+ * half-day, or the bounds of a slot): once a complete time has been entered, it is automatically
+ * clamped to the nearest bound rather than simply rejected.
  */
 export function TimeField({
   value,

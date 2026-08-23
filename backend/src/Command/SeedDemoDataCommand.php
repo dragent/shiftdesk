@@ -18,10 +18,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Initialise des données de démonstration : un site, les 3 comptes de
- * rôle (admin/direction/hôte) et les catégories de demandes par défaut
- * (Caroline, Siebel, Menu Carrefour). Idempotent : peut être relancée
- * sans dupliquer les données.
+ * Initialises demonstration data: one site, the 3 role accounts
+ * (admin/management/host) and the default request categories (Caroline,
+ * Siebel, Menu Carrefour). Idempotent: can be run again without duplicating
+ * data.
  */
 #[AsCommand(name: 'app:seed-demo', description: 'Initialise les données de démonstration (site, comptes, catégories).')]
 class SeedDemoDataCommand extends Command
@@ -64,25 +64,35 @@ class SeedDemoDataCommand extends Command
         $this->createUserIfMissing('karim.benali@caissier.carrefour-accueil.local', 'Karim', 'Benali', UserRole::CAISSIER, $site, $io);
         $this->createUserIfMissing('sophie.durand@caissier.carrefour-accueil.local', 'Sophie', 'Durand', UserRole::CAISSIER, $site, $io);
 
-        // Flush avant les mises à jour de contrat : setContractMinutes() charge
-        // via le repository (SQL), donc les users doivent déjà être en base.
+        // Flush before the contract updates: setContractMinutes() loads through
+        // the repository (SQL), so the users must already exist in database.
         $this->em->flush();
 
-        // Contrats horaires hebdomadaires par défaut pour tous les employés
-        // de démo (en minutes : 36h45 = 2205, 35h00 = 2100, 30h00 = 1800).
-        // Sans contrat, la colonne Total reste grise ; on en fixe un à chacun
-        // pour activer le code couleur vert/rouge sur toute la grille.
-        $this->setContractMinutes('direction@carrefour-accueil.local', 2100, $io); // Nadia : 35h
-        $this->setContractMinutes('hote@carrefour-accueil.local', 2205, $io); // Caroline : 36h45
-        $this->setContractMinutes('lad@carrefour-accueil.local', 2100, $io); // Yanis : 35h
-        $this->setContractMinutes('rayon@carrefour-accueil.local', 2100, $io); // Fatou : 35h
-        $this->setContractMinutes('securite@carrefour-accueil.local', 2100, $io); // Marc : 35h
+        // Default weekly contract hours for every demo employee (in minutes:
+        // 36h45 = 2205, 35h00 = 2100, 30h00 = 1800). Without contract hours
+        // the Total column stays grey; one is set for each employee to enable
+        // the green/red colour coding across the whole grid.
+        $this->setContractMinutes('direction@carrefour-accueil.local', 2100, $io); // Nadia: 35h
+        $this->setContractMinutes('hote@carrefour-accueil.local', 2205, $io); // Caroline: 36h45
+        $this->setContractMinutes('lad@carrefour-accueil.local', 2100, $io); // Yanis: 35h
+        $this->setContractMinutes('rayon@carrefour-accueil.local', 2100, $io); // Fatou: 35h
+        $this->setContractMinutes('securite@carrefour-accueil.local', 2100, $io); // Marc: 35h
         $this->setContractMinutes('karim.benali@caissier.carrefour-accueil.local', 2205, $io); // 36h45
         $this->setContractMinutes('sophie.durand@caissier.carrefour-accueil.local', 2205, $io); // 36h45
         $this->setContractMinutes('julie.martin@caissier.carrefour-accueil.local', 1800, $io); // 30h00
         $this->setCashierNumber('julie.martin@caissier.carrefour-accueil.local', '101', $io);
         $this->setCashierNumber('karim.benali@caissier.carrefour-accueil.local', '102', $io);
         $this->setCashierNumber('sophie.durand@caissier.carrefour-accueil.local', '103', $io);
+
+        // Contact phone numbers displayed on the employee record (management).
+        $this->setPhone('direction@carrefour-accueil.local', '06 12 00 01 01', $io);
+        $this->setPhone('hote@carrefour-accueil.local', '06 12 00 02 02', $io);
+        $this->setPhone('lad@carrefour-accueil.local', '06 12 00 03 03', $io);
+        $this->setPhone('rayon@carrefour-accueil.local', '06 12 00 04 04', $io);
+        $this->setPhone('securite@carrefour-accueil.local', '06 12 00 05 05', $io);
+        $this->setPhone('julie.martin@caissier.carrefour-accueil.local', '06 12 00 06 06', $io);
+        $this->setPhone('karim.benali@caissier.carrefour-accueil.local', '06 12 00 07 07', $io);
+        $this->setPhone('sophie.durand@caissier.carrefour-accueil.local', '06 12 00 08 08', $io);
 
         $this->createCategoryIfMissing('CAROLINE', 'Caroline', 'Demandes liées à l\'outil Caroline.', 1, $io);
         $this->createCategoryIfMissing('SIEBEL', 'Siebel', 'Demandes liées au CRM Siebel.', 2, $io);
@@ -137,6 +147,17 @@ class SeedDemoDataCommand extends Command
 
         $user->setCashierNumber($number);
         $io->text(sprintf('N° caissier mis à jour : %s -> %s', $email, $number));
+    }
+
+    private function setPhone(string $email, string $phone, SymfonyStyle $io): void
+    {
+        $user = $this->userRepository->findOneByEmail($email);
+        if (!$user || $user->getPhone() !== null) {
+            return;
+        }
+
+        $user->setPhone($phone);
+        $io->text(sprintf('Téléphone mis à jour : %s -> %s', $email, $phone));
     }
 
     private function createCategoryIfMissing(string $code, string $label, string $description, int $position, SymfonyStyle $io): void

@@ -10,8 +10,8 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 
 /**
- * Absence d'un employé sur une période (arrêt de travail ou congé) :
- * bloque la saisie d'horaires et l'émargement sur le planning imprimé.
+ * Absence of an employee over a period (sick leave or leave): blocks
+ * schedule entry and the attendance sign-off on the printed schedule.
  */
 #[ORM\Entity(repositoryClass: AbsenceRepository::class)]
 #[ORM\Table(name: 'absence')]
@@ -44,8 +44,8 @@ class Absence
     private \DateTimeImmutable $endDate;
 
     /**
-     * Horaires de début/fin de l'arrêt de travail (null pour un congé,
-     * qui reste affiché sans horaires).
+     * Start/end times of the sick leave (null for leave, which is still
+     * displayed but without times).
      */
     #[ORM\Column(name: 'start_time', type: 'time_immutable', nullable: true)]
     #[Groups(['absence:read', 'absence:write'])]

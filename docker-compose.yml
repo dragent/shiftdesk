@@ -29,6 +29,15 @@ services:
     depends_on:
       - mysql
 
+  # Catch-all SMTP for local mail (recruitment welcome messages).
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: shiftdesk_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   # --- Module IA (supervision de planning) ---
   ai-service:
     build:
@@ -53,10 +62,15 @@ services:
       CORS_ALLOW_ORIGIN: '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$$'
       AI_SERVICE_URL: "http://ai-service:8001"
       JWT_PASSPHRASE: "779d42ba92812f5fb1a0c4fa745f1d7fe6f7edbddd3354703410e2f62b6f9051"
+      MAILER_DSN: "smtp://mailpit:1025"
+      MAILER_FROM: "ShiftDesk <noreply@carrefour-accueil.local>"
+      FRONTEND_URL: "http://localhost:3000"
     depends_on:
       mysql:
         condition: service_healthy
       ai-service:
+        condition: service_started
+      mailpit:
         condition: service_started
 
   # --- Frontend Next.js ---

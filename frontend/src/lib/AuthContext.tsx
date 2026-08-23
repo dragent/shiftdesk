@@ -9,14 +9,15 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { api, clearToken, getToken, login as apiLogin, setToken } from "./api";
+import { api, ApiError, clearToken, getToken, login as apiLogin, setToken } from "./api";
 import type { User, UserRole } from "./types";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
+  refreshUser: (next?: User) => Promise<void>;
   hasRole: (...roles: UserRole[]) => boolean;
 }
 
@@ -48,14 +49,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, [loadUser]);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const { token } = await apiLogin(email, password);
-      setToken(token);
-      await loadUser();
-    },
-    [loadUser],
-  );
+  const refreshUser = useCallback(async (next?: User) => {
+    if (next) {
+      setUser(next);
+      return;
+    }
+    const me = await api.get<User>("/api/me");
+    setUser(me);
+  }, []);
+
+  const login = useCallback(async (email: string, password: string): Promise<User> => {
+    const { token } = await apiLogin(email, password);
+    setToken(token);
+    try {
+      const me = await api.get<User>("/api/me");
+      setUser(me);
+      setLoading(false);
+      return me;
+    } catch (err) {
+      // Login succeeded but the profile could not be loaded (e.g. missing
+      // role on /api/me): drop the token so we do not bounce to
+      // « session expirée », and surface a clear error instead.
+      clearToken();
+      setUser(null);
+      setLoading(false);
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        throw new ApiError(
+          "Connexion refusée : ce compte n'a pas accès à l'application.",
+          err.status,
+        );
+      }
+      throw err;
+    }
+  }, []);
 
   const logout = useCallback(() => {
     clearToken();
@@ -72,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

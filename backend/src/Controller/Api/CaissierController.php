@@ -16,11 +16,11 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Gestion de la liste des caissiers/caissières (comptes avec ROLE_CAISSIER).
- * Ce sont eux dont l'accueil saisit les pauses. Droits (cf. security.yaml) :
- * - Lecture : accueil, direction, admin.
- * - Création / suppression : direction, admin.
- * - Modification : accueil, direction, admin.
+ * Management of the cashier list (accounts with ROLE_CAISSIER). These are the
+ * employees whose breaks reception records. Permissions (see security.yaml):
+ * - Read: reception, management, admin.
+ * - Create / delete: management, admin.
+ * - Update: reception, management, admin.
  */
 #[Route('/api/caissiers')]
 class CaissierController extends AbstractApiController
@@ -85,9 +85,9 @@ class CaissierController extends AbstractApiController
             );
         }
 
-        // Pas de connexion prévue dans l'immédiat pour les caissiers : un mot
-        // de passe aléatoire est généré si aucun n'est fourni. La direction
-        // pourra en définir un plus tard si un accès leur est ouvert.
+        // Cashiers are not expected to sign in for now: a random password is
+        // generated when none is provided. Management can set one later if
+        // access is opened up to them.
         $plainPassword = $data['password'] ?? null;
         if ($plainPassword && strlen($plainPassword) < 8) {
             return $this->respondError('Le mot de passe doit contenir au moins 8 caractères.', 422);

@@ -17,20 +17,20 @@ use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Point d'intégration entre le back Symfony et le module IA de
- * "supervision de planning".
+ * Integration point between the Symfony backend and the "schedule
+ * supervision" AI module.
  *
- * Fonctionnement :
- *  1. On tente d'appeler le micro-service IA (ai-service/, cf. AI_SERVICE_URL)
- *     en lui envoyant les plannings + pauses de la période demandée.
- *  2. Si le micro-service est indisponible (pas encore développé, en cours
- *     de dev, etc.), on retombe sur des règles simples locales
- *     (fallbackAnalyze) afin que la fonctionnalité reste utilisable et que
- *     l'UI "Supervision IA" ait toujours un contenu pertinent.
+ * Behaviour:
+ *  1. The AI micro-service (ai-service/, see AI_SERVICE_URL) is called first,
+ *     with the schedules and breaks of the requested period.
+ *  2. If the micro-service is unavailable (not developed yet, work in
+ *     progress, etc.), simple local rules are used instead
+ *     (fallbackAnalyze) so that the feature stays usable and the
+ *     "AI supervision" UI always has relevant content.
  *
- * Quand la vraie brique IA (ML, prévision d'affluence, etc.) sera prête,
- * il suffira de l'exposer via ai-service/ : aucun changement nécessaire
- * côté front ni côté contrôleur.
+ * Once the real AI component (ML, footfall forecasting, etc.) is ready, it
+ * only has to be exposed through ai-service/: no change is required on the
+ * frontend or in the controller.
  */
 class PlanningSupervisorService
 {
@@ -47,8 +47,8 @@ class PlanningSupervisorService
     }
 
     /**
-     * Analyse la période [from, to] (et éventuellement un site) et persiste
-     * les PlanningInsight détectés. Retourne la liste des insights créés.
+     * Analyzes the [from, to] period (optionally restricted to a site) and
+     * persists the detected PlanningInsight entries. Returns the created insights.
      *
      * @return PlanningInsight[]
      */
@@ -86,8 +86,8 @@ class PlanningSupervisorService
     }
 
     /**
-     * Tente d'appeler le micro-service IA. Retourne null en cas
-     * d'indisponibilité (pour déclencher le fallback local).
+     * Attempts to call the AI micro-service. Returns null when it is
+     * unavailable, so that the local fallback is triggered.
      *
      * @param Planning[] $plannings
      * @param Pause[]    $pauses
@@ -140,8 +140,8 @@ class PlanningSupervisorService
     }
 
     /**
-     * Règles simples locales utilisées quand le micro-service IA n'est pas
-     * disponible (délègue à {@see LocalPlanningAnalyzer}).
+     * Simple local rules used when the AI micro-service is not available
+     * (delegates to {@see LocalPlanningAnalyzer}).
      *
      * @param Planning[] $plannings
      * @param Pause[]    $ongoingPauses

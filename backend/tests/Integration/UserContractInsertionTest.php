@@ -81,6 +81,52 @@ final class UserContractInsertionTest extends WebTestCase
         self::assertSame(2100, $byEmail['rayon@test.local']['contractMinutes']);
     }
 
+    public function testRecruitmentStoresTheContractSentByManagement(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+
+        $client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode([
+                'email' => 'direction@test.local',
+                'password' => 'Password123!',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseIsSuccessful();
+        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        // La fiche employés n'envoie plus de mot de passe : le backend en génère
+        // un temporaire et l'envoie par email à la personne recrutée.
+        $client->request(
+            'POST',
+            '/api/users',
+            server: $this->authHeaders($login['token']),
+            content: json_encode([
+                'firstName' => 'Julie',
+                'lastName' => 'Moreau',
+                'email' => 'julie.moreau@test.local',
+                'role' => 'HOTE',
+                'contractMinutes' => 1800,
+                'siteId' => $site->getId(),
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(201);
+        $payload = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(1800, $payload['contractMinutes']);
+
+        $this->em()->clear();
+        $stored = $this->em()->getRepository(User::class)->find($payload['id']);
+        self::assertInstanceOf(User::class, $stored);
+        self::assertSame(1800, $stored->getContractMinutes());
+        self::assertTrue($stored->hasRole(UserRole::HOTE));
+    }
+
     public function testSeedDemoAssignsContractsToEveryone(): void
     {
         static::createClient();

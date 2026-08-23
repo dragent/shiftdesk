@@ -18,7 +18,7 @@ class AbsenceRepository extends ServiceEntityRepository
     }
 
     /**
-     * Absences qui chevauchent la période [from, to].
+     * Absences overlapping the [from, to] period.
      *
      * @return Absence[]
      */

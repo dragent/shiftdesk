@@ -10,9 +10,9 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Un site représente un point d'accueil physique : magasin, hypermarché
- * ou site de bureau. Permet de gérer plusieurs lieux depuis une même
- * instance de l'application.
+ * A site represents a physical reception point: store, hypermarket or
+ * office location. Allows several locations to be managed from a single
+ * instance of the application.
  */
 #[ORM\Entity(repositoryClass: SiteRepository::class)]
 #[ORM\Table(name: 'site')]

@@ -8,8 +8,8 @@ import { api, ApiError } from "@/lib/api";
 import type { InsightStatus, PlanningInsight } from "@/lib/types";
 
 function toISODate(date: Date): string {
-  // Formatage en heure locale (et non toISOString(), qui convertit en UTC
-  // et décalerait la date d'un jour selon le fuseau horaire).
+  // Formatted in local time (not toISOString(), which converts to UTC and
+  // would shift the date by one day depending on the time zone).
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");

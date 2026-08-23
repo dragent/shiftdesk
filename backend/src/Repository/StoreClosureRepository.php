@@ -18,7 +18,7 @@ class StoreClosureRepository extends ServiceEntityRepository
     }
 
     /**
-     * Fermetures qui chevauchent la période [from, to].
+     * Closures overlapping the [from, to] period.
      *
      * @return StoreClosure[]
      */

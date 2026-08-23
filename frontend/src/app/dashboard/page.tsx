@@ -32,10 +32,10 @@ function DashboardContent() {
   useEffect(() => {
     async function load() {
       try {
-        // Chaque appel est isolé (Promise.allSettled) : certains rôles (ex.
-        // Rayon, Sécurité) n'ont pas accès aux pauses/demandes, on ne veut
-        // pas qu'un 403 sur l'un empêche l'affichage du reste du tableau de
-        // bord.
+        // Each call is isolated (Promise.allSettled): some roles (e.g. shop
+        // floor, security) have no access to breaks/requests, and a 403 on
+        // one of them must not prevent the rest of the dashboard from being
+        // displayed.
         const [pauses, requests] = await Promise.allSettled([
           api.get<Pause[]>("/api/pauses/ongoing"),
           api.get<AccueilRequest[]>("/api/requests?limit=5"),

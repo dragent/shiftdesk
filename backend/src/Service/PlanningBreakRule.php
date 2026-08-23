@@ -3,8 +3,8 @@
 namespace App\Service;
 
 /**
- * Règle métier : pause déjeuner minimale entre deux créneaux du même
- * employé le même jour. Logique pure, testable en TDD sans base de données.
+ * Business rule: minimum lunch break between two slots of the same
+ * employee on the same day. Pure logic, testable in TDD without a database.
  */
 class PlanningBreakRule
 {

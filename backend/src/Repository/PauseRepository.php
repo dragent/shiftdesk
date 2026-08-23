@@ -32,8 +32,8 @@ class PauseRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retourne les pauses de tous les employés démarrées un jour donné
-     * (vue d'équipe "pauses de la journée"), triées par heure de début.
+     * Returns the breaks of all the employees started on a given day
+     * (team view "breaks of the day"), sorted by start time.
      *
      * @return Pause[]
      */

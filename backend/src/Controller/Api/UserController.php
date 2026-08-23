@@ -7,17 +7,19 @@ use App\Entity\User;
 use App\Enum\UserRole;
 use App\Repository\SiteRepository;
 use App\Repository\UserRepository;
+use App\Service\RecruitmentMailer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Gestion des comptes utilisateurs (admin uniquement, cf. security.yaml).
- * Permet à la direction/l'admin de créer les comptes hôtes/hôtesses.
+ * User account management (admin only, see security.yaml). Allows
+ * management/admin to create reception host accounts.
  */
 #[Route('/api/users')]
 class UserController extends AbstractApiController
@@ -29,6 +31,7 @@ class UserController extends AbstractApiController
         private readonly EntityManagerInterface $em,
         private readonly ValidatorInterface $validator,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly RecruitmentMailer $recruitmentMailer,
     ) {
         parent::__construct($serializer);
     }
@@ -36,6 +39,10 @@ class UserController extends AbstractApiController
     #[Route('', name: 'api_users_list', methods: ['GET'])]
     public function list(): JsonResponse
     {
+        // Dated dismissals take effect here, on the first read that follows
+        // their effective date (see UserRepository).
+        $this->userRepository->deactivateDueDismissals(new \DateTimeImmutable('today'));
+
         return $this->respond($this->userRepository->findBy([], ['lastName' => 'ASC']), 200, ['user:read', 'site:read']);
     }
 
@@ -64,6 +71,11 @@ class UserController extends AbstractApiController
         $user->setFirstName($data['firstName'] ?? '');
         $user->setLastName($data['lastName'] ?? '');
         $user->setRoles($this->resolveRoles($data['role'] ?? 'HOTE'));
+        $user->setPhone($data['phone'] ?? null);
+
+        if (array_key_exists('contractMinutes', $data)) {
+            $user->setContractMinutes((int) $data['contractMinutes']);
+        }
 
         if (isset($data['siteId'])) {
             $site = $this->siteRepository->find($data['siteId']);
@@ -73,9 +85,17 @@ class UserController extends AbstractApiController
             $user->setSite($site);
         }
 
+        // Recruitment no longer collects a provisional password in the form: a
+        // temporary one is generated and emailed to the employee.
         $plainPassword = $data['password'] ?? null;
-        if (!$plainPassword || strlen($plainPassword) < 8) {
+        if ($plainPassword && strlen((string) $plainPassword) < 8) {
             return $this->respondError('Le mot de passe doit contenir au moins 8 caractères.', 422);
+        }
+        if (!$plainPassword) {
+            $plainPassword = bin2hex(random_bytes(8));
+            // Temporary password from the welcome email: the employee must
+            // replace it on first login.
+            $user->setMustChangePassword(true);
         }
         $user->setPassword($this->passwordHasher->hashPassword($user, $plainPassword));
 
@@ -86,6 +106,8 @@ class UserController extends AbstractApiController
 
         $this->em->persist($user);
         $this->em->flush();
+
+        $this->recruitmentMailer->sendWelcome($user, $plainPassword);
 
         return $this->respond($user, 201, ['user:read', 'site:read']);
     }
@@ -114,6 +136,24 @@ class UserController extends AbstractApiController
         }
         if (array_key_exists('active', $data)) {
             $user->setActive((bool) $data['active']);
+            // A rehire clears the previous dismissal date.
+            if ($user->isActive()) {
+                $user->setDismissedAt(null);
+            }
+        }
+        if (array_key_exists('dismissedAt', $data)) {
+            $raw = $data['dismissedAt'];
+            if ($raw !== null && !$this->isValidDate((string) $raw)) {
+                return $this->respondError('La date de licenciement est invalide.', 422);
+            }
+            $dismissedAt = $raw !== null ? new \DateTimeImmutable((string) $raw) : null;
+            $user->setDismissedAt($dismissedAt);
+            // The dismissal takes effect on the chosen date: until then the
+            // employee remains on duty, and therefore schedulable.
+            $user->setActive($dismissedAt === null || $dismissedAt > new \DateTimeImmutable('today'));
+        }
+        if (array_key_exists('phone', $data)) {
+            $user->setPhone($data['phone']);
         }
         if (array_key_exists('siteId', $data)) {
             $site = $data['siteId'] ? $this->siteRepository->find($data['siteId']) : null;
@@ -137,17 +177,42 @@ class UserController extends AbstractApiController
     }
 
     #[Route('/{id}', name: 'api_users_delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
         $user = $this->userRepository->find($id);
         if (!$user) {
             return $this->respondError('Utilisateur introuvable', 404);
         }
 
+        // Direction may only hard-delete dismissed cashiers (dev cleanup tool).
+        // Admins keep full deletion rights.
+        if (!$currentUser->hasRole(UserRole::ADMIN)) {
+            if ($user->isActive()) {
+                return $this->respondError(
+                    'Seul un employé licencié peut être supprimé définitivement.',
+                    422,
+                );
+            }
+            if (!$user->hasRole(UserRole::CAISSIER)) {
+                return $this->respondError(
+                    'Seuls les caissiers licenciés peuvent être supprimés depuis cet outil.',
+                    422,
+                );
+            }
+        }
+
         $this->em->remove($user);
         $this->em->flush();
 
         return new JsonResponse(null, 204);
+    }
+
+    /** Date in `Y-m-d` format (the one sent by an HTML date field). */
+    private function isValidDate(string $value): bool
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value;
     }
 
     /**

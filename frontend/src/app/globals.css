@@ -8,7 +8,7 @@
   --surface: #ffffff;
   --surface-muted: #f4f7fb;
 
-  /* Palette de marque Carrefour */
+  /* Carrefour brand palette */
   --cf-blue: #0a4b9f;
   --cf-blue-dark: #06316b;
   --cf-blue-mid: #1462c4;
@@ -17,7 +17,7 @@
   --cf-red-dark: #b8040f;
   --cf-white: #ffffff;
 
-  /* Thème boutons / contrôles (partagé toutes pages) */
+  /* Button / control theme (shared by every page) */
   --cf-radius: 0.55rem;
   --cf-radius-sm: 0.4rem;
   --cf-shadow-sm: 0 1px 2px rgba(6, 49, 107, 0.08);
@@ -39,9 +39,9 @@
 
 html {
   height: 100%;
-  /* Base agrandie (16px -> ~18px) : les tailles Tailwind en rem suivent.
-     Sur mobile on reste un peu au-dessus du défaut pour la lisibilité,
-     sans saturer les grilles denses. */
+  /* Enlarged base size (16px -> ~18px): Tailwind rem sizes scale accordingly.
+     On mobile the size stays slightly above the default for legibility,
+     without overcrowding dense grids. */
   font-size: 112.5%;
   scrollbar-width: auto;
   scrollbar-color: var(--cf-blue) transparent;
@@ -53,7 +53,7 @@ html {
   }
 }
 
-/* Barres de défilement visibles partout (Firefox + Chromium). */
+/* Scrollbars visible everywhere (Firefox + Chromium). */
 * {
   scrollbar-width: auto;
   scrollbar-color: var(--cf-blue) transparent;
@@ -83,15 +83,15 @@ html {
 body {
   color: var(--foreground);
   font-family: var(--font-sans), "Segoe UI", Arial, Helvetica, sans-serif;
-  /* Interlignage et espacement généreux : confort de lecture (seniors /
-     malvoyance) sans casser le rendu métier. */
+  /* Generous line height and letter spacing: reading comfort (older or
+     visually impaired users) without breaking the business rendering. */
   line-height: 1.55;
   letter-spacing: 0.01em;
   min-height: 100%;
 
-  /* Fond moderne, nettement coloré aux teintes Carrefour : large aplat
-     bleu marque en haut de page, halo rouge en contrepoint, dégradé vers
-     un gris-bleu clair pour ne pas gêner la lecture du contenu. */
+  /* Modern background, distinctly tinted with Carrefour colours: wide brand
+     blue flat colour at the top of the page, red halo as a counterpoint, gradient
+     towards a light blue-grey so content stays readable. */
   background-color: var(--background);
   background-image:
     radial-gradient(1300px circle at 8% -15%, rgba(10, 75, 159, 0.55), transparent 45%),
@@ -102,7 +102,7 @@ body {
   background-repeat: no-repeat;
 }
 
-/* Fine grille décorative, façon "blueprint" professionnel. */
+/* Fine decorative grid, professional "blueprint" style. */
 .bg-grid-overlay {
   background-image:
     linear-gradient(to right, rgba(10, 75, 159, 0.08) 1px, transparent 1px),
@@ -118,7 +118,7 @@ body {
   background: linear-gradient(115deg, var(--cf-blue-dark) 0%, var(--cf-blue) 55%, var(--cf-blue-mid) 100%);
 }
 
-/* --- Boutons (thème global) --- */
+/* --- Buttons (global theme) --- */
 .cf-btn {
   display: inline-flex;
   align-items: center;
@@ -196,6 +196,30 @@ body {
   box-shadow: 0 3px 12px rgba(184, 4, 15, 0.34);
 }
 
+.cf-btn--success {
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  color: #fff;
+  border-color: #14532d;
+  box-shadow: 0 2px 10px rgba(21, 128, 61, 0.28);
+}
+
+.cf-btn--success:hover:not(:disabled) {
+  background: linear-gradient(180deg, #15803d 0%, #14532d 100%);
+  box-shadow: 0 3px 12px rgba(20, 83, 45, 0.34);
+}
+
+.cf-btn--dark {
+  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+  color: #fff;
+  border-color: #020617;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.3);
+}
+
+.cf-btn--dark:hover:not(:disabled) {
+  background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  box-shadow: 0 3px 12px rgba(2, 6, 23, 0.36);
+}
+
 .cf-btn--ghost {
   background: transparent;
   color: var(--cf-blue);
@@ -221,7 +245,7 @@ body {
   font-size: 0.9375rem;
 }
 
-/* Navigateur de semaine (partagé toutes pages) */
+/* Week navigator (shared by every page) */
 .cf-week {
   display: flex;
   flex-wrap: wrap;
@@ -286,7 +310,7 @@ body {
   }
 }
 
-/* --- Navigation (onglets thème Carrefour) --- */
+/* --- Navigation (Carrefour-themed tabs) --- */
 .cf-nav-track {
   display: flex;
   align-items: center;
@@ -322,7 +346,7 @@ body {
   color: #fff;
 }
 
-/* Segmented control (semaine / catégories planning) */
+/* Segmented control (week / schedule categories) */
 .cf-seg {
   display: flex;
   flex-wrap: wrap;
@@ -392,7 +416,7 @@ body {
   border: 1px solid rgba(10, 75, 159, 0.15);
 }
 
-/* Planning desktop : zone de scroll des jours. */
+/* Desktop schedule: scroll area for the days. */
 .planning-scroll {
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -400,12 +424,12 @@ body {
   scrollbar-gutter: stable;
 }
 
-/* Planning desktop : colonne Employé collée à gauche dans la zone scrollable. */
+/* Desktop schedule: Employee column pinned to the left inside the scrollable area. */
 .planning-col-employee {
   box-shadow: 4px 0 6px -4px rgba(15, 23, 42, 0.15);
 }
 
-/* Planning desktop : colonne Total sticky à droite (même table = alignement garanti). */
+/* Desktop schedule: Total column sticky on the right (same table = alignment guaranteed). */
 .planning-col-total-sticky {
   box-shadow: -4px 0 6px -4px rgba(15, 23, 42, 0.15);
 }
@@ -414,13 +438,13 @@ body {
   background-clip: padding-box;
 }
 
-/* Impression : document planning professionnel en paysage.
-   Important : annuler min-h-screen / flex-1 / background-attachment:fixed,
-   sinon Chrome génère souvent une 2ᵉ page blanche. */
+/* Printing: professional schedule document in landscape.
+   Important: min-h-screen / flex-1 / background-attachment:fixed must be cancelled,
+   otherwise Chrome often emits a blank second page. */
 @media print {
   @page {
     size: landscape;
-    /* Marges serrées pour caser ~20 employés (horaires + signature) par page. */
+    /* Tight margins to fit ~20 employees (working hours + signature) per page. */
     margin: 5mm;
   }
 
@@ -444,7 +468,7 @@ body {
     -webkit-print-color-adjust: exact;
   }
 
-  /* Conteneurs layout (AppShell, etc.) : plus de hauteur viewport. */
+  /* Layout containers (AppShell, etc.): no viewport-based height any more. */
   body * {
     max-height: none !important;
   }
@@ -471,7 +495,7 @@ body {
     gap: 0 !important;
   }
 
-  /* Masquage / affichage fiables (spécificité + !important). */
+  /* Reliable hiding / showing (specificity + !important). */
   .print\:hidden {
     display: none !important;
   }
@@ -486,8 +510,8 @@ body {
   }
 }
 
-/* Styles dédiés à la feuille imprimable du planning (écran + print).
-   Densité élevée : viser ~20 personnes (horaires + signature) par page A4 paysage. */
+/* Styles dedicated to the printable schedule sheet (screen + print).
+   High density: target ~20 people (working hours + signature) per A4 landscape page. */
 .print-schedule {
   color: #0f1b2d;
   width: 100%;
@@ -599,7 +623,7 @@ body {
 .print-schedule__table thead .print-schedule__day {
   font-size: 8px;
   letter-spacing: 0;
-  /* Séparation nette entre les jours (plus marquée que matin/après-midi). */
+  /* Clear separation between days (stronger than morning/afternoon). */
   border-right: 2.5px solid #06316b !important;
 }
 
@@ -613,17 +637,17 @@ body {
   background: #5b6b7c;
 }
 
-/* Entre matin et après-midi : trait fin, moins marqué que la coupure de jour. */
+/* Between morning and afternoon: thin rule, less pronounced than the day break. */
 .print-schedule__half-end {
   border-right: 1.5px solid #4a6fa5 !important;
 }
 
-/* Dernière demi-journée du jour : trait fort à droite pour découper la semaine. */
+/* Last half-day of the day: strong rule on the right to break up the week. */
 .print-schedule__day-end {
   border-right: 2.5px solid #06316b !important;
 }
 
-/* Alternance légère de fond par jour (pair / impair) pour mieux les distinguer. */
+/* Slight per-day background alternation (even / odd) to tell the days apart. */
 .print-schedule__day-band--alt {
   background-color: #f3f7fc;
 }
@@ -673,7 +697,7 @@ body {
   white-space: nowrap;
 }
 
-/* Horaires toujours sur une seule ligne (évite le wrapping qui gonfle les lignes). */
+/* Working hours always on a single line (avoids wrapping, which inflates row height). */
 .print-schedule__time {
   display: block;
   white-space: nowrap;
@@ -748,7 +772,7 @@ body {
   color: #64748b;
 }
 
-/* Trait fin entre la ligne d'horaires et la ligne de signature. */
+/* Thin rule between the working-hours row and the signature row. */
 .print-schedule__hours td {
   border-bottom: 0.5px solid #c5d6ef !important;
   height: 0.7rem;
@@ -762,16 +786,16 @@ body {
   padding-bottom: 0.1rem !important;
   background: #fff;
   border-top: 0.5px solid #c5d6ef !important;
-  /* Trait gras sous la signature = séparation nette entre employés. */
+  /* Bold rule under the signature = clear separation between employees. */
   border-bottom: 2px solid #06316b !important;
 }
 
-/* Sans ligne de signature : le gras sépare directement les employés. */
+/* Without a signature row: the bold rule separates employees directly. */
 .print-schedule__hours--solo td {
   border-bottom: 2px solid #06316b !important;
 }
 
-/* Nom / total en rowSpan : leur bordure basse suit le bloc employé (gras). */
+/* Name / total spanned with rowSpan: their bottom border follows the employee block (bold). */
 .print-schedule__hours .print-schedule__name,
 .print-schedule__hours .print-schedule__total {
   border-bottom: 2px solid #06316b !important;
@@ -781,7 +805,7 @@ body {
   background: #e5e9ef;
 }
 
-/* Pas de case signature pour un jour d'absence (arrêt / congé). */
+/* No signature box on an absence day (sick leave / leave). */
 .print-schedule__sig td.print-schedule__sig--blocked {
   background: #d1d5db !important;
 }
@@ -813,7 +837,7 @@ body {
   text-align: right;
 }
 
-/* Plan de caisse imprimé : 1 page / jour, matin + soir côte à côte */
+/* Printed register layout: 1 page per day, morning + evening side by side */
 .print-plan-caisse {
   color: #0f1b2d;
   width: 100%;
@@ -874,7 +898,7 @@ body {
   color: #5b6b7c;
 }
 
-/* Annotations manuscrites : Absence / Retard / Temps supplémentaire */
+/* Handwritten annotations: Absence / Retard / Temps supplémentaire */
 .print-plan-caisse__notes {
   border: 1px solid #c5d4e8;
   border-radius: 0.4rem;
@@ -1033,7 +1057,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Cases à remplir à la main : cellules blanches vides, sans trait. */
+/* Boxes to be filled in by hand: empty white cells, no rule. */
 .print-plan-caisse__write {
   min-width: 3.2rem;
   min-height: 1.25rem;

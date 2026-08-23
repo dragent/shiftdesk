@@ -8,9 +8,9 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Catégorie de demande d'accueil, affichée dans le dropdown de saisie
- * (ex. "Caroline", "Siebel", "Menu Carrefour"). Entièrement configurable
- * par un administrateur, sans redéploiement.
+ * Category of a reception request, displayed in the entry dropdown
+ * (e.g. "Caroline", "Siebel", "Menu Carrefour"). Fully configurable by an
+ * administrator, without redeployment.
  */
 #[ORM\Entity(repositoryClass: RequestCategoryRepository::class)]
 #[ORM\Table(name: 'request_category')]

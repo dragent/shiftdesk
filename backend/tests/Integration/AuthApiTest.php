@@ -50,4 +50,31 @@ final class AuthApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(401);
     }
+
+    public function testCashierCanLoadTheirProfileAfterLogin(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('caissier@test.local', \App\Enum\UserRole::CAISSIER, $site);
+
+        $client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode([
+                'email' => 'caissier@test.local',
+                'password' => 'Password123!',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseIsSuccessful();
+        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        $client->request('GET', '/api/me', server: $this->authHeaders($login['token']));
+
+        self::assertResponseIsSuccessful();
+        $me = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('caissier@test.local', $me['email']);
+        self::assertContains('ROLE_CAISSIER', $me['roles']);
+    }
 }

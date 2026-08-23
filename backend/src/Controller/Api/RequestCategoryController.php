@@ -12,9 +12,9 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Gère les catégories affichées dans le dropdown de saisie des demandes
- * d'accueil (ex. "Caroline", "Siebel", "Menu Carrefour"). Modifiable
- * dynamiquement par un administrateur, sans redéploiement.
+ * Manages the categories shown in the dropdown used to record reception
+ * requests (e.g. "Caroline", "Siebel", "Menu Carrefour"). Editable
+ * dynamically by an administrator, without a redeployment.
  */
 #[Route('/api/categories')]
 class RequestCategoryController extends AbstractApiController

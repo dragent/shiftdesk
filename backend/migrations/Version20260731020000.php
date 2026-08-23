@@ -11,7 +11,7 @@ final class Version20260731020000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Ajoute la table absence (arrêt de travail / congé).';
+        return 'Ajoute la table absence (arrêt de travail / Congé).';
     }
 
     public function up(Schema $schema): void
