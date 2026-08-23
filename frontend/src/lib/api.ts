@@ -48,11 +48,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const message =
       (body && (body.error || body.message)) || `Erreur ${response.status}`;
 
-    // Session expirée ou jeton invalide : sans ça, toute action (ex.
-    // sauvegarder un créneau de planning) échoue silencieusement avec un 401
-    // et l'utilisateur ne comprend pas pourquoi "ça ne sauvegarde plus". On
-    // déconnecte proprement et on renvoie vers la connexion avec un message
-    // clair, plutôt que de laisser l'erreur brute s'afficher dans le formulaire.
+    // Expired session or invalid token: without this, any action (e.g. saving a schedule slot)
+    // fails silently with a 401 and the user does not understand why "it no longer saves". Log
+    // out cleanly and redirect to the login page with a clear message, rather than letting the
+    // raw error surface in the form.
     if (response.status === 401 && path !== "/api/login" && typeof window !== "undefined") {
       clearToken();
       if (!window.location.pathname.startsWith("/login")) {

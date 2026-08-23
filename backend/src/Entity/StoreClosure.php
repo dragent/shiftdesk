@@ -10,8 +10,8 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 
 /**
- * Fermeture magasin sur une période : bloque la saisie d'horaires
- * pour tous les employés à partir d'une demi-journée de début.
+ * Store closure over a period: blocks schedule entry for every employee
+ * from a given starting half-day.
  */
 #[ORM\Entity(repositoryClass: StoreClosureRepository::class)]
 #[ORM\Table(name: 'store_closure')]
@@ -110,7 +110,7 @@ class StoreClosure
     }
 
     /**
-     * Indique si la demi-journée donnée est couverte par cette fermeture.
+     * Indicates whether the given half-day is covered by this closure.
      */
     public function covers(\DateTimeImmutable $date, HalfDay $halfDay): bool
     {
@@ -126,7 +126,7 @@ class StoreClosure
             return true;
         }
 
-        // Jour de début : à partir de la demi-journée choisie.
+        // Start day: covered from the selected half-day onwards.
         if ($this->startHalfDay === HalfDay::MATIN) {
             return true;
         }

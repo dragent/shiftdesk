@@ -3,8 +3,8 @@
 namespace App\Service;
 
 /**
- * Validation du plan de caisse : numéro simple ou bascule (segments).
- * Logique pure, testable en TDD sans base de données.
+ * Register layout validation: single register number or rotation (segments).
+ * Pure logic, testable in TDD without a database.
  */
 class RegisterAssignmentValidator
 {

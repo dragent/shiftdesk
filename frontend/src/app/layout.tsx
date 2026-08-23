@@ -4,12 +4,11 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 
 /**
- * Lexend est une police conçue et validée scientifiquement pour améliorer
- * la vitesse et le confort de lecture (projet de recherche soutenu par
- * Google Fonts). Ses formes de lettres larges et bien distinctes la
- * rendent nettement plus lisible pour les personnes âgées ou malvoyantes,
- * tout en conservant une allure sobre et professionnelle adaptée à un
- * outil métier.
+ * Lexend is a typeface designed and scientifically validated to improve
+ * reading speed and comfort (research project backed by Google Fonts).
+ * Its wide, clearly distinct letterforms make it noticeably more legible
+ * for elderly or visually impaired users, while keeping the sober,
+ * professional look expected from a business tool.
  */
 const lexend = Lexend({
   variable: "--font-primary-sans",

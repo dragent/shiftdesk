@@ -16,8 +16,8 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * Demandes/interactions traitées à l'accueil, classées via le dropdown
- * de catégories (RequestCategory : Caroline / Siebel / Menu Carrefour...).
+ * Requests/interactions handled at reception, classified through the category
+ * dropdown (RequestCategory: Caroline / Siebel / Menu Carrefour, etc.).
  */
 #[Route('/api/requests')]
 class AccueilRequestController extends AbstractApiController

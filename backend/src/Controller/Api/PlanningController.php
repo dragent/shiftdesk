@@ -19,17 +19,16 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * Planning hebdomadaire créé par la Direction pour tous les employés
- * (hôtes/hôtesses d'accueil et caissiers/caissières). Seule la Direction
- * (et l'Admin) peut créer/modifier/supprimer des créneaux (cf.
- * security.yaml pour l'écriture). En lecture, chaque employé (hôte ou
- * caissier) ne voit que son propre planning personnel — la Direction/Admin
- * voit tout le monde.
+ * Weekly schedule created by Management for every employee (reception hosts
+ * and cashiers). Only Management (and Admin) may create, update or delete
+ * slots (see security.yaml for write access). On read, each employee (host or
+ * cashier) only sees their own personal schedule — Management/Admin sees
+ * everyone.
  *
- * Le "plan de caisse" (numéro de caisse attribué à un créneau de caissier)
- * est une exception à cette règle d'écriture : il est modifiable par
- * l'accueil (hôte/hôtesse) en plus de la Direction/Admin, via l'endpoint
- * dédié {@see self::setRegisterNumber()}.
+ * The "register layout" (register number assigned to a cashier slot) is an
+ * exception to that write rule: it can be edited by reception (host) in
+ * addition to Management/Admin, through the dedicated endpoint
+ * {@see self::setRegisterNumber()}.
  */
 #[Route('/api/plannings')]
 class PlanningController extends AbstractApiController
@@ -53,13 +52,13 @@ class PlanningController extends AbstractApiController
         $to = $request->query->get('to');
         $siteId = $request->query->get('siteId');
         $mine = $request->query->getBoolean('mine', false);
-        // Vue "plan de caisse" : l'accueil (hôte) a besoin de voir les
-        // créneaux de tous les caissiers/caissières (pas seulement les siens)
-        // pour pouvoir leur attribuer un numéro de caisse.
+        // "Register layout" view: reception (host) needs to see the slots of
+        // every cashier (not only their own) in order to assign them a
+        // register number.
         $caissiersOnly = $request->query->getBoolean('caissiersOnly', false);
-        // Vue plan de caisse (impression) : l'accueil doit aussi connaître
-        // la/le LAD en poste sur chaque demi-journée, sans diluer la grille
-        // caisses (paramètre dédié, parallèle à caissiersOnly).
+        // Register layout view (printing): reception also needs to know which
+        // LAD is on duty for each half-day, without diluting the register grid
+        // (dedicated parameter, parallel to caissiersOnly).
         $ladOnly = $request->query->getBoolean('ladOnly', false);
 
         $from = $from ? new \DateTimeImmutable($from) : new \DateTimeImmutable('monday this week');
@@ -70,7 +69,7 @@ class PlanningController extends AbstractApiController
         $isDirectionOrAdmin = $this->isGranted('ROLE_DIRECTION') || $this->isGranted('ROLE_ADMIN');
 
         if ($caissiersOnly) {
-            // Caissiers + LAD/hôtes explicitement marqués « en caisse ».
+            // Cashiers plus LAD/hosts explicitly flagged as "on register".
             $plannings = array_values(array_filter(
                 $plannings,
                 static fn (Planning $p) => $p->getUser()->hasRole(UserRole::CAISSIER) || $p->isEnCaisse(),
@@ -81,9 +80,9 @@ class PlanningController extends AbstractApiController
                 static fn (Planning $p) => $p->getUser()->hasRole(UserRole::LAD),
             ));
         } elseif ($mine || !$isDirectionOrAdmin) {
-            // Seule la Direction/Admin voit le planning de tout le monde. Tout
-            // autre employé (hôte ou caissier) ne voit que son planning
-            // personnel, même sans le paramètre "mine".
+            // Only Management/Admin sees everyone's schedule. Any other
+            // employee (host or cashier) only sees their own personal
+            // schedule, even without the "mine" parameter.
             $plannings = array_values(array_filter($plannings, static fn (Planning $p) => $p->getUser()->getId() === $currentUser->getId()));
         }
 
@@ -205,9 +204,9 @@ class PlanningController extends AbstractApiController
     }
 
     /**
-     * « En caisse » n'est autorisé que pour les LAD et hôtes/hôtesses.
-     * Pour les autres rôles, une demande à true est rejetée ; false est
-     * toujours accepté.
+     * "On register" is only allowed for LAD and reception hosts. For any other
+     * role, a request setting it to true is rejected; false is always
+     * accepted.
      */
     private function validateEnCaisse(User $user, bool $enCaisse): ?string
     {
@@ -223,9 +222,9 @@ class PlanningController extends AbstractApiController
     }
 
     /**
-     * Vérifie qu'il y a au moins {@see PlanningBreakRule::MIN_BREAK_MINUTES}
-     * minutes de coupure entre le créneau donné et tout autre créneau déjà
-     * planifié pour le même employé le même jour.
+     * Checks that there are at least {@see PlanningBreakRule::MIN_BREAK_MINUTES}
+     * minutes of break between the given slot and any other slot already
+     * scheduled for the same employee on the same day.
      */
     private function checkMinimumBreak(
         User $user,
@@ -246,13 +245,12 @@ class PlanningController extends AbstractApiController
     }
 
     /**
-     * Attribue (ou retire) une affectation de caisse à un créneau existant :
-     * soit une affectation simple pour tout le créneau (`registerNumber`),
-     * soit une bascule en cours de créneau (`segments`, 2 ou 3 tranches
-     * horaires). Ces deux paramètres sont mutuellement exclusifs. Accessible
-     * à l'accueil (hôte/hôtesse) en plus de la Direction/Admin (cf.
-     * security.yaml), contrairement aux autres écritures sur les plannings
-     * qui restent réservées à la Direction/Admin.
+     * Assigns (or clears) a register assignment on an existing slot: either a
+     * single assignment for the whole slot (`registerNumber`), or a switch
+     * during the slot (`segments`, 2 or 3 time ranges). These two parameters
+     * are mutually exclusive. Available to reception (host) in addition to
+     * Management/Admin (see security.yaml), unlike the other schedule writes
+     * which remain restricted to Management/Admin.
      */
     #[Route('/{id}/register-number', name: 'api_plannings_set_register_number', methods: ['PATCH'])]
     public function setRegisterNumber(int $id, Request $request): JsonResponse

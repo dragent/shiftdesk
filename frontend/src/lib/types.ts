@@ -25,12 +25,14 @@ export interface User {
   roles?: UserRole[];
   site?: Site | null;
   active: boolean;
-  /** Contrat horaire hebdomadaire de l'employé, en minutes (ex: 36h45 = 2205). */
+  /** Weekly contract hours for the employee, in minutes (e.g. 36h45 = 2205). */
   contractMinutes?: number;
-  /** Numéro de caissier (login caisse), distinct du n° de caisse physique. */
+  /** Cashier number (register login), distinct from the physical register number. */
   cashierNumber?: string | null;
-  /** Téléphone de contact affiché sur la fiche employés. */
+  /** Contact phone number displayed on the employee record. */
   phone?: string | null;
+  /** Effective date of the dismissal (`YYYY-MM-DD`), null when the employee is still employed. */
+  dismissedAt?: string | null;
 }
 
 export interface RequestCategory {
@@ -67,13 +69,13 @@ export interface Absence {
   reason: AbsenceReason;
   startDate: string;
   endDate: string;
-  /** Présent pour un arrêt de travail ; null/absent pour un congé. */
+  /** Present for sick leave; null/absent for leave. */
   startTime?: string | null;
   endTime?: string | null;
   createdBy?: User | null;
 }
 
-/** Fermeture magasin : bloque les demi-journées à partir de startHalfDay. */
+/** Store closure: blocks half-days from startHalfDay onwards. */
 export interface StoreClosure {
   id: number;
   startDate: string;
@@ -93,21 +95,19 @@ export interface Planning {
   note?: string | null;
   createdBy?: User | null;
   /**
-   * LAD ou hôte/hôtesse affecté(e) en caisse pour ce créneau
-   * (sinon poste habituel). Ignoré pour les caissiers.
+   * LAD or reception host assigned to a register for this slot (otherwise their usual station).
+   * Ignored for cashiers.
    */
   enCaisse?: boolean;
   /**
-   * Numéro de caisse attribué à ce créneau (plan de caisse) : caisse
-   * numérotée (1-8), caisses automatiques (0) ou pauses/retour (-1).
-   * Mutuellement exclusif avec `registerSegments` (null si le créneau est
-   * découpé en bascule).
+   * Register number assigned to this slot (register layout): numbered register (1-8),
+   * self-checkout (0) or breaks/returns (-1). Mutually exclusive with `registerSegments` (null
+   * when the slot is split into switch segments).
    */
   registerNumber?: number | null;
   /**
-   * Découpage du créneau en plusieurs affectations de caisse (bascule en
-   * cours de poste, ex. caisse 3 puis caisses automatiques à 10:00).
-   * Mutuellement exclusif avec `registerNumber`.
+   * Split of the slot into several register assignments (mid-shift switch, e.g. register 3 then
+   * self-checkout at 10:00). Mutually exclusive with `registerNumber`.
    */
   registerSegments?: { startTime: string; registerNumber: number }[] | null;
 }

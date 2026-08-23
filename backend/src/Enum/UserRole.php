@@ -3,8 +3,8 @@
 namespace App\Enum;
 
 /**
- * Rôles métier de l'application (distincts des rôles Symfony ROLE_*,
- * mais utilisés pour générer ces derniers).
+ * Business roles of the application (distinct from the Symfony ROLE_*
+ * roles, but used to generate them).
  */
 enum UserRole: string
 {

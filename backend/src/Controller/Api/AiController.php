@@ -12,13 +12,13 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * Module IA — Supervision de planning.
+ * AI module — schedule supervision.
  *
- * Réservé pour la brique IA d'assistance à la Direction : détection
- * automatique d'anomalies de planning (sous-effectif, surcharge, conflits
- * de pauses...). Le calcul réel est délégué à PlanningSupervisorService,
- * qui interroge le micro-service ai-service/ (à développer/enrichir) et
- * retombe sur des règles simples si celui-ci est indisponible.
+ * Reserved for the AI component assisting Management: automatic detection of
+ * schedule anomalies (understaffing, overload, break conflicts, etc.). The
+ * actual computation is delegated to PlanningSupervisorService, which queries
+ * the ai-service/ micro-service (still to be developed/extended) and falls
+ * back to simple rules when it is unavailable.
  */
 #[Route('/api/ai')]
 class AiController extends AbstractApiController

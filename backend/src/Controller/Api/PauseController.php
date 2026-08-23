@@ -17,14 +17,14 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * Gestion des pauses des caissiers/caissières, saisies en temps réel par
- * l'accueil (hôte/hôtesse) ou la direction.
- * - GET  /api/pauses          : pauses de TOUS les caissiers pour une
- *                                journée donnée (par défaut aujourd'hui).
- *                                Utiliser ?date=YYYY-MM-DD pour un autre jour.
- * - POST /api/pauses/start    : démarre la pause d'un caissier (caissierId)
- * - POST /api/pauses/{id}/end : termine une pause en cours
- * - GET  /api/pauses/ongoing  : liste des pauses en cours (vue Direction)
+ * Management of cashier breaks, recorded in real time by reception (host) or
+ * management.
+ * - GET  /api/pauses          : breaks of ALL cashiers for a given day
+ *                                (today by default). Use ?date=YYYY-MM-DD
+ *                                for another day.
+ * - POST /api/pauses/start    : starts a cashier's break (caissierId)
+ * - POST /api/pauses/{id}/end : ends an ongoing break
+ * - GET  /api/pauses/ongoing  : list of ongoing breaks (Management view)
  */
 #[Route('/api/pauses')]
 class PauseController extends AbstractApiController

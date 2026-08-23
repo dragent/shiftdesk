@@ -6,8 +6,8 @@ use App\Enum\InsightSeverity;
 use App\Enum\InsightType;
 
 /**
- * Mode de secours local (règles simples) utilisé quand le micro-service IA
- * est indisponible. Logique pure sur des structures de données, testable en TDD.
+ * Local fallback mode (simple rules) used when the AI micro-service is
+ * unavailable. Pure logic over data structures, testable in TDD.
  */
 class LocalPlanningAnalyzer
 {

@@ -9,8 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
- * Une pause d'un(e) caissier(ère), saisie en temps réel par l'accueil
- * (hôte/hôtesse) ou la direction pour le compte de ce caissier.
+ * A cashier's break, recorded in real time by reception (host) or by
+ * management on behalf of that cashier.
  */
 #[ORM\Entity(repositoryClass: PauseRepository::class)]
 #[ORM\Table(name: 'pause')]
@@ -23,7 +23,7 @@ class Pause
     private ?int $id = null;
 
     /**
-     * Le caissier / la caissière qui prend la pause.
+     * The cashier taking the break.
      */
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'pauses')]
     #[ORM\JoinColumn(name: 'user_id', nullable: false, onDelete: 'CASCADE')]
@@ -31,7 +31,7 @@ class Pause
     private User $user;
 
     /**
-     * La personne de l'accueil/direction qui a saisi la pause.
+     * The reception or management member who recorded the break.
      */
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'declared_by_id', nullable: true, onDelete: 'SET NULL')]
@@ -133,7 +133,7 @@ class Pause
     }
 
     /**
-     * Termine la pause en cours et calcule sa durée.
+     * Ends the break in progress and computes its duration.
      */
     public function end(): static
     {

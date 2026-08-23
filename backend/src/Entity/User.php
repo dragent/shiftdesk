@@ -9,7 +9,9 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -30,7 +32,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private string $email;
 
     /**
-     * Rôles Symfony (ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_USER...).
+     * Symfony roles (ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_USER...).
      *
      * @var list<string>
      */
@@ -59,26 +61,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private bool $active = true;
 
     /**
-     * Contrat horaire hebdomadaire de l'employé, en minutes (ex: 36h45 =
-     * 2205). Utilisé pour comparer le total planifié sur la semaine au
-     * contrat (planning direction).
+     * Weekly contract hours of the employee, in minutes (e.g. 36h45 =
+     * 2205). Used to compare the total scheduled over the week against
+     * the contract (management schedule).
      */
     #[ORM\Column]
     #[Groups(['user:read', 'user:write'])]
     private int $contractMinutes = 0;
 
     /**
-     * Numéro de caissier (identifiant login caisse), distinct du numéro
-     * de caisse physique. Utilisé sur le plan de caisse imprimé.
+     * Cashier number (register login identifier), distinct from the
+     * physical register number. Used on the printed register layout.
      */
     #[ORM\Column(length: 20, nullable: true)]
     #[Groups(['user:read', 'user:write'])]
     private ?string $cashierNumber = null;
 
-    /** Téléphone de contact de l'employé (fiche employés direction). */
+    /** Contact phone number of the employee (management employee record). */
     #[ORM\Column(length: 30, nullable: true)]
     #[Groups(['user:read', 'user:write'])]
     private ?string $phone = null;
+
+    /**
+     * Effective date of the dismissal, entered by management. Null while the
+     * employee is still in post (and reset to null on rehire).
+     */
+    #[ORM\Column(name: 'dismissed_at', type: 'date_immutable', nullable: true)]
+    #[Groups(['user:read', 'user:write'])]
+    #[Context([DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
+    private ?\DateTimeImmutable $dismissedAt = null;
 
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
@@ -129,7 +140,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
-        // Tout utilisateur authentifié possède au moins ROLE_USER.
+        // Every authenticated user holds at least ROLE_USER.
         $roles[] = 'ROLE_USER';
 
         return array_values(array_unique($roles));
@@ -167,7 +178,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function eraseCredentials(): void
     {
-        // Si vous stockez des données temporaires et sensibles sur l'utilisateur, effacez-les ici.
+        // Clear any temporary, sensitive data stored on the user here.
     }
 
     public function getFirstName(): string
@@ -257,6 +268,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $value = $phone !== null ? trim($phone) : null;
         $this->phone = $value === '' ? null : $value;
+
+        return $this;
+    }
+
+    public function getDismissedAt(): ?\DateTimeImmutable
+    {
+        return $this->dismissedAt;
+    }
+
+    public function setDismissedAt(?\DateTimeImmutable $dismissedAt): static
+    {
+        $this->dismissedAt = $dismissedAt;
 
         return $this;
     }

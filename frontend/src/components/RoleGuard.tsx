@@ -12,8 +12,8 @@ interface RoleGuardProps {
 }
 
 /**
- * Protège une page : redirige vers /login si non authentifié, ou vers
- * /dashboard si l'utilisateur n'a pas l'un des rôles autorisés.
+ * Protects a page: redirects to /login when not authenticated, or to /dashboard when the user
+ * does not have one of the allowed roles.
  */
 export function RoleGuard({ roles, children }: RoleGuardProps) {
   const { user, loading, hasRole } = useAuth();

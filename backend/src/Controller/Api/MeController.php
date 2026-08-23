@@ -8,8 +8,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * Renvoie l'utilisateur authentifié courant (utilisé par le front juste
- * après le login pour connaître son rôle et adapter la navigation).
+ * Returns the currently authenticated user (used by the frontend right after
+ * login to determine their role and adapt the navigation).
  */
 #[Route('/api/me')]
 class MeController extends AbstractApiController

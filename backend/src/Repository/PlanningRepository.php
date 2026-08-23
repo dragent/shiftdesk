@@ -25,8 +25,8 @@ class PlanningRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.workDate >= :from')
             ->andWhere('p.workDate <= :to')
-            // Types::DATE_IMMUTABLE évite les écarts SQLite (datetime vs date)
-            // qui faisaient rater les filtres jour / pause déjeuner en tests.
+            // Types::DATE_IMMUTABLE avoids the SQLite discrepancies (datetime vs date)
+            // that made the day / lunch break filters fail in tests.
             ->setParameter('from', $from, Types::DATE_IMMUTABLE)
             ->setParameter('to', $to, Types::DATE_IMMUTABLE)
             ->orderBy('p.workDate', 'ASC')
@@ -40,10 +40,10 @@ class PlanningRepository extends ServiceEntityRepository
     }
 
     /**
-     * Tous les créneaux déjà planifiés pour un employé un jour donné, hors
-     * un éventuel créneau exclu (utilisé lors d'une modification, pour ne
-     * pas se comparer à soi-même). Sert notamment à vérifier la pause
-     * déjeuner minimale entre deux créneaux du même jour.
+     * All the slots already scheduled for an employee on a given day, except
+     * an optionally excluded slot (used on update, so that a slot is not
+     * compared with itself). Used in particular to check the minimum lunch
+     * break between two slots on the same day.
      *
      * @return Planning[]
      */

@@ -28,18 +28,18 @@ const HALF_DAY_OPTIONS: { value: HalfDayKey; label: string }[] = [
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
-  const day = (d.getDay() + 6) % 7; // lundi = 0
+  const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setDate(d.getDate() - day);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-/** Pause déjeuner minimale exigée entre un créneau du matin et de l'après-midi. */
+/** Minimum lunch break required between a morning slot and an afternoon slot. */
 const MIN_LUNCH_BREAK_MINUTES = 60;
 
 /**
- * Catégories filtrables dans la grille. Une catégorie peut regrouper plusieurs
- * sous-groupes (rôles) affichés séparément dans le planning.
+ * Categories that can be filtered in the grid. A category may gather several
+ * sub-groups (roles) displayed separately in the schedule.
  */
 const CATEGORY_DEFS = [
   {
@@ -75,8 +75,8 @@ type CategoryKey = (typeof CATEGORY_DEFS)[number]["key"];
 type RoleGroupKey = (typeof CATEGORY_DEFS)[number]["groups"][number]["key"];
 
 function toISODate(date: Date): string {
-  // Formatage en heure locale (et non toISOString(), qui convertit en UTC
-  // et décalerait la date d'un jour selon le fuseau horaire).
+  // Formatted in local time (not toISOString(), which converts to UTC and
+  // would shift the date by one day depending on the time zone).
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -108,21 +108,21 @@ function PlanningContent() {
   const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
-  // Catégorie d'employés actuellement affichée dans la grille (une seule à
-  // la fois) ; la direction est affichée par défaut.
+  // Employee category currently displayed in the grid (only one at a time);
+  // management is displayed by default.
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey>(CATEGORY_DEFS[0].key);
 
-  // Case en cours d'édition (ajout d'un horaire) : la direction choisit
-  // elle-même l'heure de début/fin, pré-remplies avec la plage par défaut
-  // de la demi-journée (matin/après-midi) mais librement modifiables.
+  // Cell currently being edited (adding working hours): management picks the
+  // start/end times itself, pre-filled with the default range of the half-day
+  // (morning/afternoon) but freely editable.
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [formStart, setFormStart] = useState("");
   const [formEnd, setFormEnd] = useState("");
   const [formEnCaisse, setFormEnCaisse] = useState(false);
 
-  // Portée de l'impression : "ALL" pour tout le planning affiché (avec
-  // feuille d'émargement ajoutée sous chaque ligne), ou l'identifiant d'un
-  // employé pour n'imprimer que son planning personnel.
+  // Print scope: "ALL" for the whole displayed schedule (with an attendance
+  // sign-off sheet added under each row), or an employee identifier to print
+  // only that person's own schedule.
   const [printScope, setPrintScope] = useState<string>("ALL");
 
   const [closureModalOpen, setClosureModalOpen] = useState(false);
@@ -162,7 +162,7 @@ function PlanningContent() {
       setPlannings(planningData);
       setAbsences(absencesData);
       setClosures(closuresData);
-      // Les employés licenciés (compte désactivé) ne sont plus planifiables.
+      // Dismissed employees (deactivated account) can no longer be scheduled.
       const employed = usersData.filter((u) => u.active);
       setCaissiers(employed.filter((u) => u.roles?.includes("ROLE_CAISSIER")));
       setLad(employed.filter((u) => u.roles?.includes("ROLE_LAD")));
@@ -182,8 +182,8 @@ function PlanningContent() {
     load();
   }, [load]);
 
-  // Regroupe les créneaux par employé + jour + demi-journée pour un accès
-  // rapide en O(1) depuis la grille.
+  // Groups slots by employee + day + half-day for fast O(1) access from the
+  // grid.
   const planningByCell = useMemo(() => {
     const map = new Map<string, Planning>();
     for (const p of plannings) {
@@ -193,7 +193,7 @@ function PlanningContent() {
     return map;
   }, [plannings]);
 
-  // Absence couvrant un employé un jour donné (clé `${userId}_${dayKey}`).
+  // Absence covering an employee on a given day (key `${userId}_${dayKey}`).
   const absenceByUserDay = useMemo(() => {
     const map = new Map<string, Absence>();
     for (const absence of absences) {
@@ -206,7 +206,7 @@ function PlanningContent() {
     return map;
   }, [absences]);
 
-  // Total d'heures planifiées (hors jours d'absence), pour la colonne Total.
+  // Total scheduled hours (excluding absence days), for the Total column.
   const totalMinutesByUser = useMemo(() => {
     const map = new Map<number, number>();
     for (const p of plannings) {
@@ -220,13 +220,13 @@ function PlanningContent() {
   function startAdd(user: User, dayKey: string, slotKey: HalfDayKey, dayIndex: number) {
     if (absenceByUserDay.has(`${user.id}_${dayKey}`)) return;
     const cellKey = `${user.id}_${dayKey}_${slotKey}`;
-    // Accueil 7h / caissiers 7h30 en semaine ; dimanche 7h30 / 8h.
-    // Direction / Rayon : matin dès 04h00.
+    // Reception 7:00 / cashiers 7:30 on weekdays; Sunday 7:30 / 8:00.
+    // Management / shop floor: morning from 04:00.
     let defaultStart = earliestStartForUser(user, slotKey, dayIndex);
     const defaultEnd = defaultEndForSlot(slotKey, dayIndex);
 
-    // Si la personne travaille déjà le matin ce jour-là, l'après-midi
-    // commence une heure après la fin du matin (pause déjeuner).
+    // If the person already works in the morning that day, the afternoon
+    // starts one hour after the end of the morning (lunch break).
     if (slotKey === "APRES_MIDI") {
       const morningEntry = planningByCell.get(`${user.id}_${dayKey}_MATIN`);
       if (morningEntry) {
@@ -249,9 +249,9 @@ function PlanningContent() {
     e.preventDefault();
     setError(null);
 
-    // La pause déjeuner entre le matin et l'après-midi doit être d'au moins
-    // 1h : on bloque la sauvegarde avant même d'appeler l'API si la coupure
-    // avec l'autre demi-journée (déjà planifiée ce jour-là) est trop courte.
+    // The lunch break between morning and afternoon must be at least 1h: the
+    // save is blocked before the API is even called when the gap with the
+    // other half-day (already scheduled that day) is too short.
     const otherSlotKey: HalfDayKey = slotKey === "MATIN" ? "APRES_MIDI" : "MATIN";
     const otherEntry = planningByCell.get(`${user.id}_${dayKey}_${otherSlotKey}`);
     if (otherEntry) {
@@ -342,7 +342,7 @@ function PlanningContent() {
     securite.length === 0;
   const todayISO = toISODate(new Date());
 
-  // Employés par rôle (sous-groupe), réutilisé pour filtres, impression et grille.
+  // Employees by role (sub-group), reused for filters, printing and the grid.
   const usersByRoleGroup: Record<RoleGroupKey, User[]> = useMemo(
     () => ({
       CAISSIER: caissiers,
@@ -363,7 +363,7 @@ function PlanningContent() {
     return result;
   }, [usersByRoleGroup]);
 
-  // Sous-groupes non vides (pour la sélection d'impression et les sections grille).
+  // Non-empty sub-groups (for the print selection and the grid sections).
   const employeeGroups = useMemo(
     () =>
       CATEGORY_DEFS.flatMap((c) =>
@@ -377,7 +377,7 @@ function PlanningContent() {
     [usersByRoleGroup],
   );
 
-  // Sous-groupes de la catégorie sélectionnée (ex. Caissiers + LAD + Accueil).
+  // Sub-groups of the selected category (e.g. cashiers + LAD + reception).
   const visibleEmployeeGroups = useMemo(
     () => employeeGroups.filter((group) => group.categoryKey === selectedCategory),
     [employeeGroups, selectedCategory],
@@ -432,7 +432,7 @@ function PlanningContent() {
         <div className="flex flex-col gap-2">
           <WeekNavigator weekStart={weekStart} onWeekChange={setWeekStart} />
 
-          {/* Catégories */}
+          {/* Categories */}
           {!loading && !noEmployees && (
             <div
               role="radiogroup"
@@ -486,7 +486,7 @@ function PlanningContent() {
           <p className="text-sm text-slate-500">Aucun employé dans cette catégorie.</p>
         ) : (
           <>
-            {/* Mobile / tablette : une carte par employé, jours empilés. */}
+            {/* Mobile / tablet: one card per employee, days stacked. */}
             <div className="flex flex-col gap-4 lg:hidden">
               {visibleEmployeeGroups.map((group) => (
                 <MobileEmployeeGroup
@@ -502,7 +502,7 @@ function PlanningContent() {
               ))}
             </div>
 
-            {/* Desktop : une seule table — Total sticky à droite (pas de 2e table = pas de décalage). */}
+            {/* Desktop: a single table — Total sticky on the right (no 2nd table = no misalignment). */}
             <div className="-mx-4 hidden min-w-0 px-4 sm:-mx-5 sm:px-5 lg:block">
               <div className="mb-2 flex items-center justify-end gap-2">
                 <span className="mr-auto text-sm text-slate-500">
@@ -741,12 +741,12 @@ function PlanningContent() {
   );
 }
 
-/** LAD et hôtes/hôtesses peuvent être affectés en caisse pour un créneau. */
+/** LAD and reception hosts can be assigned to a register for a slot. */
 function canMarkEnCaisse(user: User): boolean {
   return Boolean(user.roles?.includes("ROLE_LAD") || user.roles?.includes("ROLE_HOTE"));
 }
 
-/** Couleur de fond d'une demi-journée selon le poste (caisse / LAD / accueil). */
+/** Background colour of a half-day depending on the position (register / LAD / reception). */
 type SlotDutyTone = "caisse" | "lad" | "hote" | "default";
 
 function slotDutyTone(user: User, entry: Planning): SlotDutyTone {
@@ -757,12 +757,12 @@ function slotDutyTone(user: User, entry: Planning): SlotDutyTone {
 }
 
 const SLOT_DUTY_CELL_CLASS: Record<SlotDutyTone, string> = {
-  // Orange pâle : poste caisse (caissiers, ou LAD/hôte coché « En caisse »)
+  // Pale orange: register position (cashiers, or LAD/host flagged « En caisse »)
   caisse:
     "border-orange-300 bg-orange-100 text-orange-900 hover:border-red-400 hover:bg-red-50 hover:text-red-700",
-  // Bleu pétant : demi-journée LAD (poste LAD)
+  // Vivid blue: LAD half-day (LAD position)
   lad: "border-blue-700 bg-blue-600 text-white hover:border-red-400 hover:bg-red-50 hover:text-red-700",
-  // Bleu clair (lisible) : demi-journée hôte / hôtesse d'accueil
+  // Light blue (readable): reception host half-day
   hote:
     "border-sky-400 bg-sky-200 text-sky-950 hover:border-red-400 hover:bg-red-50 hover:text-red-700",
   default:
@@ -801,11 +801,11 @@ function totalColorClassFor(user: User, totalMinutes: number): string {
     : "bg-emerald-50 text-emerald-700";
 }
 
-/** Colonne Total collée à droite du viewport de scroll (pas au milieu du tableau). */
+/** Total column stuck to the right of the scroll viewport (not in the middle of the table). */
 const TOTAL_COL_CLASS =
   "planning-col-total w-[5.75rem] min-w-[5.75rem] max-w-[5.75rem] border-l-2 border-slate-300 text-center align-middle";
 
-/** Contenu interactif d'une case matin/après-midi (ajout, édition, retrait). */
+/** Interactive content of a morning/afternoon cell (add, edit, remove). */
 function SlotCell({
   user,
   dayKey,
@@ -848,7 +848,7 @@ function SlotCell({
   const cellKey = `${user.id}_${dayKey}_${slot.key}`;
   const minStart = earliestStartForUser(user, slot.key, dayIndex);
   const maxEnd = latestEndForDay(dayIndex);
-  // Le dimanche, la fermeture (13h15) borne aussi le début du créneau.
+  // On Sunday, the closing time (13:15) also caps the start of the slot.
   const maxStart = slot.end <= maxEnd ? slot.end : maxEnd;
   const showEnCaisse = canMarkEnCaisse(user);
 
@@ -963,7 +963,7 @@ function SlotCell({
   );
 }
 
-/** Vue mobile/tablette : une carte par employé avec les jours empilés. */
+/** Mobile/tablet view: one card per employee with the days stacked. */
 function MobileEmployeeGroup({
   label,
   users,
@@ -1131,8 +1131,8 @@ function EmployeeGroup({
 } & SlotHandlers) {
   if (users.length === 0) return null;
 
-  // Trait plus marqué entre les lignes de caissiers et d'hôtes ; toujours
-  // marqué sous la dernière ligne d'un groupe (ex. LAD → Hôtes).
+  // Heavier rule between cashier and host rows; always heavier under the last
+  // row of a group (e.g. LAD → hosts).
   const thickBetweenRows =
     label === "Caissiers" || label === "Hôtes / hôtesses d'accueil";
 
@@ -1246,12 +1246,12 @@ function EmployeeGroup({
 }
 
 /**
- * Vue imprimable du planning, indépendante de la grille interactive à
- * l'écran (masquée en dehors de l'impression via `hidden print:block`).
+ * Printable view of the schedule, independent from the interactive on-screen
+ * grid (hidden outside printing via `hidden print:block`).
  *
- * Document soigné type feuille magasin : en-tête marque, méta-semaine,
- * tableau coloré, légende et pied de page. Si `scope` vaut "ALL", une
- * ligne de signature est ajoutée sous chaque employé.
+ * Polished store-sheet style document: brand header, week metadata, coloured
+ * table, legend and footer. When `scope` is "ALL", a signature row is added
+ * under each employee.
  */
 function PrintableSchedule({
   weekDays,
@@ -1301,7 +1301,7 @@ function PrintableSchedule({
     return totalMinutes > contractMinutes ? "over" : "ok";
   }
 
-  /** Format compact une ligne pour l'impression (ex. 7h30-14h). */
+  /** Compact single-line format for printing (e.g. 7h30-14h). */
   function formatPrintRange(start: string, end: string): string {
     const fmt = (time: string) => {
       const [hRaw, mRaw] = time.split(":");
@@ -1316,7 +1316,7 @@ function PrintableSchedule({
     <div className="print-schedule hidden print:block">
       <header className="print-schedule__brand">
         <div className="print-schedule__brand-left">
-          {/* eslint-disable-next-line @next/next/no-img-element -- img classique plus fiable à l'impression */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- plain img is more reliable when printing */}
           <img
             src="/carrefour-logo.png"
             alt="Carrefour"

@@ -1,140 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
+import { EmployeeSearch } from "@/components/EmployeeSearch";
 import { Card, Button, Alert, TimeField } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import type { AbsenceReason, Site, User, UserRole } from "@/lib/types";
+import {
+  buildStatusGroups,
+  CATEGORY_DEFS,
+  CONTRACT_MINUTE_OPTIONS,
+  contractMinutesFromParts,
+  countByCategory,
+  DEFAULT_CONTRACT_HOURS,
+  DEFAULT_CONTRACT_MINUTES,
+  DEFAULT_RECRUITMENT_ROLE,
+  formatDateFR,
+  fullName,
+  isDepartureScheduled,
+  MAX_CONTRACT_HOURS,
+  normalize,
+  RECRUITMENT_CATEGORIES,
+  todayISO,
+  type CategoryKey,
+} from "@/lib/employees";
+import type { AbsenceReason, Site, User } from "@/lib/types";
 
-/**
- * Catégories du sélecteur, reprises du planning direction : une catégorie
- * regroupe un ou plusieurs postes, affichés séparément dans la liste.
- * « Autres » recueille les comptes sans poste métier (ex. administration)
- * pour qu'aucun employé ne disparaisse de la page.
- */
-const CATEGORY_DEFS = [
-  {
-    key: "DIRECTION",
-    label: "Direction",
-    shortLabel: "Direction",
-    groups: [
-      { key: "DIRECTION", label: "Direction", shortLabel: "Direction", role: "ROLE_DIRECTION" },
-    ],
-  },
-  {
-    key: "ACCUEIL_CAISSE",
-    label: "Accueil / Caisse",
-    shortLabel: "Accueil",
-    groups: [
-      { key: "CAISSIER", label: "Caissiers", shortLabel: "Caisse", role: "ROLE_CAISSIER" },
-      { key: "LAD", label: "LAD", shortLabel: "LAD", role: "ROLE_LAD" },
-      {
-        key: "HOTE",
-        label: "Hôtes / hôtesses d'accueil",
-        shortLabel: "Accueil",
-        role: "ROLE_HOTE",
-      },
-    ],
-  },
-  {
-    key: "SECURITE",
-    label: "Sécurité",
-    shortLabel: "Sécurité",
-    groups: [{ key: "SECURITE", label: "Sécurité", shortLabel: "Sécurité", role: "ROLE_SECURITE" }],
-  },
-  {
-    key: "RAYON",
-    label: "Rayon",
-    shortLabel: "Rayon",
-    groups: [{ key: "RAYON", label: "Rayon", shortLabel: "Rayon", role: "ROLE_RAYON" }],
-  },
-  {
-    key: "AUTRES",
-    label: "Autres",
-    shortLabel: "Autres",
-    groups: [{ key: "AUTRES", label: "Autres", shortLabel: "Autres", role: null }],
-  },
-] as const satisfies readonly Category[];
-
-/** Poste (sous-groupe) auquel un employé est rattaché dans la liste. */
-interface RoleGroup {
-  key: string;
-  label: string;
-  /** Libellé compact, pour les suggestions de recherche. */
-  shortLabel: string;
-  role: UserRole | null;
-}
-
-interface Category {
-  key: string;
-  label: string;
-  shortLabel: string;
-  groups: readonly RoleGroup[];
-}
-
-type CategoryKey = (typeof CATEGORY_DEFS)[number]["key"];
-
-const ROLE_GROUPS: RoleGroup[] = CATEGORY_DEFS.flatMap((category) => [...category.groups]);
-
-/** Rôles proposés au recrutement (l'administration se crée côté admin). */
-const RECRUITMENT_ROLES = [
-  { value: "CAISSIER", label: "Caissier(ère)" },
-  { value: "HOTE", label: "Hôte(sse) d'accueil" },
-  { value: "LAD", label: "LAD" },
-  { value: "RAYON", label: "Rayon" },
-  { value: "SECURITE", label: "Sécurité" },
-  { value: "DIRECTION", label: "Direction" },
-];
-
-/** Horaires par défaut d'un arrêt de travail (journée complète magasin). */
+/** Default hours for a sick leave (full store day). */
 const DEFAULT_ARRET_START = "07:00";
 const DEFAULT_ARRET_END = "20:15";
-
-function todayISO(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
-
-function sortByName(users: User[]): User[] {
-  return [...users].sort((a, b) =>
-    `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, "fr"),
-  );
-}
-
-function fullName(user: User): string {
-  return `${user.lastName} ${user.firstName}`;
-}
-
-/** Poste d'un employé : premier rôle connu, « Autres » à défaut. */
-function groupKeyOf(user: User): string {
-  return ROLE_GROUPS.find((group) => group.role && user.roles?.includes(group.role))?.key ?? "AUTRES";
-}
-
-/** Recherche par nom insensible à la casse et aux accents. */
-function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-/** `term` doit déjà être normalisé ; les deux ordres nom/prénom sont acceptés. */
-function matchesName(user: User, term: string): boolean {
-  if (!term) return true;
-  return (
-    normalize(`${user.firstName} ${user.lastName}`).includes(term) ||
-    normalize(fullName(user)).includes(term)
-  );
-}
-
-/** Poste affiché en second dans les suggestions de recherche. */
-function positionLabel(user: User): string {
-  const groupKey = groupKeyOf(user);
-  return ROLE_GROUPS.find((group) => group.key === groupKey)?.shortLabel ?? "Autres";
-}
 
 export default function EmployesPage() {
   return (
@@ -154,13 +48,13 @@ function EmployesContent() {
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Aucune catégorie sélectionnée au départ : toute l'équipe est visible, et
-  // un clic filtre sur une catégorie (un second clic revient à tout voir).
-  // La recherche par nom, elle, porte toujours sur l'ensemble des employés.
+  // No category selected initially: the whole team is visible, and a click
+  // filters on a category (a second click goes back to showing everything).
+  // Search by name, however, always covers all employees.
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | null>(null);
   const [search, setSearch] = useState("");
 
-  // Absence en cours de saisie (arrêt de travail ou vacances) pour un employé.
+  // Absence being entered (sick leave or leave) for an employee.
   const [absenceTarget, setAbsenceTarget] = useState<{ user: User; reason: AbsenceReason } | null>(
     null,
   );
@@ -169,16 +63,18 @@ function EmployesContent() {
   const [absenceStartTime, setAbsenceStartTime] = useState(DEFAULT_ARRET_START);
   const [absenceEndTime, setAbsenceEndTime] = useState(DEFAULT_ARRET_END);
 
-  // Employé dont le licenciement est à confirmer.
+  // Employee whose dismissal is pending confirmation, and the effective date entered.
   const [dismissTarget, setDismissTarget] = useState<User | null>(null);
+  const [dismissDate, setDismissDate] = useState("");
 
   const [recruitOpen, setRecruitOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState(RECRUITMENT_ROLES[0].value);
+  const [role, setRole] = useState(DEFAULT_RECRUITMENT_ROLE);
+  const [contractHours, setContractHours] = useState(String(DEFAULT_CONTRACT_HOURS));
+  const [contractExtraMinutes, setContractExtraMinutes] = useState(DEFAULT_CONTRACT_MINUTES);
   const [siteId, setSiteId] = useState<number | "">("");
 
   const load = useCallback(async () => {
@@ -205,44 +101,12 @@ function EmployesContent() {
   const searchTerm = normalize(search.trim());
   const searching = searchTerm.length > 0;
 
-  const countByCategory = useMemo(() => {
-    const counts = Object.fromEntries(CATEGORY_DEFS.map((c) => [c.key, 0])) as Record<
-      CategoryKey,
-      number
-    >;
-    for (const user of users) {
-      const groupKey = groupKeyOf(user);
-      const category = CATEGORY_DEFS.find((c) => c.groups.some((g) => g.key === groupKey));
-      if (category) counts[category.key] += 1;
-    }
-    return counts;
-  }, [users]);
+  const counts = useMemo(() => countByCategory(users), [users]);
 
-  // Employés répartis par statut d'emploi, puis par poste. Une recherche par
-  // nom porte sur tous les postes : elle prend le pas sur la catégorie
-  // sélectionnée, sinon l'employé cherché resterait invisible.
-  const groupsByStatus = useMemo(() => {
-    const visibleGroups =
-      searching || !selectedCategory
-        ? ROLE_GROUPS
-        : CATEGORY_DEFS.find((c) => c.key === selectedCategory)?.groups ?? [];
-
-    function buildGroups(subset: User[]) {
-      const matching = searching ? subset.filter((u) => matchesName(u, searchTerm)) : subset;
-      return visibleGroups
-        .map((group) => ({
-          key: group.key,
-          label: group.label,
-          users: sortByName(matching.filter((u) => groupKeyOf(u) === group.key)),
-        }))
-        .filter((group) => group.users.length > 0);
-    }
-
-    return {
-      employed: buildGroups(users.filter((u) => u.active)),
-      dismissed: buildGroups(users.filter((u) => !u.active)),
-    };
-  }, [users, selectedCategory, searching, searchTerm]);
+  const groupsByStatus = useMemo(
+    () => buildStatusGroups(users, { category: selectedCategory, searchTerm }),
+    [users, selectedCategory, searchTerm],
+  );
 
   function openAbsence(user: User, reason: AbsenceReason) {
     setError(null);
@@ -285,25 +149,60 @@ function EmployesContent() {
     }
   }
 
-  /** Licenciement / réembauche : bascule le statut d'emploi du compte. */
-  async function setEmployed(user: User, employed: boolean) {
+  function openDismiss(user: User) {
+    setError(null);
+    setSuccess(null);
+    setDismissDate(todayISO());
+    setDismissTarget(user);
+  }
+
+  async function updateEmployee(user: User, payload: Record<string, unknown>, message: string) {
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      await api.patch(`/api/users/${user.id}`, { active: employed });
+      await api.patch(`/api/users/${user.id}`, payload);
       setDismissTarget(null);
-      setSuccess(
-        employed
-          ? `${user.firstName} ${user.lastName} est de nouveau en emploi.`
-          : `${user.firstName} ${user.lastName} a été licencié(e).`,
-      );
+      setSuccess(message);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour l'employé.");
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * Dismissal: only the effective date is sent, the server infers whether the
+   * employee leaves the position immediately or on the scheduled date.
+   */
+  function dismiss(user: User, dismissedAt: string) {
+    const scheduled = isDepartureScheduled(dismissedAt);
+    return updateEmployee(
+      user,
+      { dismissedAt },
+      scheduled
+        ? `${user.firstName} ${user.lastName} quittera l'entreprise le ${formatDateFR(dismissedAt)}.`
+        : `${user.firstName} ${user.lastName} a été licencié(e) au ${formatDateFR(dismissedAt)}.`,
+    );
+  }
+
+  /** Cancels a dismissal that has not taken effect yet. */
+  function cancelDismissal(user: User) {
+    return updateEmployee(
+      user,
+      { dismissedAt: null },
+      `Le départ de ${user.firstName} ${user.lastName} a été annulé.`,
+    );
+  }
+
+  /** Rehire: the account becomes active again and loses its dismissal date. */
+  function rehire(user: User) {
+    return updateEmployee(
+      user,
+      { active: true },
+      `${user.firstName} ${user.lastName} est de nouveau en emploi.`,
+    );
   }
 
   async function submitRecruitment(e: FormEvent) {
@@ -317,15 +216,16 @@ function EmployesContent() {
         lastName,
         email,
         phone: phone || null,
-        password,
         role,
+        contractMinutes: contractMinutesFromParts(contractHours, contractExtraMinutes),
         siteId: siteId || null,
       });
       setFirstName("");
       setLastName("");
       setEmail("");
       setPhone("");
-      setPassword("");
+      setContractHours(String(DEFAULT_CONTRACT_HOURS));
+      setContractExtraMinutes(DEFAULT_CONTRACT_MINUTES);
       setRecruitOpen(false);
       setSuccess(`${firstName} ${lastName} a été recruté(e).`);
       await load();
@@ -350,6 +250,7 @@ function EmployesContent() {
           <Button
             variant="success"
             className="w-full sm:w-auto"
+            aria-label="Recruter un nouvel employé"
             onClick={() => setRecruitOpen(true)}
             disabled={loading}
           >
@@ -372,7 +273,7 @@ function EmployesContent() {
                 className="cf-seg grid grid-cols-2 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:justify-center"
               >
                 {CATEGORY_DEFS.map((category) => {
-                  const count = countByCategory[category.key];
+                  const count = counts[category.key];
                   const active = !searching && selectedCategory === category.key;
                   return (
                     <button
@@ -443,12 +344,26 @@ function EmployesContent() {
                   {groupsByStatus.employed.map((group) => (
                     <RoleSection key={group.key} label={group.label}>
                       {group.users.map((user) => (
-                        <EmployeeRow key={user.id} user={user}>
+                        <EmployeeRow
+                          key={user.id}
+                          user={user}
+                          meta={
+                            user.dismissedAt ? (
+                              <StatusBadge tone="warning">
+                                Départ le {formatDateFR(user.dismissedAt)}
+                              </StatusBadge>
+                            ) : null
+                          }
+                        >
+                          {/* The same actions are repeated on every row, with a
+                              label shortened on mobile: the name of the employee
+                              is spelled out for assistive technologies. */}
                           <Button
                             variant="dark"
                             size="sm"
                             className="flex-1 sm:flex-none"
                             disabled={saving}
+                            aria-label={`Déclarer un arrêt de travail pour ${fullName(user)}`}
                             onClick={() => openAbsence(user, "ARRET_TRAVAIL")}
                           >
                             <ActionLabel short="Arrêt" full="Arrêt de travail" />
@@ -458,19 +373,36 @@ function EmployesContent() {
                             size="sm"
                             className="flex-1 sm:flex-none"
                             disabled={saving}
+                            aria-label={`Déclarer des vacances pour ${fullName(user)}`}
                             onClick={() => openAbsence(user, "CONGE")}
                           >
                             Vacances
                           </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            className="flex-1 sm:flex-none"
-                            disabled={saving}
-                            onClick={() => setDismissTarget(user)}
-                          >
-                            <ActionLabel short="Licencier" full="Licenciement" />
-                          </Button>
+                          {/* An already scheduled departure can be cancelled;
+                              to move it, cancel it then enter it again. */}
+                          {user.dismissedAt ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="flex-1 sm:flex-none"
+                              disabled={saving}
+                              aria-label={`Annuler le départ de ${fullName(user)}`}
+                              onClick={() => cancelDismissal(user)}
+                            >
+                              <ActionLabel short="Annuler" full="Annuler le départ" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              className="flex-1 sm:flex-none"
+                              disabled={saving}
+                              aria-label={`Licencier ${fullName(user)}`}
+                              onClick={() => openDismiss(user)}
+                            >
+                              <ActionLabel short="Licencier" full="Licenciement" />
+                            </Button>
+                          )}
                         </EmployeeRow>
                       ))}
                     </RoleSection>
@@ -493,13 +425,26 @@ function EmployesContent() {
                   {groupsByStatus.dismissed.map((group) => (
                     <RoleSection key={group.key} label={group.label}>
                       {group.users.map((user) => (
-                        <EmployeeRow key={user.id} user={user}>
+                        <EmployeeRow
+                          key={user.id}
+                          user={user}
+                          meta={
+                            user.dismissedAt ? (
+                              <StatusBadge tone="neutral">
+                                Licencié le {formatDateFR(user.dismissedAt)}
+                              </StatusBadge>
+                            ) : null
+                          }
+                        >
+                          {/* Same label as the page-level recruitment button:
+                              only the accessible name tells them apart. */}
                           <Button
                             variant="success"
                             size="sm"
                             className="flex-1 sm:flex-none"
                             disabled={saving}
-                            onClick={() => setEmployed(user, true)}
+                            aria-label={`Réembaucher ${fullName(user)}`}
+                            onClick={() => rehire(user)}
                           >
                             Recrutement
                           </Button>
@@ -595,31 +540,52 @@ function EmployesContent() {
 
       {dismissTarget && (
         <ModalShell titleId="dismiss-modal-title" onClose={() => !saving && setDismissTarget(null)}>
-          <h2 id="dismiss-modal-title" className="text-lg font-semibold text-slate-800">
-            Confirmer le licenciement
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {dismissTarget.firstName} {dismissTarget.lastName} passera dans la liste des licenciés et
-            ne pourra plus être planifié(e). Le compte reste réactivable via « Recrutement ».
-          </p>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={() => setDismissTarget(null)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={saving}
-              onClick={() => setEmployed(dismissTarget, false)}
-            >
-              {saving ? "Enregistrement…" : "Licencier"}
-            </Button>
-          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              dismiss(dismissTarget, dismissDate);
+            }}
+          >
+            <h2 id="dismiss-modal-title" className="text-lg font-semibold text-slate-800">
+              Confirmer le licenciement
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              À la date choisie, {dismissTarget.firstName} {dismissTarget.lastName} passera dans la
+              liste des licenciés et ne pourra plus être planifié(e). Le compte reste réactivable
+              via « Recrutement ».
+            </p>
+
+            <label className="mt-4 block text-sm font-medium text-slate-700">
+              Date du licenciement
+              <input
+                type="date"
+                required
+                value={dismissDate}
+                onChange={(e) => setDismissDate(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm"
+              />
+            </label>
+
+            <p className="mt-2 text-xs text-slate-500">
+              {isDepartureScheduled(dismissDate)
+                ? `${dismissTarget.firstName} reste en poste et planifiable jusqu'au ${formatDateFR(dismissDate)}.`
+                : "Le départ prend effet immédiatement."}
+            </p>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setDismissTarget(null)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" variant="danger" disabled={saving}>
+                {saving ? "Enregistrement…" : "Licencier"}
+              </Button>
+            </div>
+          </form>
         </ModalShell>
       )}
 
@@ -679,15 +645,66 @@ function EmployesContent() {
                   onChange={(e) => setRole(e.target.value)}
                   className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
                 >
-                  {RECRUITMENT_ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
+                  {RECRUITMENT_CATEGORIES.map((category) =>
+                    category.jobs.length === 1 ? (
+                      <option key={category.key} value={category.jobs[0].value}>
+                        {category.jobs[0].label}
+                      </option>
+                    ) : (
+                      <optgroup key={category.key} label={category.label}>
+                        {category.jobs.map((job) => (
+                          <option key={job.value} value={job.value}>
+                            {job.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ),
+                  )}
                 </select>
               </label>
-              {/* Magasin unique dans la plupart des installations : on n'affiche
-                  le choix du site que s'il y en a réellement plusieurs. */}
+              {/* Hours + quarter-hour minutes, capped at 36 h 45. */}
+              <div className="sm:col-span-2">
+                <span className="block text-sm font-medium text-slate-700">Contrat</span>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <label className="sr-only" htmlFor="recruit-contract-hours">
+                    Heures par semaine
+                  </label>
+                  <input
+                    id="recruit-contract-hours"
+                    type="number"
+                    required
+                    min={1}
+                    max={MAX_CONTRACT_HOURS}
+                    step={1}
+                    value={contractHours}
+                    onChange={(e) => setContractHours(e.target.value)}
+                    className="w-20 rounded-md border border-slate-300 px-2.5 py-2 text-sm"
+                  />
+                  <span className="text-sm text-slate-600" aria-hidden>
+                    h
+                  </span>
+                  <label className="sr-only" htmlFor="recruit-contract-minutes">
+                    Minutes
+                  </label>
+                  <select
+                    id="recruit-contract-minutes"
+                    value={contractExtraMinutes}
+                    onChange={(e) => setContractExtraMinutes(Number(e.target.value))}
+                    className="w-20 rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
+                  >
+                    {CONTRACT_MINUTE_OPTIONS.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {String(minutes).padStart(2, "0")}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-sm text-slate-600" aria-hidden>
+                    min
+                  </span>
+                </div>
+              </div>
+              {/* Single store in most installations: the site selector is only
+                  displayed when there really is more than one. */}
               {sites.length > 1 && (
                 <label className="block text-sm font-medium text-slate-700">
                   Site
@@ -704,17 +721,6 @@ function EmployesContent() {
                   </select>
                 </label>
               )}
-              <label className="block text-sm font-medium text-slate-700">
-                Mot de passe provisoire
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-2 text-sm"
-                />
-              </label>
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
@@ -737,172 +743,7 @@ function EmployesContent() {
   );
 }
 
-const MAX_SUGGESTIONS = 8;
-
-/**
- * Champ de recherche avec liste de suggestions maison : la liste native
- * `<datalist>` est rendue par le système et jure avec le reste de
- * l'interface. Navigation au clavier (flèches, Entrée, Échap) incluse.
- */
-function EmployeeSearch({
-  value,
-  onChange,
-  employees,
-  className = "",
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  employees: User[];
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [highlighted, setHighlighted] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
-
-  const matches = useMemo(() => {
-    const term = normalize(value.trim());
-    return sortByName(employees.filter((user) => matchesName(user, term))).slice(
-      0,
-      MAX_SUGGESTIONS,
-    );
-  }, [employees, value]);
-
-  useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, []);
-
-  // La liste rétrécit au fil de la frappe : on borne l'index surligné.
-  const activeIndex = highlighted < matches.length ? highlighted : 0;
-
-  // Garde la suggestion courante visible lors de la navigation au clavier.
-  useEffect(() => {
-    if (!open) return;
-    listRef.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
-  }, [activeIndex, open]);
-
-  function select(user: User) {
-    onChange(fullName(user));
-    setOpen(false);
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      if (!open) {
-        setOpen(true);
-        return;
-      }
-      if (matches.length === 0) return;
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      setHighlighted((index) => (index + step + matches.length) % matches.length);
-      return;
-    }
-    if (event.key === "Enter" && open && matches[activeIndex]) {
-      event.preventDefault();
-      select(matches[activeIndex]);
-      return;
-    }
-    if (event.key === "Escape") {
-      setOpen(false);
-    }
-  }
-
-  return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
-          <circle cx="11" cy="11" r="7" />
-          <path strokeLinecap="round" d="m20 20-3.5-3.5" />
-        </svg>
-      </span>
-
-      <input
-        ref={inputRef}
-        type="text"
-        role="combobox"
-        autoComplete="off"
-        aria-expanded={open}
-        aria-controls="employes-suggestions"
-        aria-autocomplete="list"
-        aria-activedescendant={
-          open && matches[activeIndex] ? `employe-option-${matches[activeIndex].id}` : undefined
-        }
-        aria-label="Rechercher un employé par nom"
-        placeholder="Rechercher un employé…"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setHighlighted(0);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={handleKeyDown}
-        className="w-full rounded-(--cf-radius-sm) border border-slate-300 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-800 placeholder:text-slate-400 focus:border-cf-blue focus:outline-none"
-      />
-
-      {value && (
-        <button
-          type="button"
-          aria-label="Effacer la recherche"
-          onClick={() => {
-            onChange("");
-            setHighlighted(0);
-            inputRef.current?.focus();
-          }}
-          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5">
-            <path strokeLinecap="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
-
-      {open && matches.length > 0 && (
-        <ul
-          ref={listRef}
-          id="employes-suggestions"
-          role="listbox"
-          className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-(--cf-radius-sm) border border-slate-200 bg-white py-1 shadow-lg"
-        >
-          {matches.map((user, index) => (
-            <li
-              key={user.id}
-              id={`employe-option-${user.id}`}
-              role="option"
-              aria-selected={index === activeIndex}
-              onMouseEnter={() => setHighlighted(index)}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => select(user)}
-              className={`flex cursor-pointer items-baseline justify-between gap-3 px-3 py-2 ${
-                index === activeIndex ? "bg-cf-blue-light" : ""
-              }`}
-            >
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800">
-                {fullName(user)}
-              </span>
-              <span className="shrink-0 text-xs text-slate-500">
-                {user.active ? positionLabel(user) : `${positionLabel(user)} · licencié`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** En-tête de sous-groupe, dans le style des sections du planning. */
+/** Sub-group header, styled like the schedule sections. */
 function RoleSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section>
@@ -915,15 +756,23 @@ function RoleSection({ label, children }: { label: string; children: React.React
 }
 
 /**
- * Une ligne par employé : coordonnées puis actions. Sur mobile, les
- * coordonnées s'empilent et les actions occupent une seule rangée en se
- * partageant la largeur, pour garder des cartes courtes et lisibles.
+ * One row per employee: contact details then actions. On mobile, the contact
+ * details stack and the actions occupy a single row, sharing the width, to
+ * keep the cards short and readable.
  */
-function EmployeeRow({ user, children }: { user: User; children: React.ReactNode }) {
+function EmployeeRow({
+  user,
+  meta,
+  children,
+}: {
+  user: User;
+  meta?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-2 rounded-(--cf-radius-sm) border border-slate-200 bg-white px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4">
-      {/* Mobile : nom et téléphone sur la première ligne, mail en dessous.
-          À partir de sm, tout revient sur une seule ligne. */}
+      {/* Mobile: name and phone on the first line, email below.
+          From sm upwards, everything goes back to a single line. */}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 sm:flex sm:flex-wrap">
         <p className="col-start-1 row-start-1 truncate font-semibold text-slate-800">
           {user.lastName} {user.firstName}
@@ -946,15 +795,36 @@ function EmployeeRow({ user, children }: { user: User; children: React.ReactNode
             Téléphone non renseigné
           </span>
         )}
+        {meta}
       </div>
       <div className="flex gap-2 sm:shrink-0">{children}</div>
     </div>
   );
 }
 
+/** Status pill displayed under the contact details (planned departure, dismissal). */
+function StatusBadge({
+  tone,
+  children,
+}: {
+  tone: "neutral" | "warning";
+  children: React.ReactNode;
+}) {
+  const toneClass =
+    tone === "warning" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600";
+
+  return (
+    <span
+      className={`col-span-2 col-start-1 row-start-3 justify-self-start rounded-full px-2 py-0.5 text-xs font-medium ${toneClass}`}
+    >
+      {children}
+    </span>
+  );
+}
+
 /**
- * Libellé d'action raccourci sur mobile : les trois boutons doivent tenir
- * côte à côte sur la largeur d'un téléphone.
+ * Action label shortened on mobile: the three buttons must fit side by side
+ * within the width of a phone.
  */
 function ActionLabel({ short, full }: { short: string; full: string }) {
   return (

@@ -15,7 +15,7 @@ abstract class AbstractApiController extends AbstractController
     }
 
     /**
-     * Sérialise $data avec les groupes donnés et renvoie une JsonResponse.
+     * Serializes $data with the given groups and returns a JsonResponse.
      */
     protected function respond(mixed $data, int $status = 200, array $groups = []): JsonResponse
     {

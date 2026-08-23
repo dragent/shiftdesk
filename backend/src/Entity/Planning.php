@@ -13,9 +13,8 @@ use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Créneau de travail planifié par la direction pour un employé (hôte/
- * hôtesse d'accueil ou caissier/caissière) : jour + heure de début/fin
- * sur un site donné.
+ * Work slot scheduled by management for an employee (reception host or
+ * cashier): day plus start/end time on a given site.
  */
 #[ORM\Entity(repositoryClass: PlanningRepository::class)]
 #[ORM\Table(name: 'planning')]
@@ -67,37 +66,36 @@ class Planning
     private ?string $note = null;
 
     /**
-     * Indique qu'un LAD ou un hôte/hôtesse d'accueil est affecté(e) en
-     * caisse pour ce créneau (et non à son poste habituel). Les caissiers
-     * n'utilisent pas ce flag (ils sont déjà en caisse par rôle).
+     * Indicates that a LAD or a reception host is assigned to a register for
+     * this slot (rather than to their usual position). Cashiers do not use
+     * this flag (their role already places them on a register).
      */
     #[ORM\Column(name: 'en_caisse', options: ['default' => false])]
     #[Groups(['planning:read', 'planning:write'])]
     private bool $enCaisse = false;
 
     /**
-     * Numéro de caisse attribué à ce créneau (plan de caisse) : de 1 à 8
-     * pour une caisse numérotée, 0 pour la supervision des caisses
-     * automatiques (libre-service), ou -1 pour une affectation "Pauses /
-     * Retour" (le/la caissier(ère) ne tient aucune caisse : il/elle fait
-     * passer les pauses des collègues ou gère les retours). Renseigné par
-     * l'accueil ou la direction, uniquement pertinent pour les créneaux de
-     * caissiers/caissières. Mutuellement exclusif avec $registerSegments
-     * (null si le créneau est découpé en bascule).
+     * Register number assigned to this slot (register layout): 1 to 8 for a
+     * numbered register, 0 for supervising the self-service registers, or -1
+     * for a "Pauses / Retour" assignment (the cashier holds no register:
+     * they cover colleagues' breaks or handle returns). Set by reception or
+     * management, and only relevant for cashier slots. Mutually exclusive
+     * with $registerSegments (null when the slot is split into successive
+     * register assignments).
      */
     #[ORM\Column(nullable: true)]
     #[Groups(['planning:read', 'planning:write'])]
     private ?int $registerNumber = null;
 
     /**
-     * Découpage d'un créneau en plusieurs affectations de caisse (bascule en
-     * cours de poste), ex. caisse 3 de 07:30 à 10:00 puis caisses
-     * automatiques de 10:00 à 14:00. Tableau ordonné par heure croissante
-     * d'objets {startTime: "HH:mm", registerNumber: int}, limité aux caisses
-     * numérotées (1-8) et aux caisses automatiques (0) — pas de "Pauses /
-     * Retour" au sein d'une bascule. Le premier segment démarre toujours à
-     * l'heure de début du créneau. Mutuellement exclusif avec
-     * $registerNumber (l'un ou l'autre, jamais les deux à la fois).
+     * Split of a slot into several register assignments (switching register
+     * during the shift), e.g. register 3 from 07:30 to 10:00 then the
+     * self-service registers from 10:00 to 14:00. Array of
+     * {startTime: "HH:mm", registerNumber: int} objects ordered by ascending
+     * time, restricted to numbered registers (1-8) and self-service
+     * registers (0) — no "Pauses / Retour" within a split. The first segment
+     * always starts at the slot start time. Mutually exclusive with
+     * $registerNumber (one or the other, never both at once).
      *
      * @var array<int, array{startTime: string, registerNumber: int}>|null
      */

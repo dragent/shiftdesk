@@ -8,8 +8,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
- * Demande/interaction traitée par un hôte/hôtesse d'accueil,
- * classée selon une RequestCategory (dropdown Caroline / Siebel / Menu Carrefour...).
+ * Request/interaction handled by a reception host, classified by a
+ * RequestCategory (dropdown Caroline / Siebel / Menu Carrefour...).
  */
 #[ORM\Entity(repositoryClass: AccueilRequestRepository::class)]
 #[ORM\Table(name: 'accueil_request')]

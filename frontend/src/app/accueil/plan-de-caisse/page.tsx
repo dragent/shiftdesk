@@ -39,15 +39,15 @@ type Interval = RegisterInterval;
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
-  const day = (d.getDay() + 6) % 7; // lundi = 0
+  const day = (d.getDay() + 6) % 7; // Monday = 0
   d.setDate(d.getDate() - day);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
 function toISODate(date: Date): string {
-  // Formatage en heure locale (et non toISOString(), qui convertit en UTC
-  // et décalerait la date d'un jour selon le fuseau horaire).
+  // Formatted in local time (not toISOString(), which converts to UTC and
+  // would shift the date by one day depending on the time zone).
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -58,7 +58,7 @@ function entryIntervals(p: Planning): Interval[] {
   return planningIntervals(p);
 }
 
-/** Libellé court du poste d'origine pour un LAD / hôte prévu en caisse. */
+/** Short label of the original position for a LAD / host scheduled on a register. */
 function originRoleLabel(user: User): string | null {
   if (user.roles?.includes("ROLE_LAD")) return "LAD";
   if (user.roles?.includes("ROLE_HOTE")) return "Accueil";
@@ -70,7 +70,7 @@ function compareUsersByName(a: User, b: User): number {
   return last !== 0 ? last : a.firstName.localeCompare(b.firstName, "fr");
 }
 
-/** Première heure d'arrivée de la semaine (date + heure de début). */
+/** Earliest arrival of the week (date + start time). */
 function earliestArrivalKey(plannings: Planning[]): string | null {
   let earliest: string | null = null;
   for (const p of plannings) {
@@ -84,7 +84,7 @@ function scoSlotKey(dayKey: string, slotKey: HalfDayKey): string {
   return `${dayKey}_${slotKey}`;
 }
 
-/** Caisse affichée à côté d'un candidat relève à une heure donnée. */
+/** Register displayed next to a relief candidate at a given time. */
 function registerLabelAtTime(p: Planning, time: string): string {
   if (!time) {
     if (p.registerSegments && p.registerSegments.length > 0) {
@@ -118,12 +118,12 @@ function PlanDeCaisseContent() {
   const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
-  // Case en cours d'édition (attribution d'une affectation de caisse à un
-  // créneau déjà planifié).
+  // Cell currently being edited (assigning a register to an already scheduled
+  // slot).
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [formRegisterNumber, setFormRegisterNumber] = useState("");
 
-  // Panneau « Caisse auto » : relève SCO (échange ou caisse libre).
+  // « Caisse auto » panel: SCO relief (swap or free register).
   const [scoOpen, setScoOpen] = useState(false);
   const [scoDayIndex, setScoDayIndex] = useState(0);
   const [scoReliefTime, setScoReliefTime] = useState("");
@@ -167,9 +167,9 @@ function PlanDeCaisseContent() {
     load();
   }, [load]);
 
-  // Caissiers + LAD / Accueil prévus en caisse cette semaine (créneaux
-  // renvoyés par caissiersOnly, absents de /api/caissiers), triés par
-  // heure d'arrivée (premier créneau de la semaine).
+  // Cashiers + LAD / reception scheduled on a register this week (slots
+  // returned by caissiersOnly, missing from /api/caissiers), sorted by
+  // arrival time (first slot of the week).
   const rowUsers = useMemo(() => {
     const byId = new Map<number, User>();
     const planningsByUser = new Map<number, Planning[]>();
@@ -195,8 +195,8 @@ function PlanDeCaisseContent() {
     });
   }, [caissiers, plannings]);
 
-  // Regroupe les créneaux par employé + jour + demi-journée pour un accès
-  // rapide en O(1) depuis la grille.
+  // Groups slots by employee + day + half-day for fast O(1) access from the
+  // grid.
   const planningByCell = useMemo(() => {
     const map = new Map<string, Planning>();
     for (const p of plannings) {
@@ -206,10 +206,10 @@ function PlanDeCaisseContent() {
     return map;
   }, [plannings]);
 
-  // Couverture des caisses automatiques par jour + demi-journée : le
-  // magasin exige au moins un(e) caissier(ère) affecté(e) à leur
-  // supervision sur chaque créneau où des caissiers travaillent (que ce
-  // soit sur tout le créneau, ou seulement une partie via une bascule).
+  // Self-checkout coverage by day + half-day: the store requires at least
+  // one cashier assigned to supervise them on every slot where cashiers
+  // work (either for the whole slot, or only part of it through a
+  // switch-over).
   const selfCheckoutCoverage = useMemo(() => {
     const map = new Map<string, { hasCaissier: boolean; covered: boolean }>();
     for (const p of plannings) {
@@ -224,8 +224,8 @@ function PlanDeCaisseContent() {
     return map;
   }, [plannings]);
 
-  // LAD en poste (pas « en caisse ») par jour + demi-journée — pour le pied
-  // de page imprimé « LAD en charge ».
+  // LAD on duty (not « en caisse ») by day + half-day — for the printed
+  // « LAD en charge » footer.
   const ladOnDutyBySlot = useMemo(() => {
     const map = new Map<string, Planning[]>();
     for (const p of ladPlannings) {
@@ -245,7 +245,7 @@ function PlanDeCaisseContent() {
     return map;
   }, [ladPlannings]);
 
-  // Personnes planifiées par demi-journée, triées par heure d'arrivée.
+  // People scheduled per half-day, sorted by arrival time.
   const candidatesBySlot = useMemo(() => {
     const map = new Map<string, Planning[]>();
     for (const p of plannings) {
@@ -264,12 +264,12 @@ function PlanDeCaisseContent() {
   }, [plannings]);
 
   const scoDayKey = toISODate(weekDays[scoDayIndex] ?? weekDays[0]);
-  // Le créneau (matin / après-midi) se déduit de l'heure de relève.
+  // The slot (morning / afternoon) is derived from the relief time.
   const scoDerivedSlot = scoReliefTime ? slotKeyForTime(scoReliefTime) : null;
   const scoSlotCandidates = scoOpen && scoDerivedSlot
     ? (candidatesBySlot.get(scoSlotKey(scoDayKey, scoDerivedSlot)) ?? [])
     : [];
-  // Personnes en service à l'heure choisie (créneau qui couvre l'heure).
+  // People on duty at the chosen time (slot that covers that time).
   const scoCandidates = useMemo(() => {
     if (!scoReliefTime) return [];
     return scoSlotCandidates.filter((p) => timeInRange(scoReliefTime, p.startTime, p.endTime));
@@ -286,8 +286,8 @@ function PlanDeCaisseContent() {
   }, [scoCandidates, scoPerson]);
 
   /**
-   * Première affectation SCO : personnes du créneau (même sans filtre horaire
-   * strict) pour ne jamais se retrouver avec le message sans liste.
+   * First SCO assignment: people on the slot (even without the strict time
+   * filter) so the message is never shown without a list.
    */
   const scoInitialCandidates = !scoPerson && scoReliefTime
     ? (scoCandidates.length > 0 ? scoCandidates : scoSlotCandidates)
@@ -324,14 +324,14 @@ function PlanDeCaisseContent() {
     setScoRelieverId("");
     setScoFreeRegister("");
     setScoTimeMenuOpen(false);
-    // Préremplit une heure du créneau cliqué (sinon vide).
+    // Pre-fills a time from the clicked slot (empty otherwise).
     if (slotKey === "APRES_MIDI") setScoReliefTime("14:00");
     else if (slotKey === "MATIN") setScoReliefTime("07:45");
     else setScoReliefTime("");
     setScoOpen(true);
   }
 
-  // Escape ferme la popup / le menu d'heures.
+  // Escape closes the popup / the time menu.
   useEffect(() => {
     if (!scoOpen) return;
     function onKeyDown(e: KeyboardEvent) {
@@ -359,7 +359,7 @@ function PlanDeCaisseContent() {
       return;
     }
 
-    // Cas 1 : personne aux SCO → première affectation.
+    // Case 1: nobody on the SCO → first assignment.
     if (!scoPerson) {
       const assignee = scoInitialCandidates.find((p) => String(p.id) === scoRelieverId) ?? null;
       if (!assignee) {
@@ -386,7 +386,7 @@ function PlanDeCaisseContent() {
       return;
     }
 
-    // Cas 2 : relève (échange ou caisse libre).
+    // Case 2: relief (swap or free register).
     if (!scoReliever) {
       setError("Choisissez la personne qui relève les caisses automatiques.");
       return;
@@ -426,7 +426,7 @@ function PlanDeCaisseContent() {
       return;
     }
 
-    // Contrôle conflit caisse pour l'ancien SCO après la relève.
+    // Register conflict check for the former SCO operator after the relief.
     const formerIntervals: Interval[] =
       formerPayload.segments != null
         ? formerPayload.segments.map((seg, i) => ({
@@ -465,7 +465,7 @@ function PlanDeCaisseContent() {
     closeScoPanel();
     setEditingCell(cellKey);
     setError(null);
-    // Affiche la caisse actuelle (ou le 1er segment d'une relève SCO).
+    // Displays the current register (or the 1st segment of an SCO relief).
     if (entry.registerNumber != null) {
       setFormRegisterNumber(String(entry.registerNumber));
     } else if (entry.registerSegments && entry.registerSegments.length > 0) {
@@ -479,7 +479,7 @@ function PlanDeCaisseContent() {
     setEditingCell(null);
   }
 
-  /** Cherche un conflit de caisse numérotée avec un autre créneau du même jour. */
+  /** Looks for a numbered register conflict with another slot on the same day. */
   function findRegisterConflict(
     entry: Planning,
     newIntervals: Interval[],
@@ -490,7 +490,7 @@ function PlanDeCaisseContent() {
       if (exclude.has(p.id) || p.workDate !== entry.workDate) continue;
       const otherIntervals = entryIntervals(p);
       for (const ni of newIntervals) {
-        if (!REGISTER_NUMBERS.includes(ni.registerNumber)) continue; // caisses auto : pas de conflit
+        if (!REGISTER_NUMBERS.includes(ni.registerNumber)) continue; // self-checkouts: no conflict
         for (const oi of otherIntervals) {
           if (oi.registerNumber === ni.registerNumber && intervalsOverlap(ni.start, ni.end, oi.start, oi.end)) {
             return { registerNumber: ni.registerNumber, other: p };
@@ -880,7 +880,7 @@ function PlanDeCaisseContent() {
                     ))}
                   </ul>
                 )}
-                {/* Champ requis invisible pour la validation HTML du formulaire. */}
+                {/* Invisible required field for the browser form validation. */}
                 <input type="hidden" required value={scoReliefTime} onChange={() => {}} />
               </div>
             </div>
@@ -1051,7 +1051,7 @@ const MANUAL_NOTE_KINDS = [
   { key: "supp", label: "Temps supplémentaire" },
 ] as const;
 
-/** Deux lignes manuscrites (Absence / Retard / Temps supplémentaire) en tête de page. */
+/** Two handwritten rows (absence / lateness / extra time) at the top of the page. */
 function PrintManualNotes() {
   return (
     <div className="print-plan-caisse__notes" aria-label="Annotations manuscrites">
@@ -1147,7 +1147,7 @@ function PrintablePlanDeCaisse({
           >
             <header className="print-plan-caisse__header">
               <div className="print-plan-caisse__brand">
-                {/* eslint-disable-next-line @next/next/no-img-element -- img classique plus fiable à l'impression */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- plain img is more reliable when printing */}
                 <img
                   src="/carrefour-logo.png"
                   alt="Carrefour"

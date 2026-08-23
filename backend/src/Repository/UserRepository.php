@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\User;
 use App\Enum\UserRole;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -37,9 +38,31 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Retourne les utilisateurs possédant un rôle métier donné (ex: tous
-     * les caissiers). Le rôle est stocké dans une colonne JSON, on filtre
-     * donc via une recherche texte sur sa représentation sérialisée.
+     * Deactivates the accounts whose dismissal date has been reached. The
+     * stack has no scheduler: dated dismissals therefore take effect on the
+     * first read of the employee list occurring after their date.
+     *
+     * @return int number of accounts switched to dismissed
+     */
+    public function deactivateDueDismissals(\DateTimeImmutable $today): int
+    {
+        return (int) $this->createQueryBuilder('u')
+            ->update()
+            ->set('u.active', ':inactive')
+            ->andWhere('u.active = :stillActive')
+            ->andWhere('u.dismissedAt IS NOT NULL')
+            ->andWhere('u.dismissedAt <= :today')
+            ->setParameter('inactive', false)
+            ->setParameter('stillActive', true)
+            ->setParameter('today', $today, Types::DATE_IMMUTABLE)
+            ->getQuery()
+            ->execute();
+    }
+
+    /**
+     * Returns the users holding a given business role (e.g. all the
+     * cashiers). The role is stored in a JSON column, hence the filtering
+     * through a text search on its serialized representation.
      *
      * @return User[]
      */

@@ -1,11 +1,10 @@
 /**
- * Créneaux fixes de demi-journée utilisés par le planning : le magasin est
- * couvert en semaine de 07h00 à 20h15, coupé en deux demi-journées
- * (matin / après-midi). Le dimanche après-midi est fermé ; le dimanche
- * matin se termine à 13h15.
+ * Fixed half-day slots used by the schedule: on weekdays the store is covered from 07:00 to
+ * 20:15, split into two half-days (morning / afternoon). Sunday afternoon is closed; Sunday
+ * morning ends at 13:15.
  *
- * Les heures de début exactes dépendent du rôle (accueil, caissiers, etc.)
- * — voir `earliestStartForUser` / `latestEndForDay`.
+ * Exact start times depend on the role (reception, cashiers, etc.) — see
+ * `earliestStartForUser` / `latestEndForDay`.
  */
 export type HalfDayKey = "MATIN" | "APRES_MIDI";
 
@@ -22,36 +21,34 @@ export const HALF_DAY_SLOTS: HalfDaySlot[] = [
 ];
 
 /**
- * Amplitude d'ouverture du magasin (première heure de début possible à
- * dernière heure de fin possible). La demi-journée (matin/après-midi) ne
- * détermine que l'heure de DÉBUT d'un créneau (cf. `slotKeyForTime`) : une
- * personne qui commence le matin peut très bien terminer en après-midi
- * (ex. 07h30-16h00), donc l'heure de fin n'est bornée que par la fermeture
- * du magasin, pas par la fin de la demi-journée de démarrage.
+ * Store opening range (earliest possible start time to latest possible end time). The half-day
+ * (morning/afternoon) only determines the START time of a slot (see `slotKeyForTime`): someone
+ * starting in the morning may well finish in the afternoon (e.g. 07:30-16:00), so the end time
+ * is bounded only by the store closing time, not by the end of the starting half-day.
  */
 export const STORE_OPEN = HALF_DAY_SLOTS[0].start;
 export const STORE_CLOSE = HALF_DAY_SLOTS[HALF_DAY_SLOTS.length - 1].end;
 
-/** Fermeture du dimanche (matin uniquement). */
+/** Sunday closing time (morning only). */
 export const SUNDAY_CLOSE = "13:15";
 
-/** Début Accueil (ROLE_HOTE) : 7h00 en semaine, 7h30 le dimanche. */
+/** Reception start (ROLE_HOTE): 07:00 on weekdays, 07:30 on Sunday. */
 export const ACCUEIL_WEEKDAY_START = "07:00";
 export const ACCUEIL_SUNDAY_START = "07:30";
 
-/** Début Caissiers : 7h30 en semaine, 8h00 le dimanche. */
+/** Cashier start: 07:30 on weekdays, 08:00 on Sunday. */
 export const CAISSIER_WEEKDAY_START = "07:30";
 export const CAISSIER_SUNDAY_START = "08:00";
 
-/** Première heure proposée pour une relève SCO (select). */
+/** Earliest time offered for an SCO relief (select). */
 export const SCO_RELIEF_START = "07:45";
 
-/** Pas (minutes) entre deux heures de relève proposées. */
+/** Step (minutes) between two offered relief times. */
 export const SCO_RELIEF_STEP_MINUTES = 15;
 
 /**
- * Heures de relève disponibles pour le select SCO, de `SCO_RELIEF_START`
- * jusqu'à juste avant la fermeture magasin (pas de 15 min).
+ * Relief times available in the SCO select, from `SCO_RELIEF_START` up to just before the store
+ * closing time (15-minute steps).
  */
 export function scoReliefTimeOptions(
   from: string = SCO_RELIEF_START,
@@ -74,28 +71,26 @@ export function scoReliefTimeOptions(
 }
 
 /**
- * Direction et Rayon peuvent démarrer dès 04h00 le matin (préparation
- * magasin). Accueil dès 07h00 en semaine / 07h30 le dimanche. Caissiers
- * dès 07h30 en semaine / 08h00 le dimanche. Autres rôles : ouverture
- * magasin 07h30.
+ * Management and shop floor may start as early as 04:00 (store preparation). Reception from
+ * 07:00 on weekdays / 07:30 on Sunday. Cashiers from 07:30 on weekdays / 08:00 on Sunday.
+ * Other roles: store opening at 07:30.
  */
 export const EARLY_SHIFT_START = "04:00";
 export const EARLY_SHIFT_ROLES = ["ROLE_DIRECTION", "ROLE_RAYON"] as const;
 
 export const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
-/** Index du dimanche dans la semaine (lundi = 0). */
+/** Index of Sunday within the week (Monday = 0). */
 export const SUNDAY_INDEX = 6;
 
-/** Heure de fin maximale autorisée un jour donné (13h15 le dimanche). */
+/** Latest end time allowed on a given day (13:15 on Sunday). */
 export function latestEndForDay(dayIndex: number): string {
   return dayIndex === SUNDAY_INDEX ? SUNDAY_CLOSE : STORE_CLOSE;
 }
 
 /**
- * Heure de fin proposée par défaut pour une demi-journée : fin du créneau
- * le matin en semaine (14h00), fermeture dimanche (13h15) le dimanche matin,
- * fermeture magasin (20h15) l'après-midi.
+ * Default end time proposed for a half-day: end of the slot on weekday mornings (14:00), Sunday
+ * closing time (13:15) on Sunday morning, store closing time (20:15) in the afternoon.
  */
 export function defaultEndForSlot(slotKey: HalfDayKey, dayIndex: number): string {
   if (dayIndex === SUNDAY_INDEX) return SUNDAY_CLOSE;
@@ -103,7 +98,7 @@ export function defaultEndForSlot(slotKey: HalfDayKey, dayIndex: number): string
   return slot?.end ?? STORE_CLOSE;
 }
 
-/** Heure de début minimale autorisée pour un utilisateur sur une demi-journée. */
+/** Earliest start time allowed for a user on a half-day. */
 export function earliestStartForUser(
   user: { roles?: string[] | null },
   slotKey: HalfDayKey,
@@ -127,20 +122,20 @@ export function earliestStartForUser(
 }
 
 /**
- * Détermine à quelle demi-journée appartient un créneau à partir de son
- * heure de début (avant 14h = matin, sinon après-midi).
+ * Determines which half-day a slot belongs to from its start time (before 14:00 = morning,
+ * otherwise afternoon).
  */
 export function slotKeyForTime(startTime: string): HalfDayKey {
   const hour = parseInt(startTime.split(":")[0] ?? "0", 10);
   return hour < 14 ? "MATIN" : "APRES_MIDI";
 }
 
-/** Le dimanche après-midi est fermé : personne ne travaille. */
+/** Sunday afternoon is closed: nobody works. */
 export function isClosedSlot(dayIndex: number, slotKey: HalfDayKey): boolean {
   return dayIndex === SUNDAY_INDEX && slotKey === "APRES_MIDI";
 }
 
-/** Indique si une fermeture magasin couvre la demi-journée donnée. */
+/** Indicates whether a store closure covers the given half-day. */
 export function coversStoreClosureSlot(
   closure: { startDate: string; startHalfDay: HalfDayKey; endDate: string },
   dayKey: string,
@@ -148,12 +143,12 @@ export function coversStoreClosureSlot(
 ): boolean {
   if (dayKey < closure.startDate || dayKey > closure.endDate) return false;
   if (dayKey > closure.startDate) return true;
-  // Jour de début : à partir de la demi-journée choisie.
+  // Start day: from the selected half-day onwards.
   if (closure.startHalfDay === "MATIN") return true;
   return slotKey === "APRES_MIDI";
 }
 
-/** Dimanche après-midi fixe, ou fermeture magasin saisie. */
+/** Fixed Sunday afternoon, or a recorded store closure. */
 export function isPlanningSlotClosed(
   dayIndex: number,
   dayKey: string,
@@ -170,8 +165,8 @@ export function slotLabel(startTime: string): string {
 }
 
 /**
- * Ajoute (ou retire) un nombre d'heures à une heure au format "HH:mm",
- * en restant dans une même journée (00:00-23:59).
+ * Adds (or subtracts) a number of hours to a time in "HH:mm" format, staying within the same day
+ * (00:00-23:59).
  */
 export function addHours(time: string, hours: number): string {
   const [h, m] = time.split(":").map((v) => parseInt(v, 10));
@@ -181,7 +176,7 @@ export function addHours(time: string, hours: number): string {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-/** Durée en minutes entre deux heures "HH:mm" du même jour. */
+/** Duration in minutes between two "HH:mm" times on the same day. */
 export function durationMinutes(startTime: string, endTime: string): number {
   const [sh, sm] = startTime.split(":").map((v) => parseInt(v, 10));
   const [eh, em] = endTime.split(":").map((v) => parseInt(v, 10));
@@ -189,14 +184,13 @@ export function durationMinutes(startTime: string, endTime: string): number {
 }
 
 /**
- * Temps de pause accordé : 3 minutes par heure complète travaillée
- * (toujours un multiple de 3).
+ * Break time granted: 3 minutes per full hour worked (always a multiple of 3).
  */
 export function pauseMinutesForWork(workMinutes: number): number {
   return Math.max(0, Math.floor(workMinutes / 60) * 3);
 }
 
-/** Formate un nombre de minutes en durée lisible "36h45" (ou "30h" si rond). */
+/** Formats a number of minutes as a readable duration "36h45" (or "30h" when whole). */
 export function formatMinutesAsHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -204,9 +198,8 @@ export function formatMinutesAsHours(minutes: number): string {
 }
 
 /**
- * Formate une heure "HH:mm" (00h-24h) au format français, avec un "h"
- * comme séparateur plutôt que ":" (ex. "07:30" → "07h30"), sans notation
- * AM/PM.
+ * Formats a "HH:mm" time (00h-24h) in the French format, using "h" as the separator instead of
+ * ":" (e.g. "07:30" → "07h30"), without AM/PM notation.
  */
 export function formatFrenchTime(time: string | null | undefined): string {
   if (!time) return "";
@@ -216,8 +209,8 @@ export function formatFrenchTime(time: string | null | undefined): string {
 }
 
 /**
- * Formate l'heure locale d'une date (ou horodatage ISO) au format français
- * "HHhmm" (ex. utilisé pour l'heure de début/fin d'une pause).
+ * Formats the local time of a date (or ISO timestamp) in the French "HHhmm" format (used for
+ * example for the start/end time of a break).
  */
 export function formatFrenchTimeOfDate(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;
@@ -227,51 +220,45 @@ export function formatFrenchTimeOfDate(value: string | Date): string {
 }
 
 /**
- * Plan de caisse : le magasin dispose de 8 caisses numérotées, plus un poste
- * de supervision des caisses automatiques (libre-service) qui nécessite au
- * moins un(e) caissier(ère) affecté(e) à chaque créneau ouvert.
+ * Register layout: the store has 8 numbered registers, plus a self-checkout supervision station
+ * that requires at least one cashier assigned on every open slot.
  */
 export const REGISTER_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /**
- * Valeur spéciale de `registerNumber` représentant la supervision des
- * caisses automatiques, plutôt qu'une caisse physique numérotée.
+ * Special `registerNumber` value representing self-checkout supervision rather than a numbered
+ * physical register.
  */
 export const SELF_CHECKOUT_REGISTER = 0;
 
 /**
- * Valeur spéciale de `registerNumber` représentant une affectation "Pauses /
- * Retour" : le/la caissier(ère) ne tient aucune caisse sur ce créneau (il/elle
- * fait passer les pauses des collègues ou gère les retours). Neutre pour la
- * couverture des caisses automatiques et jamais concerné(e) par les conflits
- * de doublon de caisse numérotée. Non disponible pour les segments de
- * bascule (voir `SplitSegment`).
+ * Special `registerNumber` value representing a "Pauses / Retour" assignment: the cashier staffs
+ * no register on that slot (they cover colleagues' breaks or handle returns). Neutral for
+ * self-checkout coverage and never subject to duplicate numbered register conflicts. Not
+ * available for switch segments (see `SplitSegment`).
  */
 export const PAUSES_RETOUR_REGISTER = -1;
 
 /**
- * Numéros de caisse utilisables pour un segment de bascule en cours de
- * créneau (caisse numérotée ou caisses automatiques uniquement — pas
- * "Pauses / Retour").
+ * Register numbers usable for a mid-slot switch segment (numbered register or self-checkout
+ * only — not "Pauses / Retour").
  */
 export const SPLIT_REGISTER_NUMBERS = [SELF_CHECKOUT_REGISTER, ...REGISTER_NUMBERS];
 
-/** Nombre maximal de segments dans un créneau en bascule (2 bascules max). */
+/** Maximum number of segments in a slot with switches (2 switches max). */
 export const MAX_SPLIT_SEGMENTS = 3;
 
 /**
- * Un segment de bascule : à partir de `startTime` (heure de bascule, au
- * format "HH:mm"), le/la caissier(ère) est affecté(e) à `registerNumber`
- * jusqu'au segment suivant (ou jusqu'à la fin du créneau pour le dernier
- * segment). Le premier segment démarre toujours à l'heure de début du
- * créneau planifié.
+ * A switch segment: from `startTime` (switch time, in "HH:mm" format), the cashier is assigned
+ * to `registerNumber` until the next segment (or until the end of the slot for the last
+ * segment). The first segment always starts at the start time of the scheduled slot.
  */
 export interface RegisterSegment {
   startTime: string;
   registerNumber: number;
 }
 
-/** Libellé lisible d'un numéro de caisse ("Caisse 3", "Caisses automatiques" ou "Pauses / Retour"). */
+/** Readable label for a register number ("Caisse 3", "Caisses automatiques" or "Pauses / Retour"). */
 export function registerLabel(registerNumber: number | null | undefined): string {
   if (registerNumber == null) return "";
   if (registerNumber === SELF_CHECKOUT_REGISTER) return "Caisses automatiques";
@@ -279,7 +266,7 @@ export function registerLabel(registerNumber: number | null | undefined): string
   return `Caisse ${registerNumber}`;
 }
 
-/** Libellé court d'un numéro de caisse, pour un affichage compact ("C3", "Auto", "P/R"). */
+/** Short label for a register number, for compact display ("C3", "Auto", "P/R"). */
 export function registerShortLabel(registerNumber: number | null | undefined): string {
   if (registerNumber == null) return "";
   if (registerNumber === SELF_CHECKOUT_REGISTER) return "Auto";
@@ -287,7 +274,7 @@ export function registerShortLabel(registerNumber: number | null | undefined): s
   return `C${registerNumber}`;
 }
 
-/** Libellé caisse pour l'impression du plan de caisse (SCO, pas Auto). */
+/** Register label used when printing the register layout (SCO, not Auto). */
 export function printRegisterShort(registerNumber: number | null | undefined): string {
   if (registerNumber == null) return "";
   if (registerNumber === SELF_CHECKOUT_REGISTER) return "SCO";
@@ -295,7 +282,7 @@ export function printRegisterShort(registerNumber: number | null | undefined): s
   return String(registerNumber);
 }
 
-/** Caisses affectées sur un créneau, pour l'impression (ex. "3 → SCO"). */
+/** Registers assigned on a slot, for printing (e.g. "3 → SCO"). */
 export function printRegisters(entry: {
   registerNumber?: number | null;
   registerSegments?: RegisterSegment[] | null;
@@ -307,7 +294,7 @@ export function printRegisters(entry: {
   return "—";
 }
 
-/** Heures de bascule pour l'impression, ou tiret s'il n'y en a pas. */
+/** Switch times for printing, or a dash when there are none. */
 export function printBasculeTimes(entry: {
   registerSegments?: RegisterSegment[] | null;
 }): string {
@@ -319,7 +306,7 @@ export function printBasculeTimes(entry: {
     .join(", ");
 }
 
-/** Créneau avec affectation de caisse (forme minimale pour les helpers SCO). */
+/** Slot with a register assignment (minimal shape for the SCO helpers). */
 export interface PlanningAssignment {
   id?: number;
   startTime: string;
@@ -335,8 +322,8 @@ export interface RegisterInterval {
 }
 
 /**
- * Décompose une affectation (simple ou bascule) en intervalles horaires.
- * Ignore "Pauses / Retour" (valeur négative).
+ * Breaks an assignment (simple or with switches) down into time intervals.
+ * Ignores "Pauses / Retour" (negative value).
  */
 export function planningIntervals(p: PlanningAssignment): RegisterInterval[] {
   if (p.registerSegments && p.registerSegments.length > 0) {
@@ -352,7 +339,7 @@ export function planningIntervals(p: PlanningAssignment): RegisterInterval[] {
   return [];
 }
 
-/** Normalise "HH:mm" / "HH:mm:ss" en "HH:mm" pour les comparaisons. */
+/** Normalizes "HH:mm" / "HH:mm:ss" to "HH:mm" for comparisons. */
 export function normalizeTimeHHmm(time: string): string {
   const parts = time.split(":");
   if (parts.length < 2) return time;
@@ -361,7 +348,7 @@ export function normalizeTimeHHmm(time: string): string {
   return `${h}:${m}`;
 }
 
-/** True si les intervalles [aStart, aEnd) et [bStart, bEnd) se chevauchent. */
+/** True when the intervals [aStart, aEnd) and [bStart, bEnd) overlap. */
 export function intervalsOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   const a0 = normalizeTimeHHmm(aStart);
   const a1 = normalizeTimeHHmm(aEnd);
@@ -370,15 +357,15 @@ export function intervalsOverlap(aStart: string, aEnd: string, bStart: string, b
   return a0 < b1 && b0 < a1;
 }
 
-/** True si `time` est dans [start, end). */
+/** True when `time` is within [start, end). */
 export function timeInRange(time: string, start: string, end: string): boolean {
   const t = normalizeTimeHHmm(time);
   return normalizeTimeHHmm(start) <= t && t < normalizeTimeHHmm(end);
 }
 
 /**
- * Numéro de caisse actif à `time` (début inclus, fin exclue).
- * Null si aucune affectation 0–8 ne couvre cet instant.
+ * Register number active at `time` (start inclusive, end exclusive).
+ * Null when no 0–8 assignment covers that moment.
  */
 export function registerAtTime(p: PlanningAssignment, time: string): number | null {
   const t = normalizeTimeHHmm(time);
@@ -388,25 +375,25 @@ export function registerAtTime(p: PlanningAssignment, time: string): number | nu
   return null;
 }
 
-/** Caisse numérotée 1–8 à `time`, sinon null. */
+/** Numbered register 1–8 at `time`, otherwise null. */
 export function numberedRegisterAtTime(p: PlanningAssignment, time: string): number | null {
   const reg = registerAtTime(p, time);
   return reg != null && REGISTER_NUMBERS.includes(reg) ? reg : null;
 }
 
-/** True si la personne est aux caisses automatiques à `time`. */
+/** True when the person is on self-checkout at `time`. */
 export function isOnScoAtTime(p: PlanningAssignment, time: string): boolean {
   return registerAtTime(p, time) === SELF_CHECKOUT_REGISTER;
 }
 
-/** Payload API : affectation simple ou segments de bascule. */
+/** API payload: simple assignment or switch segments. */
 export type RegisterAssignmentPayload =
   | { registerNumber: number; segments?: undefined }
   | { segments: RegisterSegment[]; registerNumber?: undefined };
 
 /**
- * Reconstruit l'affectation d'un créneau après une relève à `reliefTime` :
- * conserve ce qui précède, puis applique `registerFromRelief` jusqu'à la fin.
+ * Rebuilds the assignment of a slot after a relief at `reliefTime`: keeps what comes before,
+ * then applies `registerFromRelief` until the end.
  */
 export function buildReliefAssignment(
   entry: PlanningAssignment,
@@ -429,7 +416,7 @@ export function buildReliefAssignment(
     }))
     .filter((iv) => iv.start < iv.end);
 
-  // Pas d'affectation avant l'heure : toute la demi-journée passe au nouveau poste.
+  // No assignment before that time: the whole half-day moves to the new station.
   if (before.length === 0) {
     return { registerNumber: registerFromRelief };
   }
@@ -461,8 +448,8 @@ export function buildReliefAssignment(
 }
 
 /**
- * Caisses 1–8 libres sur [from, to) pour le jour donné, en ignorant les
- * plannings listés dans `excludeIds`.
+ * Registers 1–8 free over [from, to) on the given day, ignoring the schedule entries listed in
+ * `excludeIds`.
  */
 export function freeNumberedRegisters(
   dayPlannings: Array<PlanningAssignment & { id: number; workDate: string }>,

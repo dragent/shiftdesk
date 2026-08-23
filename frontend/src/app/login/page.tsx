@@ -8,8 +8,8 @@ import { Alert, Button } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
-  // `useSearchParams` (utilisé pour détecter une redirection après expiration
-  // de session) exige une frontière Suspense dans l'App Router.
+  // `useSearchParams` (used to detect a redirect after session expiry) requires
+  // a Suspense boundary in the App Router.
   return (
     <Suspense fallback={null}>
       <LoginForm />
@@ -23,10 +23,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // Message affiché quand l'utilisateur est renvoyé ici après l'expiration
-  // de sa session (cf. gestion globale du 401 dans `api.ts`) : sans ça, on
-  // ne comprend pas pourquoi on se retrouve sur la connexion, ni pourquoi
-  // l'action en cours (ex. sauvegarder un créneau de planning) a échoué.
+  // Message shown when the user is sent back here after their session expired
+  // (see the global 401 handling in `api.ts`): without it, there is no way to
+  // tell why the login page appeared, nor why the action in progress (e.g.
+  // saving a schedule slot) failed.
   const [error, setError] = useState<string | null>(
     searchParams.get("expired") ? "Session expirée. Veuillez vous reconnecter." : null,
   );
@@ -47,13 +47,13 @@ function LoginForm() {
       router.replace("/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
-        // Le backend renvoie "Invalid credentials." (en anglais) pour un
-        // 401 : on l'affiche en français, cohérent avec le reste de l'UI.
+        // The backend returns "Invalid credentials." (in English) for a 401:
+        // display it in French, consistent with the rest of the UI.
         setError(err.status === 401 ? "Identifiants invalides." : err.message);
       } else {
-        // Ex. le serveur est inaccessible (arrêté, réseau...) : `fetch` lève
-        // une erreur générique qui n'a rien à voir avec des identifiants
-        // erronés, il ne faut donc pas l'afficher comme telle.
+        // E.g. the server is unreachable (stopped, network issue...): `fetch`
+        // throws a generic error unrelated to invalid credentials, so it must
+        // not be reported as such.
         setError("Impossible de contacter le serveur. Réessayez dans quelques instants.");
       }
     } finally {
@@ -63,7 +63,7 @@ function LoginForm() {
 
   return (
     <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-10">
-      {/* Formes décoratives de marque (bleu/rouge), purement visuelles */}
+      {/* Decorative brand shapes (blue/red), purely visual */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -left-32 -top-32 h-[30rem] w-[30rem] rounded-full bg-[var(--cf-blue)] opacity-25 blur-3xl" />
         <div className="absolute -bottom-40 -right-24 h-[30rem] w-[30rem] rounded-full bg-[var(--cf-red)] opacity-20 blur-3xl" />
