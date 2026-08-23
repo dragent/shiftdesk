@@ -141,7 +141,7 @@ function EmployesContent() {
       setSuccess(
         reason === "ARRET_TRAVAIL"
           ? `Arrêt de travail enregistré pour ${user.firstName} ${user.lastName}.`
-          : `Vacances enregistrées pour ${user.firstName} ${user.lastName}.`,
+          : `Congés enregistrés pour ${user.firstName} ${user.lastName}.`,
       );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'enregistrer l'absence.");
@@ -272,7 +272,7 @@ function EmployesContent() {
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-slate-800">Employés</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Coordonnées de l&apos;équipe, déclaration des arrêts de travail et des vacances,
+              Coordonnées de l&apos;équipe, déclaration des arrêts de travail et des Congés,
               licenciement et recrutement.
             </p>
           </div>
@@ -402,10 +402,10 @@ function EmployesContent() {
                             size="sm"
                             className="flex-1 sm:flex-none"
                             disabled={saving}
-                            aria-label={`Déclarer des vacances pour ${fullName(user)}`}
+                            aria-label={`Déclarer des Congés pour ${fullName(user)}`}
                             onClick={() => openAbsence(user, "CONGE")}
                           >
-                            Vacances
+                            Congés
                           </Button>
                           {/* An already scheduled departure can be cancelled;
                               to move it, cancel it then enter it again. */}
@@ -509,7 +509,7 @@ function EmployesContent() {
         >
           <form onSubmit={submitAbsence}>
             <h2 id="absence-modal-title" className="text-lg font-semibold text-slate-800">
-              {absenceTarget.reason === "ARRET_TRAVAIL" ? "Arrêt de travail" : "Vacances"}
+              {absenceTarget.reason === "ARRET_TRAVAIL" ? "Arrêt de travail" : "Congés"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {absenceTarget.user.firstName} {absenceTarget.user.lastName} — les demi-journées

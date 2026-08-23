@@ -11,7 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
  * Intégration API absences : déclaration d'un arrêt de travail ou de
- * vacances depuis la fiche employés, consultation par semaine de planning
+ * Congé depuis la fiche employés, consultation par semaine de planning
  * et suppression.
  */
 final class AbsenceApiTest extends WebTestCase

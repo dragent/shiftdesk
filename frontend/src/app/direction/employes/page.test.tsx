@@ -324,11 +324,11 @@ describe("absences", () => {
     );
   });
 
-  it("déclare des vacances sans horaires", async () => {
+  it("déclare des Congés sans horaires", async () => {
     const user = renderPage();
 
     await screen.findByText("Durand Sophie");
-    await user.click(action("Déclarer des vacances pour Durand Sophie"));
+    await user.click(action("Déclarer des Congés pour Durand Sophie"));
 
     expect(screen.queryByLabelText("Heure de début")).toBeNull();
 
@@ -345,7 +345,7 @@ describe("absences", () => {
         endDate: "2026-08-30",
       }),
     );
-    expect(await screen.findByText("Vacances enregistrées pour Sophie Durand.")).toBeInTheDocument();
+    expect(await screen.findByText("Congés enregistrés pour Sophie Durand.")).toBeInTheDocument();
   });
 });
 
