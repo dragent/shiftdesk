@@ -41,14 +41,14 @@ class DirectionNoteRepository extends ServiceEntityRepository
 
         if ($status === 'closed') {
             $qb->andWhere('n.closedAt IS NOT NULL')
-                ->orderBy('n.closedAt', 'DESC');
+                ->orderBy('n.closedAt', 'ASC');
         } elseif ($status === 'all') {
-            $qb->orderBy('n.createdAt', 'DESC');
+            $qb->orderBy('n.createdAt', 'ASC');
         } else {
-            // URGENT sorts after NORMAL alphabetically → DESC puts urgents first.
+            // Urgent notes first, then oldest → newest within each priority.
             $qb->andWhere('n.closedAt IS NULL')
                 ->addOrderBy('n.priority', 'DESC')
-                ->addOrderBy('n.createdAt', 'DESC');
+                ->addOrderBy('n.createdAt', 'ASC');
         }
 
         $this->applySiteScope($qb, $siteId);

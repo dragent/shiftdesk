@@ -176,12 +176,12 @@ export function DirectionNotesCard({
     setPendingAction("edit");
     setError(null);
     try {
-      const updated = await api.patch<DirectionNote>(`/api/direction-notes/${id}`, {
+      await api.patch<DirectionNote>(`/api/direction-notes/${id}`, {
         body: trimmed,
         priority: (editUrgent ? "URGENT" : "NORMAL") as DirectionNotePriority,
       });
-      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...updated } : n)));
       setEditingId(null);
+      await loadOpen();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de modifier la note.");
     } finally {
