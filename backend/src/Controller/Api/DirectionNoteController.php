@@ -6,6 +6,7 @@ use App\Entity\DirectionNote;
 use App\Entity\DirectionNoteSeen;
 use App\Entity\User;
 use App\Enum\DirectionNoteChannel;
+use App\Enum\DirectionNotePriority;
 use App\Enum\UserRole;
 use App\Repository\DirectionNoteRepository;
 use App\Repository\DirectionNoteSeenRepository;
@@ -20,8 +21,12 @@ use Symfony\Component\Serializer\SerializerInterface;
  * Dashboard notes posted by management: internal (Direction → Direction)
  * or shared with reception hosts (Direction → Accueil).
  *
- * Direction can close a note for everyone (`PATCH /{id}/close`). Any
- * reader can mark it seen personally (`POST /{id}/seen`).
+ * Access:
+ * - ROLE_ADMIN / ROLE_DIRECTION: full CRUD, both channels, readers list, close
+ * - ROLE_HOTE: read DIRECTION_ACCUEIL + mark seen only
+ *
+ * Site scope: notes of the user's site (or notes without a site). Users
+ * without a site only see unscoped notes.
  */
 #[Route('/api/direction-notes')]
 class DirectionNoteController extends AbstractApiController
@@ -47,25 +52,40 @@ class DirectionNoteController extends AbstractApiController
             return $this->respondError('Accès refusé à ce canal de notes.', 403);
         }
 
+        $status = (string) $request->query->get('status', 'open');
+        if (!\in_array($status, ['open', 'closed', 'all'], true)) {
+            return $this->respondError('Statut invalide (open, closed ou all).', 422);
+        }
+
+        // Closed / all history is Direction-only (hôtes only need open notes).
+        if ($status !== 'open' && !$this->isDirectionOrAdmin($currentUser)) {
+            return $this->respondError('Seul la direction peut consulter l\'historique des notes.', 403);
+        }
+
+        $limit = (int) $request->query->get('limit', 20);
+        $offset = (int) $request->query->get('offset', 0);
         $siteId = $currentUser->getSite()?->getId();
-        $notes = $this->directionNoteRepository->findRecentByChannel($channel, $siteId, 20);
+        $notes = $this->directionNoteRepository->findByChannel($channel, $siteId, $status, $limit, $offset);
         $this->hydrateSeenByMe($notes, $currentUser);
+        if ($this->isDirectionOrAdmin($currentUser)) {
+            $this->hydrateSeenCounts($notes);
+        }
 
         return $this->respond($notes, 200, ['direction_note:read', 'user:read', 'site:read']);
     }
 
     /**
      * Unread open notes across every channel the current user can read.
-     * Used by the nav badge on "Tableau de bord".
+     * Used by the nav badge, browser tab title, and toast notifications.
      */
     #[Route('/unread-count', name: 'api_direction_notes_unread_count', methods: ['GET'])]
     public function unreadCount(#[CurrentUser] User $currentUser): JsonResponse
     {
         $channels = $this->readableChannels($currentUser);
         $siteId = $currentUser->getSite()?->getId();
-        $count = $this->directionNoteRepository->countUnreadForUser($currentUser, $channels, $siteId);
+        $summary = $this->directionNoteRepository->unreadSummaryForUser($currentUser, $channels, $siteId);
 
-        return new JsonResponse(['count' => $count]);
+        return new JsonResponse($summary);
     }
 
     #[Route('', name: 'api_direction_notes_create', methods: ['POST'])]
@@ -89,9 +109,13 @@ class DirectionNoteController extends AbstractApiController
             return $this->respondError('La note ne peut pas dépasser 2000 caractères.', 422);
         }
 
+        $priority = DirectionNotePriority::tryFrom((string) ($data['priority'] ?? 'NORMAL'))
+            ?? DirectionNotePriority::NORMAL;
+
         $note = new DirectionNote();
         $note->setChannel($channel);
         $note->setBody($body);
+        $note->setPriority($priority);
         $note->setAuthor($currentUser);
         $note->setSite($currentUser->getSite());
 
@@ -99,15 +123,58 @@ class DirectionNoteController extends AbstractApiController
         $this->em->flush();
 
         $note->setSeenByMe(false);
+        $note->setSeenCount(0);
 
         return $this->respond($note, 201, ['direction_note:read', 'user:read', 'site:read']);
     }
 
+    #[Route('/{id}', name: 'api_direction_notes_update', methods: ['PATCH'], requirements: ['id' => '\d+'])]
+    public function update(int $id, Request $request, #[CurrentUser] User $currentUser): JsonResponse
+    {
+        if (!$this->isDirectionOrAdmin($currentUser)) {
+            return $this->respondError('Seule la direction peut modifier une note.', 403);
+        }
+
+        $note = $this->directionNoteRepository->find($id);
+        if (!$note) {
+            return $this->respondError('Note introuvable.', 404);
+        }
+        if ($note->isClosed()) {
+            return $this->respondError('Impossible de modifier une note close.', 422);
+        }
+
+        $data = $this->decode($request->getContent());
+        if (\array_key_exists('body', $data)) {
+            $body = trim((string) $data['body']);
+            if ($body === '') {
+                return $this->respondError('Le contenu de la note est obligatoire.', 422);
+            }
+            if (mb_strlen($body) > 2000) {
+                return $this->respondError('La note ne peut pas dépasser 2000 caractères.', 422);
+            }
+            $note->setBody($body);
+        }
+        if (\array_key_exists('priority', $data)) {
+            $priority = DirectionNotePriority::tryFrom((string) $data['priority']);
+            if (!$priority) {
+                return $this->respondError('Priorité invalide (NORMAL ou URGENT).', 422);
+            }
+            $note->setPriority($priority);
+        }
+
+        $this->em->flush();
+        $note->setSeenByMe($this->directionNoteSeenRepository->findOneByNoteAndUser($note, $currentUser) !== null);
+        $counts = $this->directionNoteSeenRepository->seenCountsForNotes([$note]);
+        $note->setSeenCount($counts[(int) $note->getId()] ?? 0);
+
+        return $this->respond($note, 200, ['direction_note:read', 'user:read', 'site:read']);
+    }
+
     /**
-     * Direction closes the note for everyone (both channels / categories).
-     * Closed notes disappear from the open list for all readers.
+     * Direction closes the note for everyone. Closed notes leave the open list
+     * and appear in the closed history.
      */
-    #[Route('/{id}/close', name: 'api_direction_notes_close', methods: ['PATCH'])]
+    #[Route('/{id}/close', name: 'api_direction_notes_close', methods: ['PATCH'], requirements: ['id' => '\d+'])]
     public function close(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
         if (!$this->isDirectionOrAdmin($currentUser)) {
@@ -131,9 +198,33 @@ class DirectionNoteController extends AbstractApiController
     }
 
     /**
+     * Who has personally marked the note as seen (Direction / Admin only).
+     */
+    #[Route('/{id}/readers', name: 'api_direction_notes_readers', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function readers(int $id, #[CurrentUser] User $currentUser): JsonResponse
+    {
+        if (!$this->isDirectionOrAdmin($currentUser)) {
+            return $this->respondError('Seul la direction peut consulter les lecteurs.', 403);
+        }
+
+        $note = $this->directionNoteRepository->find($id);
+        if (!$note) {
+            return $this->respondError('Note introuvable.', 404);
+        }
+
+        $readers = $this->directionNoteSeenRepository->findReadersForNote($note);
+        $payload = array_map(static fn (array $row): array => [
+            'user' => $row['user'],
+            'seenAt' => $row['seenAt']->format(\DateTimeInterface::ATOM),
+        ], $readers);
+
+        return $this->respond($payload, 200, ['user:read']);
+    }
+
+    /**
      * Any reader of the channel can mark the note as personally seen.
      */
-    #[Route('/{id}/seen', name: 'api_direction_notes_seen', methods: ['POST'])]
+    #[Route('/{id}/seen', name: 'api_direction_notes_seen', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function markSeen(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
         $note = $this->directionNoteRepository->find($id);
@@ -163,7 +254,7 @@ class DirectionNoteController extends AbstractApiController
         return $this->respond($note, 200, ['direction_note:read', 'user:read', 'site:read']);
     }
 
-    #[Route('/{id}', name: 'api_direction_notes_delete', methods: ['DELETE'])]
+    #[Route('/{id}', name: 'api_direction_notes_delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
     public function delete(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
         if (!$this->isDirectionOrAdmin($currentUser)) {
@@ -223,6 +314,17 @@ class DirectionNoteController extends AbstractApiController
         $seenIds = $this->directionNoteSeenRepository->seenNoteIdsForUser($notes, $currentUser);
         foreach ($notes as $note) {
             $note->setSeenByMe(isset($seenIds[(int) $note->getId()]));
+        }
+    }
+
+    /**
+     * @param DirectionNote[] $notes
+     */
+    private function hydrateSeenCounts(array $notes): void
+    {
+        $counts = $this->directionNoteSeenRepository->seenCountsForNotes($notes);
+        foreach ($notes as $note) {
+            $note->setSeenCount($counts[(int) $note->getId()] ?? 0);
         }
     }
 }

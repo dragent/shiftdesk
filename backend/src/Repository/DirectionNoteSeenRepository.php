@@ -62,4 +62,58 @@ class DirectionNoteSeenRepository extends ServiceEntityRepository
 
         return $map;
     }
+
+    /**
+     * @param DirectionNote[] $notes
+     *
+     * @return array<int, int> noteId => seen count
+     */
+    public function seenCountsForNotes(array $notes): array
+    {
+        if ($notes === []) {
+            return [];
+        }
+
+        /** @var list<array{noteId: string|int, cnt: string|int}> $rows */
+        $rows = $this->createQueryBuilder('s')
+            ->select('IDENTITY(s.note) AS noteId', 'COUNT(s.id) AS cnt')
+            ->andWhere('s.note IN (:notes)')
+            ->setParameter('notes', $notes)
+            ->groupBy('s.note')
+            ->getQuery()
+            ->getArrayResult();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row['noteId']] = (int) $row['cnt'];
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return list<array{user: User, seenAt: \DateTimeImmutable}>
+     */
+    public function findReadersForNote(DirectionNote $note): array
+    {
+        /** @var DirectionNoteSeen[] $rows */
+        $rows = $this->createQueryBuilder('s')
+            ->addSelect('u')
+            ->join('s.user', 'u')
+            ->andWhere('s.note = :note')
+            ->setParameter('note', $note)
+            ->orderBy('s.seenAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'user' => $row->getUser(),
+                'seenAt' => $row->getSeenAt(),
+            ];
+        }
+
+        return $out;
+    }
 }

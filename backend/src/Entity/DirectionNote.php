@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Enum\DirectionNoteChannel;
+use App\Enum\DirectionNotePriority;
 use App\Repository\DirectionNoteRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -18,6 +19,9 @@ use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
  *
  * Closing (`closedAt`) hides the note for everyone. Marking as seen is
  * personal via {@see DirectionNoteSeen}.
+ *
+ * Roles: ROLE_ADMIN and ROLE_DIRECTION can write/close/edit/delete and
+ * read both channels. ROLE_HOTE can only read DIRECTION_ACCUEIL and mark seen.
  */
 #[ORM\Entity(repositoryClass: DirectionNoteRepository::class)]
 #[ORM\Table(name: 'direction_note')]
@@ -38,6 +42,10 @@ class DirectionNote
     #[Groups(['direction_note:read', 'direction_note:write'])]
     private string $body;
 
+    #[ORM\Column(length: 20, enumType: DirectionNotePriority::class, options: ['default' => 'NORMAL'])]
+    #[Groups(['direction_note:read', 'direction_note:write'])]
+    private DirectionNotePriority $priority = DirectionNotePriority::NORMAL;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'author_id', nullable: false, onDelete: 'CASCADE')]
     #[Groups(['direction_note:read'])]
@@ -52,6 +60,11 @@ class DirectionNote
     #[Groups(['direction_note:read'])]
     #[Context([DateTimeNormalizer::FORMAT_KEY => \DateTimeInterface::ATOM])]
     private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column]
+    #[Groups(['direction_note:read'])]
+    #[Context([DateTimeNormalizer::FORMAT_KEY => \DateTimeInterface::ATOM])]
+    private \DateTimeImmutable $updatedAt;
 
     #[ORM\Column(nullable: true)]
     #[Groups(['direction_note:read'])]
@@ -73,9 +86,17 @@ class DirectionNote
     #[Groups(['direction_note:read'])]
     private bool $seenByMe = false;
 
+    /**
+     * Hydrated for Direction: number of personal "seen" receipts.
+     */
+    #[Groups(['direction_note:read'])]
+    private ?int $seenCount = null;
+
     public function __construct()
     {
-        $this->createdAt = new \DateTimeImmutable();
+        $now = new \DateTimeImmutable();
+        $this->createdAt = $now;
+        $this->updatedAt = $now;
         $this->seens = new ArrayCollection();
     }
 
@@ -104,6 +125,20 @@ class DirectionNote
     public function setBody(string $body): static
     {
         $this->body = $body;
+        $this->touchUpdatedAt();
+
+        return $this;
+    }
+
+    public function getPriority(): DirectionNotePriority
+    {
+        return $this->priority;
+    }
+
+    public function setPriority(DirectionNotePriority $priority): static
+    {
+        $this->priority = $priority;
+        $this->touchUpdatedAt();
 
         return $this;
     }
@@ -137,6 +172,18 @@ class DirectionNote
         return $this->createdAt;
     }
 
+    public function getUpdatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    public function touchUpdatedAt(): static
+    {
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
     public function getClosedAt(): ?\DateTimeImmutable
     {
         return $this->closedAt;
@@ -151,6 +198,7 @@ class DirectionNote
     {
         $this->closedAt = new \DateTimeImmutable();
         $this->closedBy = $closedBy;
+        $this->touchUpdatedAt();
 
         return $this;
     }
@@ -174,6 +222,18 @@ class DirectionNote
     public function setSeenByMe(bool $seenByMe): static
     {
         $this->seenByMe = $seenByMe;
+
+        return $this;
+    }
+
+    public function getSeenCount(): ?int
+    {
+        return $this->seenCount;
+    }
+
+    public function setSeenCount(?int $seenCount): static
+    {
+        $this->seenCount = $seenCount;
 
         return $this;
     }

@@ -55,10 +55,12 @@ security:
         - { path: ^/api/store-closures, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }
         - { path: ^/api/pauses, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
         - { path: ^/api/requests, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
-        # Close is Direction-only; personal "seen" is available to every reader.
+        # Direction/Admin: write, edit, close, delete, readers. Hôte: read Accueil + seen.
         - { path: ^/api/direction-notes/\d+/close, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [PATCH] }
+        - { path: ^/api/direction-notes/\d+/readers, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET] }
         - { path: ^/api/direction-notes/\d+/seen, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [POST] }
-        - { path: ^/api/direction-notes, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST, DELETE] }
+        - { path: ^/api/direction-notes/\d+, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [PATCH, DELETE] }
+        - { path: ^/api/direction-notes, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST] }
         - { path: ^/api/direction-notes, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET] }
         - { path: ^/api/ai, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
         - { path: ^/api/me/password, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE], methods: [POST] }

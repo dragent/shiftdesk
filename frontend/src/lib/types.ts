@@ -151,16 +151,32 @@ export interface PlanningInsight {
 /** Dashboard note channels posted by management. */
 export type DirectionNoteChannel = "DIRECTION_DIRECTION" | "DIRECTION_ACCUEIL";
 
+export type DirectionNotePriority = "NORMAL" | "URGENT";
+
 export interface DirectionNote {
   id: number;
   channel: DirectionNoteChannel;
   body: string;
+  priority?: DirectionNotePriority;
   author: User;
   site?: Site | null;
   createdAt: string;
+  updatedAt?: string;
   /** Set when Direction closes the note for everyone. */
   closedAt?: string | null;
   closedBy?: User | null;
   /** Personal receipt for the current viewer. */
   seenByMe?: boolean;
+  /** Direction only: how many people marked the note as seen. */
+  seenCount?: number | null;
+}
+
+export interface DirectionNoteReader {
+  user: User;
+  seenAt: string;
+}
+
+export interface UnreadNotesSummary {
+  count: number;
+  latestCreatedAt?: string | null;
 }

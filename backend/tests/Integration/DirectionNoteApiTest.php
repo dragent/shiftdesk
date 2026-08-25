@@ -338,6 +338,89 @@ final class DirectionNoteApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $after = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(1, $after['count']);
+        self::assertArrayHasKey('latestCreatedAt', $after);
+    }
+
+    public function testDirectionCanEditPriorityAndListClosedHistory(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+        $this->createUser('hote@test.local', UserRole::HOTE, $site);
+        $direction = $this->loginAs($client, 'direction@test.local');
+
+        $client->request(
+            'POST',
+            '/api/direction-notes',
+            server: $this->authHeaders($direction['token']),
+            content: json_encode([
+                'channel' => 'DIRECTION_ACCUEIL',
+                'body' => 'Note à éditer.',
+                'priority' => 'URGENT',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('URGENT', $created['priority']);
+
+        $client->request(
+            'PATCH',
+            '/api/direction-notes/'.$created['id'],
+            server: $this->authHeaders($direction['token']),
+            content: json_encode([
+                'body' => 'Note éditée.',
+                'priority' => 'NORMAL',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(200);
+        $updated = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Note éditée.', $updated['body']);
+        self::assertSame('NORMAL', $updated['priority']);
+
+        $hote = $this->loginAs($client, 'hote@test.local');
+        $client->request(
+            'POST',
+            '/api/direction-notes/'.$created['id'].'/seen',
+            server: $this->authHeaders($hote['token']),
+            content: '{}',
+        );
+        self::assertResponseStatusCodeSame(200);
+
+        $client->request(
+            'GET',
+            '/api/direction-notes/'.$created['id'].'/readers',
+            server: $this->authHeaders($direction['token']),
+        );
+        self::assertResponseIsSuccessful();
+        $readers = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertCount(1, $readers);
+        self::assertSame('hote@test.local', $readers[0]['user']['email']);
+
+        $client->request(
+            'PATCH',
+            '/api/direction-notes/'.$created['id'].'/close',
+            server: $this->authHeaders($direction['token']),
+            content: '{}',
+        );
+        self::assertResponseStatusCodeSame(200);
+
+        $client->request(
+            'GET',
+            '/api/direction-notes?channel=DIRECTION_ACCUEIL&status=closed',
+            server: $this->authHeaders($direction['token']),
+        );
+        self::assertResponseIsSuccessful();
+        $history = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertCount(1, $history);
+        self::assertNotNull($history[0]['closedAt']);
+
+        $client->request(
+            'GET',
+            '/api/direction-notes?channel=DIRECTION_ACCUEIL&status=closed',
+            server: $this->authHeaders($hote['token']),
+        );
+        self::assertResponseStatusCodeSame(403);
     }
 
     /** @return array{token: string} */
