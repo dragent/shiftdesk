@@ -147,3 +147,20 @@ export interface PlanningInsight {
   status: InsightStatus;
   createdAt: string;
 }
+
+/** Dashboard note channels posted by management. */
+export type DirectionNoteChannel = "DIRECTION_DIRECTION" | "DIRECTION_ACCUEIL";
+
+export interface DirectionNote {
+  id: number;
+  channel: DirectionNoteChannel;
+  body: string;
+  author: User;
+  site?: Site | null;
+  createdAt: string;
+  /** Set when Direction closes the note for everyone. */
+  closedAt?: string | null;
+  closedBy?: User | null;
+  /** Personal receipt for the current viewer. */
+  seenByMe?: boolean;
+}

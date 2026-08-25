@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Lexend } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import { UnreadNotesProvider } from "@/lib/UnreadNotesContext";
 
 /**
  * Lexend is a typeface designed and scientifically validated to improve
@@ -34,7 +35,9 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${lexend.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col print:block print:min-h-0 print:h-auto">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <UnreadNotesProvider>{children}</UnreadNotesProvider>
+        </AuthProvider>
       </body>
     </html>
   );
