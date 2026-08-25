@@ -467,15 +467,24 @@ function NoteItem({
                 Urgente
               </label>
               <div className="flex gap-2">
-                <Button type="button" size="sm" disabled={busy} onClick={onSaveEdit}>
-                  {busy && pendingAction === "edit" ? "…" : "Enregistrer"}
-                </Button>
                 <button
                   type="button"
-                  className="text-sm text-slate-500 hover:underline"
-                  onClick={onCancelEdit}
+                  disabled={busy}
+                  onClick={onSaveEdit}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-[var(--cf-blue)] bg-[var(--cf-blue)] text-base font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+                  aria-label="Enregistrer la modification"
+                  title="Enregistrer"
                 >
-                  Annuler
+                  {busy && pendingAction === "edit" ? "…" : "✓"}
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-slate-200 bg-white text-base font-semibold text-slate-500 transition hover:bg-slate-50"
+                  onClick={onCancelEdit}
+                  aria-label="Annuler la modification"
+                  title="Annuler"
+                >
+                  ✕
                 </button>
               </div>
             </div>
@@ -579,26 +588,21 @@ function NoteItem({
                   type="button"
                   disabled={busy}
                   onClick={onStartEdit}
-                  className="inline-flex min-h-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-slate-200 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-slate-200 bg-white text-base font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  aria-label="Éditer la note"
+                  title="Éditer"
                 >
-                  Éditer
+                  ✎
                 </button>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={onClose}
-                  className="inline-flex min-h-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-slate-200 bg-white px-3.5 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-slate-200 bg-white text-base font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-50"
                   aria-label="Clore la note pour tout le monde"
+                  title="Clore"
                 >
-                  {busy && pendingAction === "close" ? "…" : "Clore"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={onDelete}
-                  className="inline-flex min-h-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-red-100 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                >
-                  {busy && pendingAction === "delete" ? "…" : "Suppr."}
+                  {busy && pendingAction === "close" ? "…" : "✕"}
                 </button>
               </>
             )}
@@ -609,9 +613,29 @@ function NoteItem({
             type="button"
             disabled={busy}
             onClick={onDelete}
-            className="inline-flex min-h-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-red-100 bg-white px-3 text-xs font-semibold uppercase tracking-wide text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--cf-radius-sm)] border border-red-100 bg-white text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+            aria-label="Supprimer définitivement la note archivée"
+            title="Supprimer"
           >
-            {busy && pendingAction === "delete" ? "…" : "Suppr."}
+            {busy && pendingAction === "delete" ? (
+              "…"
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                className="size-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 7h16" />
+                <path d="M10 11h4" />
+                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+                <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+              </svg>
+            )}
           </button>
         )}
       </div>
