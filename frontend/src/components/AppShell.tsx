@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { useUnreadNotes } from "@/lib/UnreadNotesContext";
 import type { UserRole } from "@/lib/types";
 
 interface NavLink {
@@ -54,6 +55,7 @@ function isActivePath(pathname: string, href: string): boolean {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout, hasRole } = useAuth();
+  const { unreadCount } = useUnreadNotes();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -163,6 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   label={item.label}
                   active={isActivePath(pathname, item.href)}
+                  badge={item.href === "/dashboard" ? unreadCount : 0}
                 />
               ),
             )}
@@ -211,6 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     label={item.label}
                     active={pathname === item.href}
+                    badge={item.href === "/dashboard" ? unreadCount : 0}
                   />
                 ),
               )}
@@ -241,7 +245,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MobileNavLink({ href, label, active }: { href: string; label: string; active: boolean }) {
+function NavBadge({ count, active }: { count: number; active?: boolean }) {
+  if (count <= 0) return null;
+  const label = count > 99 ? "99+" : String(count);
+
+  return (
+    <span
+      className={`ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none ${
+        active ? "bg-white text-[var(--cf-blue)]" : "bg-[var(--cf-red)] text-white"
+      }`}
+      aria-label={`${count} note${count > 1 ? "s" : ""} non lue${count > 1 ? "s" : ""}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function MobileNavLink({
+  href,
+  label,
+  active,
+  badge = 0,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  badge?: number;
+}) {
   return (
     <Link
       href={href}
@@ -251,15 +281,31 @@ function MobileNavLink({ href, label, active }: { href: string; label: string; a
           : "text-slate-700 hover:bg-[var(--cf-blue-light)] hover:text-[var(--cf-blue-dark)]"
       }`}
     >
-      {label}
+      <span className="inline-flex items-center">
+        {label}
+        <NavBadge count={badge} active={active} />
+      </span>
     </Link>
   );
 }
 
-function NavLinkItem({ href, label, active }: { href: string; label: string; active: boolean }) {
+function NavLinkItem({
+  href,
+  label,
+  active,
+  badge = 0,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  badge?: number;
+}) {
   return (
     <Link href={href} className={`cf-nav-item ${active ? "cf-nav-item--active" : ""}`}>
-      {label}
+      <span className="inline-flex items-center">
+        {label}
+        <NavBadge count={badge} active={active} />
+      </span>
     </Link>
   );
 }
