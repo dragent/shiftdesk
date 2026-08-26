@@ -5,6 +5,7 @@ import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Button, Alert, WeekNavigator, isoWeekNumber } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import {
   buildReliefAssignment,
   DAY_LABELS,
@@ -163,9 +164,7 @@ function PlanDeCaisseContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   // Cashiers + LAD / reception scheduled on a register this week (slots
   // returned by caissiersOnly, missing from /api/caissiers), sorted by
@@ -266,9 +265,10 @@ function PlanDeCaisseContent() {
   const scoDayKey = toISODate(weekDays[scoDayIndex] ?? weekDays[0]);
   // The slot (morning / afternoon) is derived from the relief time.
   const scoDerivedSlot = scoReliefTime ? slotKeyForTime(scoReliefTime) : null;
-  const scoSlotCandidates = scoOpen && scoDerivedSlot
-    ? (candidatesBySlot.get(scoSlotKey(scoDayKey, scoDerivedSlot)) ?? [])
-    : [];
+  const scoSlotCandidates = useMemo(() => {
+    if (!scoOpen || !scoDerivedSlot) return [];
+    return candidatesBySlot.get(scoSlotKey(scoDayKey, scoDerivedSlot)) ?? [];
+  }, [scoOpen, scoDerivedSlot, candidatesBySlot, scoDayKey]);
   // People on duty at the chosen time (slot that covers that time).
   const scoCandidates = useMemo(() => {
     if (!scoReliefTime) return [];

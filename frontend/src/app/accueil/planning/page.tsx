@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Alert, WeekNavigator } from "@/components/ui";
 import { useAuth } from "@/lib/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import { DAY_LABELS, durationMinutes, formatFrenchTime, formatMinutesAsHours, slotLabel } from "@/lib/planning";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import type { Planning } from "@/lib/types";
 
 function startOfWeek(date: Date): Date {
@@ -69,9 +70,7 @@ function MonPlanningContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   const planningsByDay = useMemo(() => {
     const map = new Map<string, Planning[]>();

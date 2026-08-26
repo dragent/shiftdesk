@@ -58,10 +58,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { unreadCount } = useUnreadNotes();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
+  const [openMenuPath, setOpenMenuPath] = useState(pathname);
+  if (pathname !== openMenuPath) {
+    setOpenMenuPath(pathname);
     setMenuOpen(false);
-  }, [pathname]);
+  }
 
   function visibleLinks(items: NavLink[]): NavLink[] {
     return items.filter((item) => !item.roles || hasRole(...item.roles));

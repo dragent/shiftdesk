@@ -4,12 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, clearToken, getToken, login as apiLogin, setToken } from "./api";
+import { useEffectLoad } from "./useEffectLoad";
 import type { User, UserRole } from "./types";
 
 interface AuthContextValue {
@@ -45,9 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+  useEffectLoad(loadUser);
 
   const refreshUser = useCallback(async (next?: User) => {
     if (next) {

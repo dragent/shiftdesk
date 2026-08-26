@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatFrenchTimeOfDate } from "@/lib/planning";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import type { Pause, PauseType, User } from "@/lib/types";
 
 const PAUSE_TYPES: { value: PauseType; label: string }[] = [
@@ -62,9 +63,7 @@ function PausesContent() {
     }
   }, [selectedDate]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   const caissiersEnPause = useMemo(
     () => new Set(pauses.filter((p) => p.status === "EN_COURS").map((p) => p.user.id)),
@@ -76,21 +75,20 @@ function PausesContent() {
     [caissiers, caissiersEnPause],
   );
 
-  useEffect(() => {
-    if (selectedCaissierId === "" && caissiersDisponibles.length > 0) {
-      setSelectedCaissierId(caissiersDisponibles[0].id);
-    }
-  }, [caissiersDisponibles, selectedCaissierId]);
+  const effectiveCaissierId =
+    selectedCaissierId !== "" && caissiersDisponibles.some((c) => c.id === selectedCaissierId)
+      ? selectedCaissierId
+      : (caissiersDisponibles[0]?.id ?? "");
 
   async function startPause() {
-    if (!selectedCaissierId) {
+    if (!effectiveCaissierId) {
       setError("Sélectionnez un caissier.");
       return;
     }
     setError(null);
     setActionLoading(true);
     try {
-      await api.post<Pause>("/api/pauses/start", { caissierId: selectedCaissierId, type });
+      await api.post<Pause>("/api/pauses/start", { caissierId: effectiveCaissierId, type });
       setSelectedCaissierId("");
       await load();
     } catch (err) {
@@ -146,7 +144,7 @@ function PausesContent() {
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <select
-              value={selectedCaissierId}
+              value={effectiveCaissierId}
               onChange={(e) => setSelectedCaissierId(Number(e.target.value))}
               className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
             >

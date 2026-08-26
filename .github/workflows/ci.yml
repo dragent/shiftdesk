@@ -72,9 +72,8 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      # Lint désactivé temporairement dans la CI : dette préexistante
-      # (react-hooks/set-state-in-effect sur plusieurs pages). À réactiver
-      # après un chantier dédié de nettoyage ESLint.
+      - name: Lint
+        run: npm run lint
 
   ai-service:
     name: AI service (pytest)

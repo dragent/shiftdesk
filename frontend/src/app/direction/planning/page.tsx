@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useMemo, useRef, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Button, Alert, TimeField, WeekNavigator } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import {
   addHours,
   DAY_LABELS,
@@ -179,9 +180,7 @@ function PlanningContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   // Groups slots by employee + day + half-day for fast O(1) access from the
   // grid.

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import type { InsightStatus, PlanningInsight } from "@/lib/types";
 
 function toISODate(date: Date): string {
@@ -44,9 +45,7 @@ function SupervisionContent() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   async function runAnalysis() {
     setError(null);

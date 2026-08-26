@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { Card, Button } from "@/components/ui";
 import { useUnreadNotes } from "@/lib/UnreadNotesContext";
 import { api, ApiError } from "@/lib/api";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import type {
   DirectionNote,
   DirectionNoteChannel,
@@ -77,13 +78,8 @@ export function DirectionNotesCard({
     }
   }, [canManage, channel, historyLimit]);
 
-  useEffect(() => {
-    void loadOpen();
-  }, [loadOpen]);
-
-  useEffect(() => {
-    if (showHistory) void loadHistory();
-  }, [showHistory, loadHistory]);
+  useEffectLoad(loadOpen);
+  useEffectLoad(loadHistory, showHistory);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
