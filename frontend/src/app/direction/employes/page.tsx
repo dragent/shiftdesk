@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { EmployeeSearch } from "@/components/EmployeeSearch";
@@ -810,9 +811,12 @@ function EmployeeRow({
       {/* Mobile: name and phone on the first line, email below.
           From sm upwards, everything goes back to a single line. */}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 sm:flex sm:flex-wrap">
-        <p className="col-start-1 row-start-1 truncate font-semibold text-slate-800">
+        <Link
+          href={`/profil/${user.id}`}
+          className="col-start-1 row-start-1 truncate font-semibold text-slate-800 hover:text-cf-blue hover:underline"
+        >
           {user.lastName} {user.firstName}
-        </p>
+        </Link>
         <a
           href={`mailto:${user.email}`}
           className="col-span-2 col-start-1 row-start-2 truncate text-sm text-slate-500 hover:text-cf-blue hover:underline"

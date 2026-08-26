@@ -144,6 +144,23 @@ export function contractMinutesFromParts(
   return Math.min(total, MAX_CONTRACT_MINUTES);
 }
 
+/** Reverse of {@link contractMinutesFromParts}: 2205 → 36 h + 45 min. */
+export function contractPartsFromMinutes(total: number): {
+  hours: number;
+  extraMinutes: (typeof CONTRACT_MINUTE_OPTIONS)[number];
+} {
+  const capped = Math.max(0, Math.min(Math.trunc(total) || 0, MAX_CONTRACT_MINUTES));
+  const hours = Math.floor(capped / 60);
+  const remainder = capped % 60;
+  const extraMinutes = CONTRACT_MINUTE_OPTIONS.reduce(
+    (best, option) =>
+      Math.abs(option - remainder) < Math.abs(best - remainder) ? option : best,
+    0 as (typeof CONTRACT_MINUTE_OPTIONS)[number],
+  );
+
+  return { hours, extraMinutes };
+}
+
 export function todayISO(): string {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -180,6 +197,51 @@ export function sortByName(users: User[]): User[] {
 
 export function fullName(user: User): string {
   return `${user.lastName} ${user.firstName}`;
+}
+
+/** Initials shown in the header avatar and on the profile page. */
+export function userInitials(user: Pick<User, "firstName" | "lastName">): string {
+  const a = (user.firstName ?? "").trim().charAt(0);
+  const b = (user.lastName ?? "").trim().charAt(0);
+  return `${a}${b}`.toUpperCase() || "?";
+}
+
+/**
+ * Job title on the profile page (singular), as opposed to {@link positionLabel}
+ * which is the compact team label used in lists.
+ */
+export function jobTitle(user: User): string {
+  const key = groupKeyOf(user);
+  if (key === "AUTRES" && user.roles?.includes("ROLE_ADMIN")) {
+    return "Administrateur";
+  }
+  return RECRUITMENT_LABELS[key] ?? "Autre";
+}
+
+/** Own profile, or any profile when the viewer is management/admin. */
+export function canViewUserProfile(
+  viewer: Pick<User, "id" | "roles">,
+  targetId: number,
+): boolean {
+  if (viewer.id === targetId) return true;
+  return canEditJobAndContract(viewer);
+}
+
+/** Management may change anyone's job and weekly contract from the profile. */
+export function canEditJobAndContract(viewer: Pick<User, "roles">): boolean {
+  return Boolean(
+    viewer.roles?.includes("ROLE_DIRECTION") || viewer.roles?.includes("ROLE_ADMIN"),
+  );
+}
+
+/** Recruitment job key, or empty when the account has no business position. */
+export function selectableJobKey(user: User): string {
+  const key = groupKeyOf(user);
+  return RECRUITMENT_CATEGORIES.some((category) =>
+    category.jobs.some((job) => job.value === key),
+  )
+    ? key
+    : "";
 }
 
 /** Position of an employee: first known role, « Autres » as a fallback. */

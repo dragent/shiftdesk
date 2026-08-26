@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { userInitials } from "@/lib/employees";
 import { useUnreadNotes } from "@/lib/UnreadNotesContext";
 import type { UserRole } from "@/lib/types";
 
@@ -42,12 +43,6 @@ const NAV_ITEMS: NavEntry[] = [
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ROLE_ADMIN"] },
   { href: "/admin/categories", label: "Catégories", roles: ["ROLE_ADMIN"] },
 ];
-
-function userInitials(firstName?: string, lastName?: string): string {
-  const a = (firstName ?? "").trim().charAt(0);
-  const b = (lastName ?? "").trim().charAt(0);
-  return `${a}${b}`.toUpperCase() || "?";
-}
 
 function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -98,23 +93,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             {user && (
-              <div className="flex items-center gap-2">
-                <div className="hidden items-center gap-2 md:flex">
+              <div className="flex min-w-0 items-center gap-2">
+                <Link
+                  href="/profil"
+                  aria-label="Mon profil"
+                  title="Mon profil"
+                  className={`flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 transition hover:bg-white/15 ${
+                    pathname === "/profil" || pathname === `/profil/${user.id}`
+                      ? "bg-white/15"
+                      : ""
+                  }`}
+                >
                   <span
                     aria-hidden
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--cf-red)] text-xs font-bold text-white"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--cf-red)] text-xs font-bold text-white"
                   >
-                    {userInitials(user.firstName, user.lastName)}
+                    {userInitials(user)}
                   </span>
-                  <div className="max-w-[200px] leading-tight">
+                  <div className="min-w-0 max-w-[7.5rem] leading-tight sm:max-w-[12rem] md:max-w-[200px]">
                     <p className="truncate text-sm font-semibold text-white">
                       {user.firstName} {user.lastName}
                     </p>
                     {user.site && (
-                      <p className="truncate text-[11px] text-blue-100">{user.site.name}</p>
+                      <p className="hidden truncate text-[11px] text-blue-100 sm:block">
+                        {user.site.name}
+                      </p>
                     )}
                   </div>
-                </div>
+                </Link>
 
                 <button
                   type="button"
@@ -179,9 +185,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="mx-auto flex max-w-6xl flex-col gap-1 px-3 py-3 md:hidden"
             >
               {user && (
-                <div className="mb-2 flex items-center gap-3 rounded-xl bg-[var(--cf-blue-light)] px-3 py-2.5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--cf-red)] text-sm font-bold text-white">
-                    {userInitials(user.firstName, user.lastName)}
+                <Link
+                  href="/profil"
+                  aria-label="Mon profil"
+                  className="mb-2 flex min-h-12 items-center gap-3 rounded-xl bg-[var(--cf-blue-light)] px-3 py-2.5"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--cf-red)] text-sm font-bold text-white">
+                    {userInitials(user)}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-800">
@@ -191,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <p className="truncate text-xs text-slate-500">{user.site.name}</p>
                     )}
                   </div>
-                </div>
+                </Link>
               )}
 
               {visibleItems.map((item) =>

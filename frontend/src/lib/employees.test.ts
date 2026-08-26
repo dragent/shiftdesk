@@ -2,17 +2,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildStatusGroups,
   contractMinutesFromParts,
+  contractPartsFromMinutes,
   countByCategory,
   isDevToolsEnabled,
   MAX_CONTRACT_MINUTES,
   formatDateFR,
+  canViewUserProfile,
+  canEditJobAndContract,
+  selectableJobKey,
   fullName,
   groupKeyOf,
+  jobTitle,
   isDepartureScheduled,
   isUnschedulableOnDate,
   matchesName,
   normalize,
   positionLabel,
+  userInitials,
   RECRUITMENT_CATEGORIES,
   sortByName,
   todayISO,
@@ -129,6 +135,18 @@ describe("contractMinutesFromParts", () => {
   });
 });
 
+describe("contractPartsFromMinutes", () => {
+  it("découpe un contrat en heures et quarts d'heure", () => {
+    expect(contractPartsFromMinutes(2205)).toEqual({ hours: 36, extraMinutes: 45 });
+    expect(contractPartsFromMinutes(1800)).toEqual({ hours: 30, extraMinutes: 0 });
+    expect(contractPartsFromMinutes(2115)).toEqual({ hours: 35, extraMinutes: 15 });
+  });
+
+  it("ramène un reliquat hors quart d'heure au cran le plus proche", () => {
+    expect(contractPartsFromMinutes(1820).extraMinutes).toBe(15);
+  });
+});
+
 describe("isDevToolsEnabled", () => {
   it("s'active en NODE_ENV development", () => {
     vi.stubEnv("NODE_ENV", "development");
@@ -205,6 +223,66 @@ describe("groupKeyOf et positionLabel", () => {
     });
 
     expect(groupKeyOf(polyvalent)).toBe("CAISSIER");
+  });
+});
+
+describe("jobTitle", () => {
+  it("donne l'intitulé du poste au singulier", () => {
+    expect(jobTitle(user("Durand", "Sophie", "ROLE_CAISSIER"))).toBe("Caissier(ère)");
+    expect(jobTitle(user("Martin", "Léa", "ROLE_HOTE"))).toBe("Hôte(sse) d'accueil");
+    expect(jobTitle(user("Bernard", "Claire", "ROLE_DIRECTION"))).toBe("Direction");
+  });
+
+  it("distingue l'administrateur des comptes sans poste", () => {
+    expect(jobTitle(user("Admin", "Super", "ROLE_ADMIN"))).toBe("Administrateur");
+    expect(jobTitle(user("Sans", "Rôle", null))).toBe("Autre");
+  });
+});
+
+describe("userInitials", () => {
+  it("prend la première lettre du prénom et du nom", () => {
+    expect(userInitials({ firstName: "Sophie", lastName: "Durand" })).toBe("SD");
+  });
+
+  it("reste utilisable si un des noms est vide", () => {
+    expect(userInitials({ firstName: "Sophie", lastName: "" })).toBe("S");
+    expect(userInitials({ firstName: "", lastName: "" })).toBe("?");
+  });
+});
+
+describe("canViewUserProfile", () => {
+  it("autorise chacun à voir sa propre fiche", () => {
+    const cashier = user("Durand", "Sophie", "ROLE_CAISSIER");
+    expect(canViewUserProfile(cashier, cashier.id)).toBe(true);
+  });
+
+  it("réserve les fiches des collègues à la direction et à l'admin", () => {
+    const cashier = user("Durand", "Sophie", "ROLE_CAISSIER");
+    const colleague = user("Martin", "Léa", "ROLE_HOTE");
+    const direction = user("Bernard", "Claire", "ROLE_DIRECTION");
+    const admin = user("Admin", "Super", "ROLE_ADMIN");
+
+    expect(canViewUserProfile(cashier, colleague.id)).toBe(false);
+    expect(canViewUserProfile(direction, colleague.id)).toBe(true);
+    expect(canViewUserProfile(admin, colleague.id)).toBe(true);
+  });
+});
+
+describe("canEditJobAndContract", () => {
+  it("n'autorise que la direction et l'admin", () => {
+    expect(canEditJobAndContract(user("Durand", "Sophie", "ROLE_CAISSIER"))).toBe(false);
+    expect(canEditJobAndContract(user("Bernard", "Claire", "ROLE_DIRECTION"))).toBe(true);
+    expect(canEditJobAndContract(user("Admin", "Super", "ROLE_ADMIN"))).toBe(true);
+  });
+});
+
+describe("selectableJobKey", () => {
+  it("renvoie la clé de recrutement du poste métier", () => {
+    expect(selectableJobKey(user("Durand", "Sophie", "ROLE_CAISSIER"))).toBe("CAISSIER");
+  });
+
+  it("laisse vide un compte sans poste métier", () => {
+    expect(selectableJobKey(user("Admin", "Super", "ROLE_ADMIN"))).toBe("");
   });
 });
 
