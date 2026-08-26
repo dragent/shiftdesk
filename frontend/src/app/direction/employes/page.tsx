@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { EmployeeSearch } from "@/components/EmployeeSearch";
 import { Card, Button, Alert, TimeField } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import {
   buildStatusGroups,
   CATEGORY_DEFS,
@@ -28,6 +29,9 @@ import {
 } from "@/lib/employees";
 import type { AbsenceReason, Site, User } from "@/lib/types";
 
+const EMPTY_USERS: User[] = [];
+const EMPTY_SITES: Site[] = [];
+
 /** Default hours for a sick leave (full store day). */
 const DEFAULT_ARRET_START = "07:00";
 const DEFAULT_ARRET_END = "20:15";
@@ -43,10 +47,18 @@ export default function EmployesPage() {
 }
 
 function EmployesContent() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.employeesPage,
+    queryFn: async () => {
+      const [users, sites] = await Promise.all([
+        api.get<User[]>("/api/users"),
+        api.get<Site[]>("/api/sites"),
+      ]);
+      return { users, sites };
+    },
+  });
+  const users = data?.users ?? EMPTY_USERS;
+  const sites = data?.sites ?? EMPTY_SITES;
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -78,25 +90,7 @@ function EmployesContent() {
   const [contractHours, setContractHours] = useState(String(DEFAULT_CONTRACT_HOURS));
   const [contractExtraMinutes, setContractExtraMinutes] = useState(DEFAULT_CONTRACT_MINUTES);
   const [siteId, setSiteId] = useState<number | "">("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [usersData, sitesData] = await Promise.all([
-        api.get<User[]>("/api/users"),
-        api.get<Site[]>("/api/sites"),
-      ]);
-      setUsers(usersData);
-      setSites(sitesData);
-      setSiteId((current) => (current === "" && sitesData.length > 0 ? sitesData[0].id : current));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffectLoad(load);
+  const effectiveSiteId = siteId === "" ? (sites[0]?.id ?? "") : siteId;
 
   const searchTerm = normalize(search.trim());
   const searching = searchTerm.length > 0;
@@ -164,7 +158,7 @@ function EmployesContent() {
       await api.patch(`/api/users/${user.id}`, payload);
       setDismissTarget(null);
       setSuccess(message);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour l'employé.");
     } finally {
@@ -223,7 +217,7 @@ function EmployesContent() {
     try {
       await api.delete(`/api/users/${user.id}`);
       setSuccess(`${user.firstName} ${user.lastName} a été supprimé(e) définitivement.`);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de supprimer cet employé.");
     } finally {
@@ -244,7 +238,7 @@ function EmployesContent() {
         phone: phone || null,
         role,
         contractMinutes: contractMinutesFromParts(contractHours, contractExtraMinutes),
-        siteId: siteId || null,
+        siteId: effectiveSiteId || null,
       });
       setFirstName("");
       setLastName("");
@@ -256,7 +250,7 @@ function EmployesContent() {
       setSuccess(
         `${firstName} ${lastName} a été recruté(e). Un email avec les identifiants a été envoyé.`,
       );
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de recruter cet employé.");
     } finally {
@@ -751,7 +745,7 @@ function EmployesContent() {
                 <label className="block text-sm font-medium text-slate-700">
                   Site
                   <select
-                    value={siteId}
+                    value={effectiveSiteId}
                     onChange={(e) => setSiteId(Number(e.target.value))}
                     className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
                   >

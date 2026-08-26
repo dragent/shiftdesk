@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Card, Button } from "@/components/ui";
 import { useUnreadNotes } from "@/lib/UnreadNotesContext";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
   DirectionNote,
   DirectionNoteChannel,
@@ -30,15 +32,11 @@ export function DirectionNotesCard({
   canManage: boolean;
   emptyLabel: string;
 }) {
-  const [notes, setNotes] = useState<DirectionNote[]>([]);
-  const [closedNotes, setClosedNotes] = useState<DirectionNote[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [openLimit, setOpenLimit] = useState(OPEN_PAGE_SIZE);
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
-  const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
   const [urgent, setUrgent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -49,37 +47,47 @@ export function DirectionNotesCard({
   const [readersFor, setReadersFor] = useState<number | null>(null);
   const [readers, setReaders] = useState<DirectionNoteReader[]>([]);
   const { refreshUnreadCount } = useUnreadNotes();
+  const queryClient = useQueryClient();
+  const openKey = queryKeys.directionNotesOpen(channel, openLimit);
 
-  const loadOpen = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const {
+    data: notes = [],
+    loading,
+    error: openError,
+    setError,
+    refetch: refetchOpen,
+  } = usePageQuery({
+    queryKey: openKey,
+    queryFn: async () => {
       const data = await api.get<DirectionNote[]>(
         `/api/direction-notes?channel=${encodeURIComponent(channel)}&status=open&limit=${openLimit}`,
       );
-      setNotes(data);
-      await refreshUnreadCount();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de charger les notes.");
-    } finally {
-      setLoading(false);
-    }
-  }, [channel, openLimit, refreshUnreadCount]);
+      void refreshUnreadCount();
+      return data;
+    },
+    fallbackError: "Impossible de charger les notes.",
+  });
 
-  const loadHistory = useCallback(async () => {
-    if (!canManage) return;
-    try {
-      const data = await api.get<DirectionNote[]>(
+  const {
+    data: closedNotes = [],
+    error: historyError,
+    refetch: refetchHistory,
+  } = usePageQuery({
+    queryKey: queryKeys.directionNotesClosed(channel, historyLimit),
+    queryFn: () =>
+      api.get<DirectionNote[]>(
         `/api/direction-notes?channel=${encodeURIComponent(channel)}&status=closed&limit=${historyLimit}`,
-      );
-      setClosedNotes(data);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Impossible de charger l'historique.");
-    }
-  }, [canManage, channel, historyLimit]);
+      ),
+    enabled: showHistory && canManage,
+    fallbackError: "Impossible de charger l'historique.",
+  });
 
-  useEffectLoad(loadOpen);
-  useEffectLoad(loadHistory, showHistory);
+  const error = openError ?? historyError;
+
+  async function reloadNotes() {
+    await refetchOpen();
+    if (showHistory) await refetchHistory();
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -96,7 +104,7 @@ export function DirectionNotesCard({
       });
       setBody("");
       setUrgent(false);
-      await loadOpen();
+      await refetchOpen();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'enregistrer la note.");
     } finally {
@@ -111,8 +119,7 @@ export function DirectionNotesCard({
     setError(null);
     try {
       await api.patch<DirectionNote>(`/api/direction-notes/${id}/close`, {});
-      await loadOpen();
-      if (showHistory) await loadHistory();
+      await reloadNotes();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de clore la note.");
     } finally {
@@ -128,8 +135,7 @@ export function DirectionNotesCard({
     setError(null);
     try {
       await api.delete(`/api/direction-notes/${id}`);
-      await loadOpen();
-      if (showHistory) await loadHistory();
+      await reloadNotes();
       await refreshUnreadCount();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de supprimer la note.");
@@ -145,7 +151,7 @@ export function DirectionNotesCard({
     setError(null);
     try {
       const updated = await api.post<DirectionNote>(`/api/direction-notes/${id}/seen`, {});
-      setNotes((prev) =>
+      queryClient.setQueryData<DirectionNote[]>(openKey, (prev = []) =>
         prev.map((note) =>
           note.id === id
             ? {
@@ -177,7 +183,7 @@ export function DirectionNotesCard({
         priority: (editUrgent ? "URGENT" : "NORMAL") as DirectionNotePriority,
       });
       setEditingId(null);
-      await loadOpen();
+      await refetchOpen();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de modifier la note.");
     } finally {

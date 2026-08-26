@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { renderWithQuery } from "@/test/query";
 import userEvent from "@testing-library/user-event";
 import { api } from "@/lib/api";
 import { todayISO } from "@/lib/employees";
@@ -79,7 +80,7 @@ function renderPage(users: User[] = TEAM, sites: Site[] = SITES) {
   mockedApi.get.mockImplementation((path: string) =>
     Promise.resolve(path === "/api/users" ? users : sites),
   );
-  render(<EmployesPage />);
+  renderWithQuery(<EmployesPage />);
   return userEvent.setup();
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Lexend } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import { QueryProvider } from "@/lib/QueryProvider";
 import { UnreadNotesProvider } from "@/lib/UnreadNotesContext";
 
 /**
@@ -35,9 +36,11 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${lexend.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col print:block print:min-h-0 print:h-auto">
-        <AuthProvider>
-          <UnreadNotesProvider>{children}</UnreadNotesProvider>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <UnreadNotesProvider>{children}</UnreadNotesProvider>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

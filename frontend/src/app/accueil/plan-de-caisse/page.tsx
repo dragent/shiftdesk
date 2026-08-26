@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Button, Alert, WeekNavigator, isoWeekNumber } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import {
   buildReliefAssignment,
   DAY_LABELS,
@@ -33,6 +34,9 @@ import {
   type RegisterInterval,
 } from "@/lib/planning";
 import type { Planning, User } from "@/lib/types";
+
+const EMPTY_PLANNINGS: Planning[] = [];
+const EMPTY_USERS: User[] = [];
 
 const SCO_RELIEF_TIMES = scoReliefTimeOptions();
 
@@ -112,11 +116,6 @@ export default function PlanDeCaissePage() {
 
 function PlanDeCaisseContent() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [plannings, setPlannings] = useState<Planning[]>([]);
-  const [ladPlannings, setLadPlannings] = useState<Planning[]>([]);
-  const [caissiers, setCaissiers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   // Cell currently being edited (assigning a register to an already scheduled
@@ -142,29 +141,22 @@ function PlanDeCaisseContent() {
     [weekStart],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const from = toISODate(weekStart);
-      const to = toISODate(weekDays[6]);
-      const [planningData, ladPlanningData, caissiersData] = await Promise.all([
+  const from = toISODate(weekStart);
+  const to = toISODate(weekDays[6]);
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.planDeCaisse(from, to),
+    queryFn: async () => {
+      const [plannings, ladPlannings, caissiers] = await Promise.all([
         api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}&caissiersOnly=1`),
         api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}&ladOnly=1`),
         api.get<User[]>("/api/caissiers"),
       ]);
-      setPlannings(planningData);
-      setLadPlannings(ladPlanningData);
-      setCaissiers(caissiersData);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart]);
-
-  useEffectLoad(load);
+      return { plannings, ladPlannings, caissiers };
+    },
+  });
+  const plannings = data?.plannings ?? EMPTY_PLANNINGS;
+  const ladPlannings = data?.ladPlannings ?? EMPTY_PLANNINGS;
+  const caissiers = data?.caissiers ?? EMPTY_USERS;
 
   // Cashiers + LAD / reception scheduled on a register this week (slots
   // returned by caissiersOnly, missing from /api/caissiers), sorted by
@@ -377,7 +369,7 @@ function PlanDeCaisseContent() {
       try {
         await api.patch<Planning>(`/api/plannings/${assignee.id}/register-number`, payload);
         closeScoPanel();
-        await load();
+        await refetch();
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "Impossible d'affecter les caisses automatiques.");
       } finally {
@@ -453,7 +445,7 @@ function PlanDeCaisseContent() {
       await api.patch<Planning>(`/api/plannings/${scoReliever.id}/register-number`, relieverPayload);
       await api.patch<Planning>(`/api/plannings/${scoPerson.id}/register-number`, formerPayload);
       closeScoPanel();
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'appliquer la relève SCO.");
     } finally {
@@ -521,7 +513,7 @@ function PlanDeCaisseContent() {
     try {
       await api.patch<Planning>(`/api/plannings/${entry.id}/register-number`, { registerNumber });
       setEditingCell(null);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'attribuer cette affectation.");
     } finally {
@@ -535,7 +527,7 @@ function PlanDeCaisseContent() {
     try {
       await api.patch<Planning>(`/api/plannings/${entry.id}/register-number`, { registerNumber: null });
       setEditingCell(null);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de retirer cette affectation.");
     } finally {

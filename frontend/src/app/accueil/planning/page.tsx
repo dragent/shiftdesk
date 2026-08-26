@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Alert, WeekNavigator } from "@/components/ui";
 import { useAuth } from "@/lib/AuthContext";
-import { api, ApiError } from "@/lib/api";
+import { api } from "@/lib/api";
 import { DAY_LABELS, durationMinutes, formatFrenchTime, formatMinutesAsHours, slotLabel } from "@/lib/planning";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { Planning } from "@/lib/types";
 
 function startOfWeek(date: Date): Date {
@@ -41,9 +42,6 @@ function MonPlanningContent() {
   const { user, hasRole } = useAuth();
   const isDirectionOrAdmin = hasRole("ROLE_DIRECTION", "ROLE_ADMIN");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [plannings, setPlannings] = useState<Planning[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => {
@@ -54,23 +52,12 @@ function MonPlanningContent() {
     [weekStart],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const from = toISODate(weekStart);
-      const to = toISODate(weekDays[6]);
-      const data = await api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}&mine=1`);
-      setPlannings(data);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart]);
-
-  useEffectLoad(load);
+  const from = toISODate(weekStart);
+  const to = toISODate(weekDays[6]);
+  const { data: plannings = [], loading, error } = usePageQuery({
+    queryKey: queryKeys.myPlanning(from, to),
+    queryFn: () => api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}&mine=1`),
+  });
 
   const planningsByDay = useMemo(() => {
     const map = new Map<string, Planning[]>();

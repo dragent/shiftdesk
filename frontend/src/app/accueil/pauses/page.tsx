@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatFrenchTimeOfDate } from "@/lib/planning";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { Pause, PauseType, User } from "@/lib/types";
+
+const EMPTY_PAUSES: Pause[] = [];
+const EMPTY_USERS: User[] = [];
 
 const PAUSE_TYPES: { value: PauseType; label: string }[] = [
   { value: "COURTE", label: "Pause courte" },
@@ -39,31 +43,22 @@ export default function PausesPage() {
 
 function PausesContent() {
   const [selectedDate, setSelectedDate] = useState(() => toISODate(new Date()));
-  const [pauses, setPauses] = useState<Pause[]>([]);
-  const [caissiers, setCaissiers] = useState<User[]>([]);
   const [selectedCaissierId, setSelectedCaissierId] = useState<number | "">("");
   const [type, setType] = useState<PauseType>("COURTE");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [dayPauses, caissiersData] = await Promise.all([
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.pauses(selectedDate),
+    queryFn: async () => {
+      const [pauses, caissiers] = await Promise.all([
         api.get<Pause[]>(`/api/pauses?date=${selectedDate}`),
         api.get<User[]>("/api/caissiers"),
       ]);
-      setPauses(dayPauses);
-      setCaissiers(caissiersData);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate]);
-
-  useEffectLoad(load);
+      return { pauses, caissiers };
+    },
+  });
+  const pauses = data?.pauses ?? EMPTY_PAUSES;
+  const caissiers = data?.caissiers ?? EMPTY_USERS;
 
   const caissiersEnPause = useMemo(
     () => new Set(pauses.filter((p) => p.status === "EN_COURS").map((p) => p.user.id)),
@@ -90,7 +85,7 @@ function PausesContent() {
     try {
       await api.post<Pause>("/api/pauses/start", { caissierId: effectiveCaissierId, type });
       setSelectedCaissierId("");
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de démarrer la pause.");
     } finally {
@@ -103,7 +98,7 @@ function PausesContent() {
     setActionLoading(true);
     try {
       await api.post<Pause>(`/api/pauses/${id}/end`);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de terminer la pause.");
     } finally {

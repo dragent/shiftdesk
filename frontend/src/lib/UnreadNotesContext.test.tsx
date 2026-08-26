@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, act } from "@testing-library/react";
+import { screen, waitFor, act } from "@testing-library/react";
+import { renderWithQuery } from "@/test/query";
 import userEvent from "@testing-library/user-event";
 import { UnreadNotesProvider, useUnreadNotes } from "@/lib/UnreadNotesContext";
 
@@ -44,7 +45,7 @@ describe("UnreadNotesProvider", () => {
     apiMock.get.mockResolvedValue({ count: 3, latestCreatedAt: "2026-08-25T10:00:00+00:00" });
 
     await act(async () => {
-      render(
+      renderWithQuery(
         <UnreadNotesProvider>
           <Probe />
         </UnreadNotesProvider>,
@@ -64,7 +65,7 @@ describe("UnreadNotesProvider", () => {
       .mockResolvedValueOnce({ count: 1, latestCreatedAt: "2026-08-25T10:00:00+00:00" })
       .mockResolvedValueOnce({ count: 2, latestCreatedAt: "2026-08-25T10:05:00+00:00" });
 
-    render(
+    renderWithQuery(
       <UnreadNotesProvider>
         <Probe />
       </UnreadNotesProvider>,

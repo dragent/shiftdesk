@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { useAuth } from "@/lib/AuthContext";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { Site, User } from "@/lib/types";
 
 export default function CaissiersPage() {
@@ -23,10 +24,18 @@ function CaissiersContent() {
   const { hasRole } = useAuth();
   const canManage = hasRole("ROLE_DIRECTION", "ROLE_ADMIN");
 
-  const [caissiers, setCaissiers] = useState<User[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.caissiersPage,
+    queryFn: async () => {
+      const [caissiers, sites] = await Promise.all([
+        api.get<User[]>("/api/caissiers"),
+        api.get<Site[]>("/api/sites"),
+      ]);
+      return { caissiers, sites };
+    },
+  });
+  const caissiers = data?.caissiers ?? [];
+  const sites = data?.sites ?? [];
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,25 +43,7 @@ function CaissiersContent() {
   const [lastName, setLastName] = useState("");
   const [cashierNumber, setCashierNumber] = useState("");
   const [siteId, setSiteId] = useState<number | "">("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [caissiersData, sitesData] = await Promise.all([
-        api.get<User[]>("/api/caissiers"),
-        api.get<Site[]>("/api/sites"),
-      ]);
-      setCaissiers(caissiersData);
-      setSites(sitesData);
-      if (sitesData.length > 0) setSiteId(sitesData[0].id);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffectLoad(load);
+  const effectiveSiteId = siteId === "" ? (sites[0]?.id ?? "") : siteId;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -64,13 +55,13 @@ function CaissiersContent() {
         firstName,
         lastName,
         cashierNumber: cashierNumber.trim() || null,
-        siteId: siteId || null,
+        siteId: effectiveSiteId || null,
       });
       setFirstName("");
       setLastName("");
       setCashierNumber("");
       setSuccess("Caissier(ère) ajouté(e) avec succès.");
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'ajouter le caissier.");
     } finally {
@@ -82,7 +73,7 @@ function CaissiersContent() {
     setError(null);
     try {
       await api.patch(`/api/caissiers/${caissier.id}`, { active: !caissier.active });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour le caissier.");
     }
@@ -92,7 +83,7 @@ function CaissiersContent() {
     setError(null);
     try {
       await api.patch(`/api/caissiers/${caissier.id}`, { siteId: newSiteId });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour le site.");
     }
@@ -104,7 +95,7 @@ function CaissiersContent() {
       await api.patch(`/api/caissiers/${caissier.id}`, {
         cashierNumber: value.trim() || null,
       });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour le n° caissier.");
     }
@@ -115,7 +106,7 @@ function CaissiersContent() {
     if (!window.confirm(`Supprimer ${caissier.firstName} ${caissier.lastName} ?`)) return;
     try {
       await api.delete(`/api/caissiers/${caissier.id}`);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de supprimer le caissier.");
     }
@@ -166,7 +157,7 @@ function CaissiersContent() {
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Site</label>
               <select
-                value={siteId}
+                value={effectiveSiteId}
                 onChange={(e) => setSiteId(Number(e.target.value))}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               >

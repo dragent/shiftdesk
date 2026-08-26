@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { AccueilRequest, DemandeStatus, RequestCategory } from "@/lib/types";
 
 const STATUS_OPTIONS: DemandeStatus[] = ["NOUVELLE", "EN_COURS", "TRAITEE", "ANNULEE"];
@@ -21,10 +22,18 @@ export default function DemandesPage() {
 }
 
 function DemandesContent() {
-  const [categories, setCategories] = useState<RequestCategory[]>([]);
-  const [requests, setRequests] = useState<AccueilRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.demandesPage,
+    queryFn: async () => {
+      const [categories, requests] = await Promise.all([
+        api.get<RequestCategory[]>("/api/categories?active=1"),
+        api.get<AccueilRequest[]>("/api/requests?limit=30"),
+      ]);
+      return { categories, requests };
+    },
+  });
+  const categories = data?.categories ?? [];
+  const requests = data?.requests ?? [];
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,35 +41,17 @@ function DemandesContent() {
   const [visitorName, setVisitorName] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [cats, reqs] = await Promise.all([
-        api.get<RequestCategory[]>("/api/categories?active=1"),
-        api.get<AccueilRequest[]>("/api/requests?limit=30"),
-      ]);
-      setCategories(cats);
-      setRequests(reqs);
-      if (cats.length > 0) setCategoryId(cats[0].id);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffectLoad(load);
+  const effectiveCategoryId = categoryId === "" ? (categories[0]?.id ?? "") : categoryId;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!categoryId) return;
+    if (!effectiveCategoryId) return;
     setError(null);
     setSuccess(null);
     setSubmitting(true);
     try {
       await api.post<AccueilRequest>("/api/requests", {
-        categoryId,
+        categoryId: effectiveCategoryId,
         visitorName: visitorName || null,
         subject,
         description: description || null,
@@ -69,7 +60,7 @@ function DemandesContent() {
       setVisitorName("");
       setDescription("");
       setSuccess("Demande enregistrée avec succès.");
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'enregistrer la demande.");
     } finally {
@@ -80,7 +71,7 @@ function DemandesContent() {
   async function updateStatus(id: number, status: DemandeStatus) {
     try {
       await api.patch(`/api/requests/${id}`, { status });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour le statut.");
     }
@@ -104,7 +95,7 @@ function DemandesContent() {
             <label className="mb-1 block text-sm font-medium text-slate-700">Catégorie</label>
             <select
               required
-              value={categoryId}
+              value={effectiveCategoryId}
               onChange={(e) => setCategoryId(Number(e.target.value))}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
