@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { InsightStatus, PlanningInsight } from "@/lib/types";
 
 function toISODate(date: Date): string {
@@ -28,24 +29,12 @@ export default function SupervisionIaPage() {
 }
 
 function SupervisionContent() {
-  const [insights, setInsights] = useState<PlanningInsight[]>([]);
-  const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get<PlanningInsight[]>("/api/ai/insights");
-      setInsights(data);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffectLoad(load);
+  const { data: insights = [], loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.insights,
+    queryFn: () => api.get<PlanningInsight[]>("/api/ai/insights"),
+  });
 
   async function runAnalysis() {
     setError(null);
@@ -55,7 +44,7 @@ function SupervisionContent() {
       const from = toISODate(today);
       const to = toISODate(new Date(today.getTime() + 6 * 86400000));
       await api.post("/api/ai/analyze", { from, to });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Analyse IA impossible pour le moment.");
     } finally {
@@ -66,7 +55,7 @@ function SupervisionContent() {
   async function updateStatus(id: number, status: InsightStatus) {
     try {
       await api.patch(`/api/ai/insights/${id}`, { status });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Mise à jour impossible.");
     }

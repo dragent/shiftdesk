@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { RequestCategory } from "@/lib/types";
 
 export default function CategoriesPage() {
@@ -19,29 +20,16 @@ export default function CategoriesPage() {
 }
 
 function CategoriesContent() {
-  const [categories, setCategories] = useState<RequestCategory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: categories = [], loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.categories,
+    queryFn: () => api.get<RequestCategory[]>("/api/categories"),
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   const [position, setPosition] = useState(0);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get<RequestCategory[]>("/api/categories");
-      setCategories(data);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffectLoad(load);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -58,7 +46,7 @@ function CategoriesContent() {
       setLabel("");
       setDescription("");
       setPosition(0);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de créer la catégorie.");
     } finally {
@@ -69,7 +57,7 @@ function CategoriesContent() {
   async function toggleActive(category: RequestCategory) {
     try {
       await api.patch(`/api/categories/${category.id}`, { active: !category.active });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour la catégorie.");
     }
@@ -78,7 +66,7 @@ function CategoriesContent() {
   async function remove(id: number) {
     try {
       await api.delete(`/api/categories/${id}`);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de supprimer la catégorie.");
     }

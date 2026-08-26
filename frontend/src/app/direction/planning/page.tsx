@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useCallback, useMemo, useRef, useState, type FormEvent } from "react";
+import { Fragment, useMemo, useRef, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Button, Alert, TimeField, WeekNavigator } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import {
   addHours,
   DAY_LABELS,
@@ -22,6 +23,11 @@ import {
 } from "@/lib/planning";
 import { formatDateFR, isUnschedulableOnDate } from "@/lib/employees";
 import type { Absence, Planning, StoreClosure, User } from "@/lib/types";
+
+const EMPTY_PLANNINGS: Planning[] = [];
+const EMPTY_ABSENCES: Absence[] = [];
+const EMPTY_CLOSURES: StoreClosure[] = [];
+const EMPTY_USERS: User[] = [];
 
 const HALF_DAY_OPTIONS: { value: HalfDayKey; label: string }[] = [
   { value: "MATIN", label: "Matin" },
@@ -97,17 +103,6 @@ export default function PlanningPage() {
 
 function PlanningContent() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const [plannings, setPlannings] = useState<Planning[]>([]);
-  const [absences, setAbsences] = useState<Absence[]>([]);
-  const [closures, setClosures] = useState<StoreClosure[]>([]);
-  const [caissiers, setCaissiers] = useState<User[]>([]);
-  const [lad, setLad] = useState<User[]>([]);
-  const [hotes, setHotes] = useState<User[]>([]);
-  const [directionStaff, setDirectionStaff] = useState<User[]>([]);
-  const [rayon, setRayon] = useState<User[]>([]);
-  const [securite, setSecurite] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   // Employee category currently displayed in the grid (only one at a time);
@@ -149,38 +144,40 @@ function PlanningContent() {
     [weekStart],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const from = toISODate(weekStart);
-      const to = toISODate(weekDays[6]);
-      const [planningData, absencesData, closuresData, usersData] = await Promise.all([
+  const from = toISODate(weekStart);
+  const to = toISODate(weekDays[6]);
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.directionPlanning(from, to),
+    queryFn: async () => {
+      const [plannings, absences, closures, usersData] = await Promise.all([
         api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}`),
         api.get<Absence[]>(`/api/absences?from=${from}&to=${to}`),
         api.get<StoreClosure[]>(`/api/store-closures?from=${from}&to=${to}`),
         api.get<User[]>("/api/users"),
       ]);
-      setPlannings(planningData);
-      setAbsences(absencesData);
-      setClosures(closuresData);
-      // Dismissed employees (deactivated account) can no longer be scheduled.
       const employed = usersData.filter((u) => u.active);
-      setCaissiers(employed.filter((u) => u.roles?.includes("ROLE_CAISSIER")));
-      setLad(employed.filter((u) => u.roles?.includes("ROLE_LAD")));
-      setHotes(employed.filter((u) => u.roles?.includes("ROLE_HOTE")));
-      setDirectionStaff(employed.filter((u) => u.roles?.includes("ROLE_DIRECTION")));
-      setRayon(employed.filter((u) => u.roles?.includes("ROLE_RAYON")));
-      setSecurite(employed.filter((u) => u.roles?.includes("ROLE_SECURITE")));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart]);
-
-  useEffectLoad(load);
+      return {
+        plannings,
+        absences,
+        closures,
+        caissiers: employed.filter((u) => u.roles?.includes("ROLE_CAISSIER")),
+        lad: employed.filter((u) => u.roles?.includes("ROLE_LAD")),
+        hotes: employed.filter((u) => u.roles?.includes("ROLE_HOTE")),
+        directionStaff: employed.filter((u) => u.roles?.includes("ROLE_DIRECTION")),
+        rayon: employed.filter((u) => u.roles?.includes("ROLE_RAYON")),
+        securite: employed.filter((u) => u.roles?.includes("ROLE_SECURITE")),
+      };
+    },
+  });
+  const plannings = data?.plannings ?? EMPTY_PLANNINGS;
+  const absences = data?.absences ?? EMPTY_ABSENCES;
+  const closures = data?.closures ?? EMPTY_CLOSURES;
+  const caissiers = data?.caissiers ?? EMPTY_USERS;
+  const lad = data?.lad ?? EMPTY_USERS;
+  const hotes = data?.hotes ?? EMPTY_USERS;
+  const directionStaff = data?.directionStaff ?? EMPTY_USERS;
+  const rayon = data?.rayon ?? EMPTY_USERS;
+  const securite = data?.securite ?? EMPTY_USERS;
 
   // Groups slots by employee + day + half-day for fast O(1) access from the
   // grid.
@@ -288,7 +285,7 @@ function PlanningContent() {
       });
       setEditingCell(null);
       setFormEnCaisse(false);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'ajouter ce créneau.");
     } finally {
@@ -301,7 +298,7 @@ function PlanningContent() {
     setPendingKey(cellKey);
     try {
       await api.delete(`/api/plannings/${planning.id}`);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de retirer ce créneau.");
     } finally {
@@ -335,7 +332,7 @@ function PlanningContent() {
         endDate: closureEnd,
       });
       setClosureModalOpen(false);
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible d'enregistrer la fermeture.");
     } finally {

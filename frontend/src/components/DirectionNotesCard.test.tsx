@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithQuery } from "@/test/query";
 import userEvent from "@testing-library/user-event";
 import { DirectionNotesCard, formatNoteDate, truncateNote } from "./DirectionNotesCard";
 import type { DirectionNote } from "@/lib/types";
@@ -93,7 +94,7 @@ describe("DirectionNotesCard", () => {
       .mockResolvedValueOnce([note()])
       .mockResolvedValueOnce([]);
 
-    render(
+    renderWithQuery(
       <DirectionNotesCard
         title="Accueil"
         channel="DIRECTION_ACCUEIL"
@@ -116,7 +117,7 @@ describe("DirectionNotesCard", () => {
     const longBody = "L".repeat(240);
     apiMock.get.mockResolvedValue([note({ body: longBody })]);
 
-    render(
+    renderWithQuery(
       <DirectionNotesCard
         title="Accueil"
         channel="DIRECTION_ACCUEIL"
@@ -136,7 +137,7 @@ describe("DirectionNotesCard", () => {
     apiMock.post.mockResolvedValue(note({ priority: "URGENT" }));
     apiMock.get.mockResolvedValueOnce([]).mockResolvedValueOnce([note({ priority: "URGENT" })]);
 
-    render(
+    renderWithQuery(
       <DirectionNotesCard
         title="Accueil"
         channel="DIRECTION_ACCUEIL"

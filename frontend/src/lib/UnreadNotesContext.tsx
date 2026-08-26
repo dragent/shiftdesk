@@ -5,13 +5,13 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./AuthContext";
-import { useEffectLoad } from "./useEffectLoad";
+import { queryKeys } from "./queryKeys";
 import type { UnreadNotesSummary } from "./types";
 
 interface UnreadNotesContextValue {
@@ -35,102 +35,79 @@ const APP_TITLE = "ShiftDesk";
  */
 export function UnreadNotesProvider({ children }: { children: ReactNode }) {
   const { user, hasRole } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const previousCountRef = useRef<number | null>(null);
-  const previousLatestRef = useRef<string | null>(null);
-  const pollMsRef = useRef(POLL_FOCUSED_MS);
+  const [pollMs, setPollMs] = useState(POLL_FOCUSED_MS);
+  const [prevSnapshot, setPrevSnapshot] = useState<{
+    count: number;
+    latest: string | null;
+  } | null>(null);
 
   const canReadNotes =
     Boolean(user) && hasRole("ROLE_DIRECTION", "ROLE_ADMIN", "ROLE_HOTE");
 
-  const displayedUnreadCount = canReadNotes ? unreadCount : 0;
-
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
-  const refreshUnreadCount = useCallback(async () => {
-    if (!canReadNotes) {
-      setUnreadCount(0);
-      previousCountRef.current = 0;
-      previousLatestRef.current = null;
-      return;
-    }
-    try {
+  const { data: summary, refetch } = useQuery({
+    queryKey: queryKeys.unreadNotes,
+    queryFn: async (): Promise<UnreadNotesSummary> => {
       const data = await api.get<UnreadNotesSummary>("/api/direction-notes/unread-count");
-      const nextCount = Math.max(0, Number(data.count) || 0);
-      const nextLatest = data.latestCreatedAt ?? null;
+      return {
+        count: Math.max(0, Number(data.count) || 0),
+        latestCreatedAt: data.latestCreatedAt ?? null,
+      };
+    },
+    enabled: canReadNotes,
+    refetchInterval: pollMs,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
 
-      const prevCount = previousCountRef.current;
-      const prevLatest = previousLatestRef.current;
+  if (!canReadNotes) {
+    if (prevSnapshot !== null) setPrevSnapshot(null);
+  } else if (summary) {
+    const nextCount = Math.max(0, Number(summary.count) || 0);
+    const nextLatest = summary.latestCreatedAt ?? null;
+    if (prevSnapshot === null) {
+      setPrevSnapshot({ count: nextCount, latest: nextLatest });
+    } else if (prevSnapshot.count !== nextCount || prevSnapshot.latest !== nextLatest) {
       if (
-        prevCount !== null &&
-        (nextCount > prevCount ||
-          (nextLatest && nextLatest !== prevLatest && nextCount > 0))
+        nextCount > prevSnapshot.count ||
+        (nextLatest && nextLatest !== prevSnapshot.latest && nextCount > 0)
       ) {
-        const delta = Math.max(1, nextCount - (prevCount ?? 0));
+        const delta = Math.max(1, nextCount - prevSnapshot.count);
         setToastMessage(
           delta === 1
             ? "Nouvelle note de la direction"
             : `${delta} nouvelles notes de la direction`,
         );
       }
-
-      previousCountRef.current = nextCount;
-      previousLatestRef.current = nextLatest;
-      setUnreadCount(nextCount);
-    } catch {
-      // Keep the last known count on transient errors.
+      setPrevSnapshot({ count: nextCount, latest: nextLatest });
     }
-  }, [canReadNotes]);
+  }
 
-  useEffectLoad(refreshUnreadCount, canReadNotes);
+  const displayedUnreadCount = canReadNotes ? (summary?.count ?? 0) : 0;
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (!canReadNotes) return;
+    await refetch();
+  }, [canReadNotes, refetch]);
 
   useEffect(() => {
-    if (!canReadNotes) {
-      previousCountRef.current = 0;
-      previousLatestRef.current = null;
-      return;
-    }
-
-    let id = window.setInterval(() => {
-      void refreshUnreadCount();
-    }, pollMsRef.current);
-
-    const restartInterval = () => {
-      window.clearInterval(id);
-      id = window.setInterval(() => {
-        void refreshUnreadCount();
-      }, pollMsRef.current);
-    };
-
-    const onFocus = () => {
-      pollMsRef.current = POLL_FOCUSED_MS;
-      restartInterval();
-      void refreshUnreadCount();
-    };
-    const onBlur = () => {
-      pollMsRef.current = POLL_BLURRED_MS;
-      restartInterval();
-    };
+    const onFocus = () => setPollMs(POLL_FOCUSED_MS);
+    const onBlur = () => setPollMs(POLL_BLURRED_MS);
     const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        onFocus();
-      } else {
-        onBlur();
-      }
+      if (document.visibilityState === "visible") onFocus();
+      else onBlur();
     };
-
     window.addEventListener("focus", onFocus);
     window.addEventListener("blur", onBlur);
     document.addEventListener("visibilitychange", onVisibility);
-
     return () => {
-      window.clearInterval(id);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [canReadNotes, refreshUnreadCount]);
+  }, []);
 
   useEffect(() => {
     document.title =

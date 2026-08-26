@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
-import { useEffectLoad } from "@/lib/useEffectLoad";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { Site, User } from "@/lib/types";
 
 const ROLE_OPTIONS = [
@@ -28,10 +29,18 @@ export default function UtilisateursPage() {
 }
 
 function UtilisateursContent() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, setError, refetch } = usePageQuery({
+    queryKey: queryKeys.utilisateursPage,
+    queryFn: async () => {
+      const [users, sites] = await Promise.all([
+        api.get<User[]>("/api/users"),
+        api.get<Site[]>("/api/sites"),
+      ]);
+      return { users, sites };
+    },
+  });
+  const users = data?.users ?? [];
+  const sites = data?.sites ?? [];
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,25 +50,7 @@ function UtilisateursContent() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("HOTE");
   const [siteId, setSiteId] = useState<number | "">("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [usersData, sitesData] = await Promise.all([
-        api.get<User[]>("/api/users"),
-        api.get<Site[]>("/api/sites"),
-      ]);
-      setUsers(usersData);
-      setSites(sitesData);
-      if (sitesData.length > 0) setSiteId(sitesData[0].id);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erreur de chargement.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffectLoad(load);
+  const effectiveSiteId = siteId === "" ? (sites[0]?.id ?? "") : siteId;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -73,14 +64,14 @@ function UtilisateursContent() {
         email,
         password,
         role,
-        siteId: siteId || null,
+        siteId: effectiveSiteId || null,
       });
       setFirstName("");
       setLastName("");
       setEmail("");
       setPassword("");
       setSuccess("Utilisateur créé avec succès.");
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de créer l'utilisateur.");
     } finally {
@@ -91,7 +82,7 @@ function UtilisateursContent() {
   async function toggleActive(user: User) {
     try {
       await api.patch(`/api/users/${user.id}`, { active: !user.active });
-      await load();
+      await refetch();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Impossible de mettre à jour l'utilisateur.");
     }
@@ -167,7 +158,7 @@ function UtilisateursContent() {
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Site</label>
             <select
-              value={siteId}
+              value={effectiveSiteId}
               onChange={(e) => setSiteId(Number(e.target.value))}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             >
