@@ -33,7 +33,7 @@ Toute évolution métier suit le cycle **Red → Green → Refactor** :
 | Zone | Unitaire | Intégration | Commande |
 |---|---|---|---|
 | Backend Symfony | `backend/tests/Unit` | `backend/tests/Integration` | `cd backend && php bin/phpunit` |
-| Frontend Next.js | `frontend/src/**/*.test.ts` (Vitest) | — | `cd frontend && npm test` |
+| Frontend Next.js | `frontend/src/**/*.test.ts` (Vitest) | — | `cd frontend && npm test` puis `npm run lint` |
 | AI service | `ai-service/tests/test_rules.py` | `ai-service/tests/test_api_integration.py` | `cd ai-service && pytest` |
 
 Le workflow `.github/workflows/ci.yml` exécute ces suites sur chaque PR
@@ -55,6 +55,16 @@ mobile/desktop, tableaux/grilles planning, formulaires, lisibilité.
 
 Règle agent Cursor : `.cursor/rules/frontend-responsive.mdc` (applique
 automatiquement sur les fichiers `frontend/**/*.{tsx,ts,css}`).
+
+## Frontend — ESLint obligatoire
+
+La CI exécute `npm run lint` dans `frontend/` (ESLint Next). Toute
+évolution frontend **doit** laisser cette commande verte (0 erreur, pas de
+nouveau warning) avant merge. Corriger la règle, pas la masquer avec
+`eslint-disable` (sauf motif déjà accepté, ex. impression).
+
+Règle agent Cursor : `.cursor/rules/frontend-eslint.mdc` (applique
+automatiquement sur les fichiers `frontend/**/*.{tsx,ts,mjs}`).
 
 ## Commits
 

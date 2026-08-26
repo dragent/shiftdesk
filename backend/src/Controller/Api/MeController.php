@@ -3,14 +3,17 @@
 namespace App\Controller\Api;
 
 use App\Entity\User;
+use App\Repository\UserRepository;
 use App\Service\PasswordSecurityChecker;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Returns the currently authenticated user (used by the frontend right after
@@ -24,6 +27,9 @@ class MeController extends AbstractApiController
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly PasswordSecurityChecker $passwordSecurity,
+        private readonly UserRepository $userRepository,
+        private readonly ValidatorInterface $validator,
+        private readonly JWTTokenManagerInterface $jwtManager,
     ) {
         parent::__construct($serializer);
     }
@@ -32,6 +38,54 @@ class MeController extends AbstractApiController
     public function me(#[CurrentUser] User $user): JsonResponse
     {
         return $this->respond($user, 200, ['user:read', 'site:read']);
+    }
+
+    /**
+     * Lets the authenticated user update their own contact details (email
+     * and phone). Changing the email issues a fresh JWT, because the token
+     * identity is the email address.
+     */
+    #[Route('', name: 'api_me_update', methods: ['PATCH', 'PUT'])]
+    public function update(Request $request, #[CurrentUser] User $user): JsonResponse
+    {
+        $data = $this->decode($request->getContent());
+        $emailChanged = false;
+
+        if (array_key_exists('email', $data)) {
+            $email = trim((string) $data['email']);
+            if ($email !== $user->getEmail()) {
+                $existing = $this->userRepository->findOneByEmail($email);
+                if ($existing !== null && $existing->getId() !== $user->getId()) {
+                    return $this->respondError('Un compte existe déjà avec cet email.', 409);
+                }
+                $user->setEmail($email);
+                $emailChanged = true;
+            }
+        }
+
+        if (array_key_exists('phone', $data)) {
+            $raw = $data['phone'];
+            $user->setPhone($raw === null ? null : (string) $raw);
+        }
+
+        $violations = $this->validator->validate($user);
+        if (count($violations) > 0) {
+            return $this->respondValidationErrors($violations);
+        }
+
+        $this->em->flush();
+
+        $payload = json_decode(
+            $this->serializer->serialize($user, 'json', ['groups' => ['user:read', 'site:read']]),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        if ($emailChanged) {
+            $payload['token'] = $this->jwtManager->create($user);
+        }
+
+        return new JsonResponse($payload);
     }
 
     /**

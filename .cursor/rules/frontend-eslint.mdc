@@ -1,0 +1,50 @@
+---
+description: Le frontend doit passer npm run lint (ESLint Next) avant de clôturer une tâche
+globs: frontend/**/*.{tsx,ts,mjs}
+alwaysApply: false
+---
+
+# Frontend — ESLint obligatoire
+
+La CI exécute `cd frontend && npm run lint` (`eslint-config-next` : core-web-vitals + typescript).
+Un changement dans `frontend/` n’est pas terminé tant que cette commande n’est pas verte
+(0 erreur, et ne pas introduire de warning).
+
+## Avant de finir
+
+Lancer **toute** la suite, pas seulement les fichiers édités :
+
+```bash
+cd frontend && npm run lint
+```
+
+Ne pas masquer une règle avec `eslint-disable` sauf motif déjà accepté dans le dépôt
+(ex. `<img>` pour l’impression planning).
+
+## Pièges fréquents
+
+### `react-hooks/set-state-in-effect`
+
+Ne pas recopier des props dans le state via `useEffect`. Réinitialiser pendant le rendu
+(comme `UnreadNotesContext`) :
+
+```tsx
+const [source, setSource] = useState(saved);
+const [value, setValue] = useState(saved);
+if (saved !== source) {
+  setSource(saved);
+  setValue(saved);
+}
+```
+
+Pour charger des données, TanStack Query (`usePageQuery`) — pas `setState` dans un effect.
+
+### `@next/next/no-img-element`
+
+Utiliser `next/image`. Dans les tests, mocker **sans** `<img>` :
+
+```tsx
+vi.mock("next/image", () => ({
+  default: ({ alt }: { alt: string }) => <span role="img" aria-label={alt} />,
+}));
+```

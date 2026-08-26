@@ -127,6 +127,50 @@ final class UserContractInsertionTest extends WebTestCase
         self::assertTrue($stored->hasRole(UserRole::HOTE));
     }
 
+    public function testDirectionCanChangeJobAndWeeklyContract(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+        $hote = $this->createUser('hote@test.local', UserRole::HOTE, $site, contractMinutes: 2205);
+
+        $client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode([
+                'email' => 'direction@test.local',
+                'password' => 'Password123!',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseIsSuccessful();
+        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        $client->request(
+            'PATCH',
+            '/api/users/'.$hote->getId(),
+            server: $this->authHeaders($login['token']),
+            content: json_encode([
+                'role' => 'LAD',
+                'contractMinutes' => 1800,
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseIsSuccessful();
+        $payload = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        self::assertContains('ROLE_LAD', $payload['roles']);
+        self::assertNotContains('ROLE_HOTE', $payload['roles']);
+        self::assertSame(1800, $payload['contractMinutes']);
+
+        $this->em()->clear();
+        $stored = $this->em()->getRepository(User::class)->find($hote->getId());
+        self::assertInstanceOf(User::class, $stored);
+        self::assertTrue($stored->hasRole(UserRole::LAD));
+        self::assertFalse($stored->hasRole(UserRole::HOTE));
+        self::assertSame(1800, $stored->getContractMinutes());
+    }
+
     public function testSeedDemoAssignsContractsToEveryone(): void
     {
         static::createClient();

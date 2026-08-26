@@ -111,11 +111,17 @@ describe("liste des employés", () => {
 
     expect(within(employedCard).getAllByRole("heading", { level: 3 }).map((h) => h.textContent))
       .toEqual(["Direction", "Caissiers", "Hôtes / hôtesses d'accueil"]);
-    expect(within(employedCard).getByText("Durand Sophie")).toBeInTheDocument();
+    expect(within(employedCard).getByRole("link", { name: "Durand Sophie" })).toHaveAttribute(
+      "href",
+      `/profil/${SOPHIE.id}`,
+    );
     expect(within(employedCard).getByText("06 12 00 08 08")).toBeInTheDocument();
 
     const dismissedCard = card("Licenciés");
-    expect(within(dismissedCard).getByText("Petit Marc")).toBeInTheDocument();
+    expect(within(dismissedCard).getByRole("link", { name: "Petit Marc" })).toHaveAttribute(
+      "href",
+      `/profil/${MARC.id}`,
+    );
     expect(within(dismissedCard).getByText("Licencié le 01/07/2026")).toBeInTheDocument();
     expect(within(dismissedCard).queryByText("Durand Sophie")).toBeNull();
   });
