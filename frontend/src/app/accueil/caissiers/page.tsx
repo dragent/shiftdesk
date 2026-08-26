@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { Card, Badge, Button, Alert } from "@/components/ui";
 import { useAuth } from "@/lib/AuthContext";
 import { api, ApiError } from "@/lib/api";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import type { Site, User } from "@/lib/types";
 
 export default function CaissiersPage() {
@@ -51,9 +52,7 @@ function CaissiersContent() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { EmployeeSearch } from "@/components/EmployeeSearch";
 import { Card, Button, Alert, TimeField } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useEffectLoad } from "@/lib/useEffectLoad";
 import {
   buildStatusGroups,
   CATEGORY_DEFS,
@@ -95,9 +96,7 @@ function EmployesContent() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffectLoad(load);
 
   const searchTerm = normalize(search.trim());
   const searching = searchTerm.length > 0;

@@ -11,6 +11,7 @@ import {
 } from "react";
 import { api } from "./api";
 import { useAuth } from "./AuthContext";
+import { useEffectLoad } from "./useEffectLoad";
 import type { UnreadNotesSummary } from "./types";
 
 interface UnreadNotesContextValue {
@@ -42,6 +43,8 @@ export function UnreadNotesProvider({ children }: { children: ReactNode }) {
 
   const canReadNotes =
     Boolean(user) && hasRole("ROLE_DIRECTION", "ROLE_ADMIN", "ROLE_HOTE");
+
+  const displayedUnreadCount = canReadNotes ? unreadCount : 0;
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 
@@ -80,13 +83,14 @@ export function UnreadNotesProvider({ children }: { children: ReactNode }) {
     }
   }, [canReadNotes]);
 
+  useEffectLoad(refreshUnreadCount, canReadNotes);
+
   useEffect(() => {
     if (!canReadNotes) {
-      setUnreadCount(0);
+      previousCountRef.current = 0;
+      previousLatestRef.current = null;
       return;
     }
-
-    void refreshUnreadCount();
 
     let id = window.setInterval(() => {
       void refreshUnreadCount();
@@ -130,11 +134,13 @@ export function UnreadNotesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.title =
-      unreadCount > 0 ? `(${unreadCount > 99 ? "99+" : unreadCount}) ${APP_TITLE}` : APP_TITLE;
+      displayedUnreadCount > 0
+        ? `(${displayedUnreadCount > 99 ? "99+" : displayedUnreadCount}) ${APP_TITLE}`
+        : APP_TITLE;
     return () => {
       document.title = APP_TITLE;
     };
-  }, [unreadCount]);
+  }, [displayedUnreadCount]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -144,10 +150,10 @@ export function UnreadNotesProvider({ children }: { children: ReactNode }) {
 
   return (
     <UnreadNotesContext.Provider
-      value={{ unreadCount, refreshUnreadCount, toastMessage, dismissToast }}
+      value={{ unreadCount: displayedUnreadCount, refreshUnreadCount, toastMessage, dismissToast }}
     >
       {children}
-      <UnreadNotesLiveRegion count={unreadCount} toastMessage={toastMessage} onDismiss={dismissToast} />
+      <UnreadNotesLiveRegion count={displayedUnreadCount} toastMessage={toastMessage} onDismiss={dismissToast} />
     </UnreadNotesContext.Provider>
   );
 }
