@@ -24,6 +24,7 @@ shiftdesk/
 ├── backend/         # API Symfony (métier, auth, base de données)
 ├── frontend/        # Application Next.js (UI)
 ├── ai-service/      # Micro-service IA — supervision de planning
+├── doc/             # Audits (sécurité, filet développeur seul)
 ├── docker-compose.yml
 ├── CONTRIBUTING.md  # Règles de contribution, branches, TDD
 └── README.md
@@ -191,6 +192,9 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour le détail. En résumé :
 4. Branche `main` protégée (PR obligatoire, pas de force-push).
 5. Tout changement UI frontend doit être **vérifié en responsive**
    (mobile / tablette / desktop) — voir `.cursor/rules/frontend-responsive.mdc`.
+6. Tout changement d’auth / permissions doit passer un **audit à froid**
+   (session neuve + `/review-security`) — voir
+   [doc/audit-securite.md](doc/audit-securite.md).
 
 ## Tests
 

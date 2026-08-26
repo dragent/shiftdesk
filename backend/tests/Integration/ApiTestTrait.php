@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Enum\UserRole;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -91,5 +92,19 @@ trait ApiTestTrait
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
             'CONTENT_TYPE' => 'application/json',
         ];
+    }
+
+    private function login(KernelBrowser $client, string $email, string $password = 'Password123!'): string
+    {
+        $client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode(['email' => $email, 'password' => $password], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseIsSuccessful();
+        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        return $login['token'];
     }
 }

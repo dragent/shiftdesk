@@ -122,22 +122,4 @@ final class MeProfileApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
     }
-
-    /** @param \Symfony\Bundle\FrameworkBundle\KernelBrowser $client */
-    private function login(object $client, string $email): string
-    {
-        $client->request(
-            'POST',
-            '/api/login',
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode([
-                'email' => $email,
-                'password' => 'Password123!',
-            ], JSON_THROW_ON_ERROR),
-        );
-        self::assertResponseIsSuccessful();
-        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
-
-        return $login['token'];
-    }
 }

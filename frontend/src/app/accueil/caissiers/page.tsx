@@ -191,7 +191,7 @@ function CaissiersContent() {
                   <th className="py-2 pr-4">N° caissier</th>
                   <th className="py-2 pr-4">Site</th>
                   <th className="py-2 pr-4">Statut</th>
-                  <th className="py-2">Action</th>
+                  {canManage && <th className="py-2">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -214,35 +214,39 @@ function CaissiersContent() {
                       />
                     </td>
                     <td className="py-2 pr-4">
-                      <select
-                        value={c.site?.id ?? ""}
-                        onChange={(e) => updateSite(c, Number(e.target.value))}
-                        className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-                      >
-                        {sites.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
+                      {canManage ? (
+                        <select
+                          value={c.site?.id ?? ""}
+                          onChange={(e) => updateSite(c, Number(e.target.value))}
+                          className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                        >
+                          {sites.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{c.site?.name ?? "—"}</span>
+                      )}
                     </td>
                     <td className="py-2 pr-4">
                       <Badge tone={c.active ? "CONFIRME" : "ANNULE"}>
                         {c.active ? "Actif" : "Inactif"}
                       </Badge>
                     </td>
-                    <td className="py-2">
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" onClick={() => toggleActive(c)}>
-                          {c.active ? "Désactiver" : "Activer"}
-                        </Button>
-                        {canManage && (
+                    {canManage && (
+                      <td className="py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="secondary" onClick={() => toggleActive(c)}>
+                            {c.active ? "Désactiver" : "Activer"}
+                          </Button>
                           <Button variant="danger" onClick={() => remove(c)}>
                             Supprimer
                           </Button>
-                        )}
-                      </div>
-                    </td>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

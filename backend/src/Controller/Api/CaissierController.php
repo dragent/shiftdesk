@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -106,7 +107,7 @@ class CaissierController extends AbstractApiController
     }
 
     #[Route('/{id}', name: 'api_caissiers_update', methods: ['PUT', 'PATCH'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(int $id, Request $request, #[CurrentUser] User $currentUser): JsonResponse
     {
         $caissier = $this->findCaissierOrNull($id);
         if (!$caissier) {
@@ -114,6 +115,23 @@ class CaissierController extends AbstractApiController
         }
 
         $data = $this->decode($request->getContent());
+
+        if (!empty($data['password'])) {
+            return $this->respondError('Le mot de passe se change depuis le profil de l\'employé.', 403);
+        }
+
+        $receptionOnly = $currentUser->hasRole(UserRole::HOTE)
+            && !$currentUser->hasRole(UserRole::DIRECTION)
+            && !$currentUser->hasRole(UserRole::ADMIN);
+        if ($receptionOnly) {
+            $forbidden = array_diff(array_keys($data), ['cashierNumber']);
+            if ($forbidden !== []) {
+                return $this->respondError(
+                    'L\'accueil ne peut modifier que le numéro de caissier.',
+                    403,
+                );
+            }
+        }
 
         if (array_key_exists('firstName', $data)) {
             $caissier->setFirstName($data['firstName']);
@@ -144,12 +162,6 @@ class CaissierController extends AbstractApiController
                     ? (string) $data['cashierNumber']
                     : null,
             );
-        }
-        if (!empty($data['password'])) {
-            if (strlen($data['password']) < 8) {
-                return $this->respondError('Le mot de passe doit contenir au moins 8 caractères.', 422);
-            }
-            $caissier->setPassword($this->passwordHasher->hashPassword($caissier, $data['password']));
         }
 
         $violations = $this->validator->validate($caissier);

@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Enum\UserRole;
 use App\Repository\SiteRepository;
 use App\Repository\UserRepository;
+use App\Security\RoleAssignmentPolicy;
 use App\Service\RecruitmentMailer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +33,7 @@ class UserController extends AbstractApiController
         private readonly ValidatorInterface $validator,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RecruitmentMailer $recruitmentMailer,
+        private readonly RoleAssignmentPolicy $roleAssignment,
     ) {
         parent::__construct($serializer);
     }
@@ -58,7 +60,7 @@ class UserController extends AbstractApiController
     }
 
     #[Route('', name: 'api_users_create', methods: ['POST'])]
-    public function create(Request $request): JsonResponse
+    public function create(Request $request, #[CurrentUser] User $currentUser): JsonResponse
     {
         $data = $this->decode($request->getContent());
 
@@ -66,11 +68,16 @@ class UserController extends AbstractApiController
             return $this->respondError('Un compte existe déjà avec cet email.', 409);
         }
 
+        $targetRole = $this->roleAssignment->parse((string) ($data['role'] ?? 'HOTE'));
+        if (!$this->roleAssignment->canAssign($currentUser, $targetRole)) {
+            return $this->respondError('Vous ne pouvez pas attribuer ce rôle.', 403);
+        }
+
         $user = new User();
         $user->setEmail($data['email'] ?? '');
         $user->setFirstName($data['firstName'] ?? '');
         $user->setLastName($data['lastName'] ?? '');
-        $user->setRoles($this->resolveRoles($data['role'] ?? 'HOTE'));
+        $user->setRoles([$targetRole->value]);
         $user->setPhone($data['phone'] ?? null);
 
         if (array_key_exists('contractMinutes', $data)) {
@@ -86,8 +93,9 @@ class UserController extends AbstractApiController
         }
 
         // Recruitment no longer collects a provisional password in the form: a
-        // temporary one is generated and emailed to the employee.
-        $plainPassword = $data['password'] ?? null;
+        // temporary one is generated and emailed to the employee. Only an
+        // administrator may set a known password at creation (admin UI).
+        $plainPassword = $currentUser->hasRole(UserRole::ADMIN) ? ($data['password'] ?? null) : null;
         if ($plainPassword && strlen((string) $plainPassword) < 8) {
             return $this->respondError('Le mot de passe doit contenir au moins 8 caractères.', 422);
         }
@@ -113,7 +121,7 @@ class UserController extends AbstractApiController
     }
 
     #[Route('/{id}', name: 'api_users_update', methods: ['PUT', 'PATCH'])]
-    public function update(int $id, Request $request): JsonResponse
+    public function update(int $id, Request $request, #[CurrentUser] User $currentUser): JsonResponse
     {
         $user = $this->userRepository->find($id);
         if (!$user) {
@@ -121,6 +129,10 @@ class UserController extends AbstractApiController
         }
 
         $data = $this->decode($request->getContent());
+
+        if (!empty($data['password'])) {
+            return $this->respondError('Le mot de passe se change depuis le profil de l\'employé.', 403);
+        }
 
         if (array_key_exists('firstName', $data)) {
             $user->setFirstName($data['firstName']);
@@ -132,7 +144,11 @@ class UserController extends AbstractApiController
             $user->setEmail($data['email']);
         }
         if (array_key_exists('role', $data)) {
-            $user->setRoles($this->resolveRoles($data['role']));
+            $targetRole = $this->roleAssignment->parse((string) $data['role']);
+            if (!$this->roleAssignment->canAssign($currentUser, $targetRole)) {
+                return $this->respondError('Vous ne pouvez pas attribuer ce rôle.', 403);
+            }
+            $user->setRoles([$targetRole->value]);
         }
         if (array_key_exists('active', $data)) {
             $user->setActive((bool) $data['active']);
@@ -161,9 +177,6 @@ class UserController extends AbstractApiController
         }
         if (array_key_exists('contractMinutes', $data)) {
             $user->setContractMinutes((int) $data['contractMinutes']);
-        }
-        if (!empty($data['password'])) {
-            $user->setPassword($this->passwordHasher->hashPassword($user, $data['password']));
         }
 
         $violations = $this->validator->validate($user);
@@ -215,14 +228,4 @@ class UserController extends AbstractApiController
         return $date !== false && $date->format('Y-m-d') === $value;
     }
 
-    /**
-     * @return list<string>
-     */
-    private function resolveRoles(string $role): array
-    {
-        $role = strtoupper($role);
-        $enum = UserRole::tryFrom('ROLE_'.$role) ?? UserRole::tryFrom($role);
-
-        return $enum ? [$enum->value] : [UserRole::HOTE->value];
-    }
 }
