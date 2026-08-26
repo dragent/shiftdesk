@@ -1,11 +1,9 @@
 # ShiftDesk — Gestion de l'accueil
 
-Application de gestion de l'accueil pour un site Carrefour : gestion des
-**pauses** des hôtes/hôtesses, **plannings** créés par la Direction,
-**demandes/interactions** classées par catégorie (dropdown configurable :
-*Caroline*, *Siebel*, *Menu Carrefour*, ...), et une brique **IA de
-supervision de planning** (architecture prête, extensible avec de vrais
-modèles ML).
+Application de gestion d'un site Carrefour : **plannings** (équipe et
+individuel), **pauses** et **demandes** d'accueil, **employés** (Direction),
+**notes** de consigne, et une brique **IA de supervision de planning**
+(architecture prête, extensible avec de vrais modèles ML).
 
 ## Stack technique
 
@@ -37,19 +35,29 @@ shiftdesk/
 - Enregistrer une demande/interaction, classée via un menu déroulant de
   catégories entièrement configurable par un administrateur (ex.
   *Caroline*, *Siebel*, *Menu Carrefour*).
+- Consulter son planning, le plan de caisse, et les notes Direction → Accueil.
+
+### Équipe magasin (`ROLE_CAISSIER`, `ROLE_LAD`, `ROLE_RAYON`, `ROLE_SECURITE`)
+- Consulter son planning et son profil (email / téléphone modifiables).
 
 ### Direction (rôle `ROLE_DIRECTION`)
-- Créer et gérer les plannings (créneaux de travail) des hôtes/hôtesses,
-  vue par semaine.
+- Créer et gérer les plannings (créneaux de travail) de toute l'équipe,
+  vue par semaine, avec impression (signatures de présence).
+- Gérer les employés (recrutement, licenciement, fiches) et les absences.
+- **Notes de consigne** (canal interne Direction, ou partagé avec l'accueil).
 - **Supervision IA du planning** : détection automatique de
   sous-effectifs, surcharges et conflits de pauses, avec possibilité de
   lancer une analyse à la demande et de traiter les alertes.
 
 ### Administration (rôle `ROLE_ADMIN`)
-- Gestion des comptes utilisateurs (Direction, Hôtes/Hôtesses).
+- Gestion des comptes utilisateurs (tous les rôles).
 - Gestion des sites.
 - Gestion des catégories de demandes (le contenu du dropdown côté
   accueil), sans redéploiement.
+- Seul rôle autorisé à attribuer `ROLE_ADMIN`.
+
+Le `RoleGuard` frontend n'est **pas** une barrière : l'API refuse les
+actions hors rôle. Voir [doc/audit-securite.md](doc/audit-securite.md).
 
 ## Module IA — Supervision de planning
 
@@ -134,16 +142,20 @@ son mode de secours basé sur des règles simples (voir plus haut).
 
 ### Comptes de démonstration
 
-Créés par `php bin/console app:seed-demo` (mot de passe identique pour
-tous) :
+Créés par `php bin/console app:seed-demo` :
 
 | Email | Rôle |
 |---|---|
 | `admin@carrefour-accueil.local` | Administrateur |
 | `direction@carrefour-accueil.local` | Direction |
 | `hote@carrefour-accueil.local` | Hôte/hôtesse d'accueil |
+| `lad@carrefour-accueil.local` | LAD |
+| `rayon@carrefour-accueil.local` | Rayon |
+| `securite@carrefour-accueil.local` | Sécurité |
+| `sophie.durand@caissier.carrefour-accueil.local` | Caissier(ère) |
 
-Mot de passe : `Password123!`
+Mot de passe : `Password123!` (identique pour tous, y compris les autres
+caissiers de démo `julie.martin@…` et `karim.benali@…`).
 
 ## Lancer le projet entièrement via Docker
 
@@ -169,16 +181,20 @@ démonstration (`docker/entrypoint.sh`).
 ## Modèle de données (résumé)
 
 - **Site** : un point d'accueil (magasin/site).
-- **User** : compte avec un rôle (`ROLE_ADMIN`, `ROLE_DIRECTION`,
-  `ROLE_HOTE`), rattaché à un site.
-- **Planning** : créneau de travail (date, heure début/fin, statut),
-  créé par la Direction pour un hôte/hôtesse.
-- **Pause** : pause démarrée/terminée en temps réel par un hôte/hôtesse,
+- **User** : compte rattaché à un site, avec un rôle métier
+  (`ROLE_ADMIN`, `ROLE_DIRECTION`, `ROLE_HOTE`, `ROLE_CAISSIER`,
+  `ROLE_LAD`, `ROLE_RAYON`, `ROLE_SECURITE`).
+- **Planning** : créneau de travail (date, heure début/fin, n° de caisse
+  éventuel), créé par la Direction pour un employé.
+- **Absence** : congé / maladie / autre, saisie par la Direction.
+- **Pause** : pause démarrée/terminée en temps réel par l'accueil,
   éventuellement rattachée à un planning.
 - **RequestCategory** : catégorie affichée dans le dropdown de saisie des
   demandes (ex. Caroline, Siebel, Menu Carrefour), gérée par l'admin.
 - **AccueilRequest** : une demande/interaction traitée à l'accueil,
   classée par catégorie.
+- **DirectionNote** : consigne Direction (canal interne ou Accueil),
+  avec lecteurs et clôture.
 - **PlanningInsight** : une alerte générée par le module IA de
   supervision de planning (sous-effectif, surcharge, conflit de pause...).
 
@@ -202,10 +218,14 @@ Les règles métier critiques sont extraites en services testables
 (`PlanningBreakRule`, `RegisterAssignmentValidator`, `LocalPlanningAnalyzer`)
 afin de pouvoir les couvrir en TDD sans base de données.
 
+Les permissions API sont couvertes par des **tests négatifs** (échec si un
+rôle gagne trop d'accès) : `PermissionAccessApiTest` (matrice des routes)
+et `AuthorizationBoundaryApiTest` (champs sensibles, JWT désactivé).
+
 | Zone | Commande |
 |---|---|
 | Backend (Unit + Integration) | `cd backend && php bin/phpunit` |
-| Frontend (Vitest) | `cd frontend && npm test` |
+| Frontend (Vitest + ESLint) | `cd frontend && npm test` puis `npm run lint` |
 | AI service (pytest) | `cd ai-service && pytest` |
 
 Le workflow GitHub Actions (`.github/workflows/ci.yml`) exécute ces suites
@@ -215,12 +235,11 @@ sur chaque push/PR vers `dev` ou `main`.
 
 - Enrichir le module IA avec un vrai modèle de prévision d'affluence
   (historique de fréquentation → dimensionnement du planning).
-- Étendre les tests d'intégration API authentifiés (JWT) au-delà du smoke
-  auth actuel (`AuthApiTest`).
 - Notifications temps réel (ex. Mercure) lors d'une alerte IA critique
   ou d'une nouvelle demande urgente.
-- Gestion multi-sites plus fine (filtrage par site sur tous les écrans
-  Direction/Admin).
+- Durcir le multi-sites (IDOR notes, `GET /api/users` / absences /
+  planning filtrés par site) — backlog dans
+  [doc/audit-securite.md](doc/audit-securite.md).
 
 ## Impression du planning (Direction)
 
