@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Alert, Button, Card } from "@/components/ui";
 import {
@@ -126,16 +126,20 @@ function ContactForm({
   profile: User;
   onSave: (payload: ContactUpdate) => Promise<void>;
 }) {
-  const [email, setEmail] = useState(profile.email);
-  const [phone, setPhone] = useState(profile.phone ?? "");
+  const savedEmail = profile.email;
+  const savedPhone = profile.phone ?? "";
+  const [source, setSource] = useState({ email: savedEmail, phone: savedPhone });
+  const [email, setEmail] = useState(savedEmail);
+  const [phone, setPhone] = useState(savedPhone);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    setEmail(profile.email);
-    setPhone(profile.phone ?? "");
-  }, [profile.email, profile.phone]);
+  if (savedEmail !== source.email || savedPhone !== source.phone) {
+    setSource({ email: savedEmail, phone: savedPhone });
+    setEmail(savedEmail);
+    setPhone(savedPhone);
+  }
 
   const dirty = email.trim() !== profile.email || phone.trim() !== (profile.phone ?? "");
 
@@ -205,20 +209,21 @@ function JobForm({
 }) {
   const jobKey = selectableJobKey(profile);
   const contractMinutes = profile.contractMinutes ?? 0;
-  const initialParts = contractPartsFromMinutes(contractMinutes);
+  const parts = contractPartsFromMinutes(contractMinutes);
+  const [source, setSource] = useState({ jobKey, contractMinutes });
   const [role, setRole] = useState(jobKey);
-  const [hours, setHours] = useState(String(initialParts.hours));
-  const [extraMinutes, setExtraMinutes] = useState(initialParts.extraMinutes);
+  const [hours, setHours] = useState(String(parts.hours));
+  const [extraMinutes, setExtraMinutes] = useState(parts.extraMinutes);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    const parts = contractPartsFromMinutes(contractMinutes);
+  if (jobKey !== source.jobKey || contractMinutes !== source.contractMinutes) {
+    setSource({ jobKey, contractMinutes });
     setRole(jobKey);
     setHours(String(parts.hours));
     setExtraMinutes(parts.extraMinutes);
-  }, [jobKey, contractMinutes]);
+  }
 
   const nextMinutes = contractMinutesFromParts(hours, extraMinutes);
   const dirty = role !== jobKey || nextMinutes !== contractMinutes;
