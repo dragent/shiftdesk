@@ -77,3 +77,24 @@ Messages clairs, style conventionnel :
 - `docs: …` — documentation
 
 Un commit = une intention. Éviter les commits fourre-tout.
+
+## Sécurité — développeur seul
+
+Le `RoleGuard` frontend **n’est pas** une barrière : l’API doit refuser
+toute action qu’un rôle n’a pas le droit de faire. Les tests positifs
+(« X peut faire Y ») ne suffisent pas ; il faut des **tests négatifs**
+(« X ne peut pas faire Z ») qui cassent si un rôle gagne trop d’accès.
+
+Après tout changement d’auth / permissions / rôles :
+
+1. Ajouter ou étendre un test d’intégration négatif
+   (`AuthorizationBoundaryApiTest` pour les champs sensibles,
+   `PermissionAccessApiTest` pour la matrice des routes).
+2. Lancer une **revue sécurité indépendante** (`/review-security`) — autre
+   agent, sans le contexte de la session qui a écrit le code.
+3. Faire un **audit à froid** : relire le code de sécurité dans une
+   **session neuve**, pas dans celle qui a produit le changement.
+
+Ne pas merger / ne pas clôturer tant que ces trois filets n’ont pas été
+passés. Compte rendu et backlog : [doc/audit-securite.md](doc/audit-securite.md).
+Règle agent : `.cursor/rules/security-cold-audit.mdc`.

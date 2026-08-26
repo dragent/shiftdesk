@@ -1,0 +1,29 @@
+---
+description: Après un changement d'auth/permissions, exiger un second regard indépendant et un audit à froid en session neuve
+globs: backend/config/packages/security.yaml,backend/src/Controller/**/*.php,backend/src/Security/**/*.php,backend/src/Entity/User.php,frontend/src/components/RoleGuard.tsx,frontend/src/lib/AuthContext.tsx
+alwaysApply: false
+---
+
+# Sécurité — audit à froid (développeur seul)
+
+`RoleGuard` et le menu frontend ne sont **pas** une barrière. Toute
+permission se décide côté API (`security.yaml` + contrôleur).
+
+## Avant de clôturer un changement d’auth / rôles / JWT
+
+1. **Tests négatifs** : un rôle de trop d’accès doit faire échouer la CI.
+   Voir `doc/audit-securite.md`.
+2. **Second regard indépendant** : lancer `/review-security` (agent distinct,
+   sans l’historique de la session qui a écrit le code).
+3. **Audit à froid** : ne pas relire le code de sécurité dans la même
+   session. Ouvrir une session neuve et revérifier les points ci-dessous.
+
+## Points à revérifier à froid
+
+- Un rôle peut-il s’attribuer un rôle plus élevé (ex. Direction → Admin) ?
+- Un `PATCH` trop large permet-il mot de passe / `active` / email hors UI ?
+- Un JWT reste-t-il valable après désactivation (`UserChecker`) ?
+- Un accès par id (notes, users, caissiers) ignore-t-il le site ?
+
+Si le correctif et la relecture sont dans la même session, le filet
+n’a pas été utilisé.
