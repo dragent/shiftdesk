@@ -2,6 +2,8 @@ export const queryKeys = {
   me: ["me"] as const,
   unreadNotes: ["direction-notes", "unread"] as const,
   employeesPage: ["employees-page"] as const,
+  jobsPage: ["jobs-page"] as const,
+  jobsCatalog: ["jobs-catalog"] as const,
   user: (id: number) => ["users", id] as const,
   caissiersPage: ["caissiers-page"] as const,
   demandesPage: ["demandes-page"] as const,

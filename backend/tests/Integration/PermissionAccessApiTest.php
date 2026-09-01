@@ -86,8 +86,10 @@ final class PermissionAccessApiTest extends WebTestCase
     private static function operations(): array
     {
         $admin = [UserRole::ADMIN];
-        $management = [UserRole::ADMIN, UserRole::DIRECTION];
-        $accueil = [UserRole::ADMIN, UserRole::DIRECTION, UserRole::HOTE];
+        // Directeur/rice est un métier de la catégorie Direction : il porte
+        // ROLE_DIRECTION et suit donc exactement les mêmes accès.
+        $management = [UserRole::ADMIN, UserRole::DIRECTEUR, UserRole::DIRECTION];
+        $accueil = [UserRole::ADMIN, UserRole::DIRECTEUR, UserRole::DIRECTION, UserRole::HOTE];
         $authenticated = UserRole::cases();
         // Ids that must not match fixtures, so allowed DELETE/PATCH never
         // destroy accounts or the site used by later requests.
@@ -109,6 +111,10 @@ final class PermissionAccessApiTest extends WebTestCase
             ['POST', '/api/users', $management],
             ['PATCH', '/api/users/'.$id, $management],
             ['DELETE', '/api/users/'.$id, $management],
+
+            ['GET', '/api/jobs', $management],
+            ['POST', '/api/jobs', $management],
+            ['DELETE', '/api/jobs/'.$id, $management],
 
             ['GET', '/api/caissiers', $accueil],
             ['POST', '/api/caissiers', $management],

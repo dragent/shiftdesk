@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AppShell } from "./AppShell";
 import type { User } from "@/lib/types";
 
@@ -50,5 +51,27 @@ describe("AppShell — accès au profil", () => {
       expect(link).toHaveAttribute("href", "/profil");
     }
     expect(screen.getAllByText("Claire Bernard").length).toBeGreaterThan(0);
+  });
+});
+
+describe("AppShell — dropdown Direction", () => {
+  it("ouvre Gestion Jobs depuis le dernier onglet de la barre", async () => {
+    pathname.value = "/dashboard";
+    render(
+      <AppShell>
+        <p>contenu</p>
+      </AppShell>,
+    );
+
+    const tabs = screen.getByRole("navigation", { name: "Navigation principale" });
+    const trigger = within(tabs).getByRole("button", { name: /Direction/ });
+    expect(within(tabs).getAllByRole("button").at(-1)).toBe(trigger);
+
+    await userEvent.click(trigger);
+
+    expect(within(tabs).getByRole("menuitem", { name: "Gestion Jobs" })).toHaveAttribute(
+      "href",
+      "/direction/gestion-jobs",
+    );
   });
 });

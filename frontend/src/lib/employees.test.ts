@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildStatusGroups,
+  CATEGORY_DEFS,
   contractMinutesFromParts,
   contractPartsFromMinutes,
   countByCategory,
+  countByJob,
   isDevToolsEnabled,
+  JOB_CATEGORY_DEFS,
   MAX_CONTRACT_MINUTES,
   formatDateFR,
   canViewUserProfile,
@@ -20,10 +23,12 @@ import {
   positionLabel,
   userInitials,
   RECRUITMENT_CATEGORIES,
+  recruitmentCategoriesFromJobs,
+  categoryDefsFromJobs,
   sortByName,
   todayISO,
 } from "./employees";
-import type { User, UserRole } from "./types";
+import type { Job, User, UserRole } from "./types";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -230,7 +235,7 @@ describe("jobTitle", () => {
   it("donne l'intitulé du poste au singulier", () => {
     expect(jobTitle(user("Durand", "Sophie", "ROLE_CAISSIER"))).toBe("Caissier(ère)");
     expect(jobTitle(user("Martin", "Léa", "ROLE_HOTE"))).toBe("Hôte(sse) d'accueil");
-    expect(jobTitle(user("Bernard", "Claire", "ROLE_DIRECTION"))).toBe("Direction");
+    expect(jobTitle(user("Bernard", "Claire", "ROLE_DIRECTEUR"))).toBe("Directeur/rice");
   });
 
   it("distingue l'administrateur des comptes sans poste", () => {
@@ -309,7 +314,7 @@ describe("countByCategory", () => {
       user("Durand", "Sophie", "ROLE_CAISSIER"),
       user("Martin", "Léa", "ROLE_HOTE"),
       user("Petit", "Marc", "ROLE_LAD", { active: false }),
-      user("Bernard", "Claire", "ROLE_DIRECTION"),
+      user("Bernard", "Claire", "ROLE_DIRECTEUR"),
       user("Admin", "Super", "ROLE_ADMIN"),
     ]);
 
@@ -320,6 +325,39 @@ describe("countByCategory", () => {
       RAYON: 0,
       AUTRES: 1,
     });
+  });
+});
+
+describe("countByJob", () => {
+  it("compte les employés en poste, poste par poste", () => {
+    const counts = countByJob([
+      user("Durand", "Sophie", "ROLE_CAISSIER"),
+      user("Bernard", "Claire", "ROLE_CAISSIER"),
+      user("Martin", "Léa", "ROLE_HOTE"),
+      user("Robert", "Nadia", "ROLE_DIRECTEUR"),
+    ]);
+
+    expect(counts.CAISSIER).toBe(2);
+    expect(counts.HOTE).toBe(1);
+    expect(counts.DIRECTEUR).toBe(1);
+    expect(counts.LAD).toBe(0);
+    expect(counts.SECURITE).toBe(0);
+    expect(counts.RAYON).toBe(0);
+  });
+
+  it("exclut les licenciés du poste", () => {
+    const counts = countByJob([
+      user("Durand", "Sophie", "ROLE_CAISSIER"),
+      user("Petit", "Marc", "ROLE_CAISSIER", { active: false, dismissedAt: "2026-07-01" }),
+    ]);
+
+    expect(counts.CAISSIER).toBe(1);
+  });
+
+  it("range les comptes sans poste métier dans « Autres »", () => {
+    const counts = countByJob([user("Admin", "Super", "ROLE_ADMIN")]);
+
+    expect(counts.AUTRES).toBe(1);
   });
 });
 
@@ -390,6 +428,26 @@ describe("buildStatusGroups", () => {
   });
 });
 
+describe("Direction vs Directeur/rice", () => {
+  it("traite Direction comme catégorie et Directeur/rice comme métier", () => {
+    expect(JOB_CATEGORY_DEFS[0]).toEqual({
+      key: "DIRECTION",
+      label: "Direction",
+      shortLabel: "Direction",
+    });
+    expect(CATEGORY_DEFS[0].key).toBe("DIRECTION");
+    expect(CATEGORY_DEFS[0].label).toBe("Direction");
+    expect(CATEGORY_DEFS[0].groups).toEqual([
+      {
+        key: "DIRECTEUR",
+        label: "Directeur/rice",
+        shortLabel: "Directeur/rice",
+        role: "ROLE_DIRECTEUR",
+      },
+    ]);
+  });
+});
+
 describe("RECRUITMENT_CATEGORIES", () => {
   it("propose les postes groupés par catégorie, sans « Autres »", () => {
     expect(RECRUITMENT_CATEGORIES.map((category) => category.key)).toEqual([
@@ -411,6 +469,63 @@ describe("RECRUITMENT_CATEGORIES", () => {
     const direction = RECRUITMENT_CATEGORIES.find((c) => c.key === "DIRECTION");
 
     expect(direction?.jobs).toHaveLength(1);
-    expect(direction?.jobs[0]).toEqual({ value: "DIRECTION", label: "Direction" });
+    expect(direction?.jobs[0]).toEqual({ value: "DIRECTEUR", label: "Directeur/rice" });
+  });
+});
+
+describe("catalogue de jobs", () => {
+  const extra: Job = {
+    id: 9,
+    code: "CHEF_DE_CAISSE",
+    label: "Chef de caisse",
+    category: "ACCUEIL_CAISSE",
+    protected: false,
+    grantsRole: "ROLE_CAISSIER",
+  };
+
+  it("retombe sur les métiers d'origine tant que le catalogue est vide", () => {
+    expect(categoryDefsFromJobs([]).map((category) => category.key)).toEqual(
+      CATEGORY_DEFS.map((category) => category.key),
+    );
+    expect(categoryDefsFromJobs([])[0].groups.map((group) => group.key)).toEqual(["DIRECTEUR"]);
+  });
+
+  it("range un métier ajouté dans sa catégorie", () => {
+    const defs = categoryDefsFromJobs([
+      {
+        id: 1,
+        code: "DIRECTEUR",
+        label: "Directeur/rice",
+        category: "DIRECTION",
+        protected: true,
+        grantsRole: "ROLE_DIRECTEUR",
+      },
+      extra,
+    ]);
+    const accueil = defs.find((category) => category.key === "ACCUEIL_CAISSE");
+    expect(accueil?.groups.map((group) => group.key)).toEqual(["CHEF_DE_CAISSE"]);
+    expect(defs.map((category) => category.key)).toEqual([
+      "DIRECTION",
+      "ACCUEIL_CAISSE",
+      "SECURITE",
+      "RAYON",
+      "AUTRES",
+    ]);
+    expect(recruitmentCategoriesFromJobs([extra])[0].jobs[0]).toEqual({
+      value: "CHEF_DE_CAISSE",
+      label: "Chef de caisse",
+    });
+    expect(recruitmentCategoriesFromJobs([extra]).some((category) => category.key === "AUTRES")).toBe(
+      false,
+    );
+  });
+
+  it("compte un employé sur le métier du catalogue plutôt que sur le rôle d'accès", () => {
+    const chef = user("Martin", "Paul", "ROLE_CAISSIER", { job: extra });
+    expect(groupKeyOf(chef)).toBe("CHEF_DE_CAISSE");
+    expect(countByJob([chef], [extra]).CHEF_DE_CAISSE).toBe(1);
+    expect(jobTitle(chef)).toBe("Chef de caisse");
+    expect(selectableJobKey(chef)).toBe("CHEF_DE_CAISSE");
+    expect(countByCategory([chef], [extra]).ACCUEIL_CAISSE).toBe(1);
   });
 });

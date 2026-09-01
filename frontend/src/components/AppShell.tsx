@@ -42,6 +42,13 @@ const NAV_ITEMS: NavEntry[] = [
   { href: "/direction/supervision-ia", label: "Supervision IA", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ROLE_ADMIN"] },
   { href: "/admin/categories", label: "Catégories", roles: ["ROLE_ADMIN"] },
+  {
+    label: "Direction",
+    roles: ["ROLE_DIRECTION", "ROLE_ADMIN"],
+    items: [
+      { href: "/direction/gestion-jobs", label: "Gestion Jobs", roles: ["ROLE_DIRECTION", "ROLE_ADMIN"] },
+    ],
+  },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {

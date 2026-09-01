@@ -2,6 +2,11 @@ security:
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
+    # Un métier porte les droits de sa catégorie. Doublé côté PHP par
+    # UserRole::impliedRoles(), pour que hasRole() voie les mêmes rôles.
+    role_hierarchy:
+        ROLE_DIRECTEUR: [ROLE_DIRECTION]
+
     providers:
         app_user_provider:
             entity:
@@ -47,6 +52,7 @@ security:
         # et suppression définitive d'un licencié en environnement de dev).
         - { path: ^/api/users, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [GET, POST, PUT, PATCH, DELETE] }
         - { path: ^/api/users, roles: ROLE_ADMIN }
+        - { path: ^/api/jobs, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
         - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET, PUT, PATCH] }
         - { path: ^/api/caissiers, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
         - { path: ^/api/plannings/\d+/register-number, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [PATCH] }

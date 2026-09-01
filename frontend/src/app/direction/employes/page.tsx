@@ -11,7 +11,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { usePageQuery } from "@/lib/usePageQuery";
 import {
   buildStatusGroups,
-  CATEGORY_DEFS,
+  categoryDefsFromJobs,
   CONTRACT_MINUTE_OPTIONS,
   contractMinutesFromParts,
   countByCategory,
@@ -24,14 +24,15 @@ import {
   isDevToolsEnabled,
   MAX_CONTRACT_HOURS,
   normalize,
-  RECRUITMENT_CATEGORIES,
+  recruitmentCategoriesFromJobs,
   todayISO,
   type CategoryKey,
 } from "@/lib/employees";
-import type { AbsenceReason, Site, User } from "@/lib/types";
+import type { AbsenceReason, Job, Site, User } from "@/lib/types";
 
 const EMPTY_USERS: User[] = [];
 const EMPTY_SITES: Site[] = [];
+const EMPTY_JOBS: Job[] = [];
 
 /** Default hours for a sick leave (full store day). */
 const DEFAULT_ARRET_START = "07:00";
@@ -51,15 +52,17 @@ function EmployesContent() {
   const { data, loading, error, setError, refetch } = usePageQuery({
     queryKey: queryKeys.employeesPage,
     queryFn: async () => {
-      const [users, sites] = await Promise.all([
+      const [users, sites, jobs] = await Promise.all([
         api.get<User[]>("/api/users"),
         api.get<Site[]>("/api/sites"),
+        api.get<Job[]>("/api/jobs"),
       ]);
-      return { users, sites };
+      return { users, sites, jobs };
     },
   });
   const users = data?.users ?? EMPTY_USERS;
   const sites = data?.sites ?? EMPTY_SITES;
+  const jobs = data?.jobs ?? EMPTY_JOBS;
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -96,11 +99,13 @@ function EmployesContent() {
   const searchTerm = normalize(search.trim());
   const searching = searchTerm.length > 0;
 
-  const counts = useMemo(() => countByCategory(users), [users]);
+  const counts = useMemo(() => countByCategory(users, jobs), [users, jobs]);
+  const categories = useMemo(() => categoryDefsFromJobs(jobs), [jobs]);
+  const recruitmentCategories = useMemo(() => recruitmentCategoriesFromJobs(jobs), [jobs]);
 
   const groupsByStatus = useMemo(
-    () => buildStatusGroups(users, { category: selectedCategory, searchTerm }),
-    [users, selectedCategory, searchTerm],
+    () => buildStatusGroups(users, { category: selectedCategory, searchTerm, jobs }),
+    [users, selectedCategory, searchTerm, jobs],
   );
 
   function openAbsence(user: User, reason: AbsenceReason) {
@@ -295,7 +300,7 @@ function EmployesContent() {
                 aria-label="Filtrer par catégorie d'employés"
                 className="cf-seg grid grid-cols-2 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:justify-center"
               >
-                {CATEGORY_DEFS.map((category) => {
+                {categories.map((category) => {
                   const count = counts[category.key];
                   const active = !searching && selectedCategory === category.key;
                   return (
@@ -682,7 +687,7 @@ function EmployesContent() {
                   onChange={(e) => setRole(e.target.value)}
                   className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
                 >
-                  {RECRUITMENT_CATEGORIES.map((category) =>
+                  {recruitmentCategories.map((category) =>
                     category.jobs.length === 1 ? (
                       <option key={category.key} value={category.jobs[0].value}>
                         {category.jobs[0].label}

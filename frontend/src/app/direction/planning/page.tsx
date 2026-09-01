@@ -21,13 +21,14 @@ import {
   slotKeyForTime,
   type HalfDayKey,
 } from "@/lib/planning";
-import { formatDateFR, isUnschedulableOnDate } from "@/lib/employees";
-import type { Absence, Planning, StoreClosure, User } from "@/lib/types";
+import { formatDateFR, isUnschedulableOnDate, categoryDefsFromJobs, groupKeyOf } from "@/lib/employees";
+import type { Absence, Job, Planning, StoreClosure, User } from "@/lib/types";
 
 const EMPTY_PLANNINGS: Planning[] = [];
 const EMPTY_ABSENCES: Absence[] = [];
 const EMPTY_CLOSURES: StoreClosure[] = [];
 const EMPTY_USERS: User[] = [];
+const EMPTY_JOBS: Job[] = [];
 
 const HALF_DAY_OPTIONS: { value: HalfDayKey; label: string }[] = [
   { value: "MATIN", label: "Matin" },
@@ -54,7 +55,7 @@ const CATEGORY_DEFS = [
     key: "DIRECTION",
     label: "Direction",
     shortLabel: "Direction",
-    groups: [{ key: "DIRECTION", label: "Direction" }],
+    groups: [{ key: "DIRECTEUR", label: "Directeur/rice" }],
   },
   {
     key: "ACCUEIL_CAISSE",
@@ -79,8 +80,7 @@ const CATEGORY_DEFS = [
     groups: [{ key: "RAYON", label: "Rayon" }],
   },
 ] as const;
-type CategoryKey = (typeof CATEGORY_DEFS)[number]["key"];
-type RoleGroupKey = (typeof CATEGORY_DEFS)[number]["groups"][number]["key"];
+type CategoryKey = string;
 
 function toISODate(date: Date): string {
   // Formatted in local time (not toISOString(), which converts to UTC and
@@ -149,35 +149,26 @@ function PlanningContent() {
   const { data, loading, error, setError, refetch } = usePageQuery({
     queryKey: queryKeys.directionPlanning(from, to),
     queryFn: async () => {
-      const [plannings, absences, closures, usersData] = await Promise.all([
+      const [plannings, absences, closures, usersData, jobs] = await Promise.all([
         api.get<Planning[]>(`/api/plannings?from=${from}&to=${to}`),
         api.get<Absence[]>(`/api/absences?from=${from}&to=${to}`),
         api.get<StoreClosure[]>(`/api/store-closures?from=${from}&to=${to}`),
         api.get<User[]>("/api/users"),
+        api.get<Job[]>("/api/jobs"),
       ]);
       const employed = usersData.filter((u) => u.active);
-      return {
-        plannings,
-        absences,
-        closures,
-        caissiers: employed.filter((u) => u.roles?.includes("ROLE_CAISSIER")),
-        lad: employed.filter((u) => u.roles?.includes("ROLE_LAD")),
-        hotes: employed.filter((u) => u.roles?.includes("ROLE_HOTE")),
-        directionStaff: employed.filter((u) => u.roles?.includes("ROLE_DIRECTION")),
-        rayon: employed.filter((u) => u.roles?.includes("ROLE_RAYON")),
-        securite: employed.filter((u) => u.roles?.includes("ROLE_SECURITE")),
-      };
+      return { plannings, absences, closures, users: employed, jobs };
     },
   });
   const plannings = data?.plannings ?? EMPTY_PLANNINGS;
   const absences = data?.absences ?? EMPTY_ABSENCES;
   const closures = data?.closures ?? EMPTY_CLOSURES;
-  const caissiers = data?.caissiers ?? EMPTY_USERS;
-  const lad = data?.lad ?? EMPTY_USERS;
-  const hotes = data?.hotes ?? EMPTY_USERS;
-  const directionStaff = data?.directionStaff ?? EMPTY_USERS;
-  const rayon = data?.rayon ?? EMPTY_USERS;
-  const securite = data?.securite ?? EMPTY_USERS;
+  const users = data?.users ?? EMPTY_USERS;
+  const jobs = data?.jobs ?? EMPTY_JOBS;
+  const categoryDefs = useMemo(() => {
+    const fromApi = categoryDefsFromJobs(jobs).filter((category) => category.key !== "AUTRES");
+    return fromApi.some((category) => category.groups.length > 0) ? fromApi : CATEGORY_DEFS;
+  }, [jobs]);
 
   // Groups slots by employee + day + half-day for fast O(1) access from the
   // grid.
@@ -340,48 +331,40 @@ function PlanningContent() {
     }
   }
 
-  const noEmployees =
-    caissiers.length === 0 &&
-    lad.length === 0 &&
-    hotes.length === 0 &&
-    directionStaff.length === 0 &&
-    rayon.length === 0 &&
-    securite.length === 0;
+  const noEmployees = users.length === 0;
   const todayISO = toISODate(new Date());
 
-  // Employees by role (sub-group), reused for filters, printing and the grid.
-  const usersByRoleGroup: Record<RoleGroupKey, User[]> = useMemo(
-    () => ({
-      CAISSIER: caissiers,
-      LAD: lad,
-      HOTE: hotes,
-      SECURITE: securite,
-      RAYON: rayon,
-      DIRECTION: directionStaff,
-    }),
-    [caissiers, lad, hotes, securite, rayon, directionStaff],
-  );
+  const usersByRoleGroup: Record<string, User[]> = useMemo(() => {
+    const map: Record<string, User[]> = {};
+    for (const cat of categoryDefs) {
+      for (const group of cat.groups) {
+        map[group.key] = users.filter((user) => groupKeyOf(user) === group.key);
+      }
+    }
+    return map;
+  }, [categoryDefs, users]);
 
   const usersByCategory = useMemo(() => {
-    const result = {} as Record<CategoryKey, User[]>;
-    for (const cat of CATEGORY_DEFS) {
-      result[cat.key] = cat.groups.flatMap((g) => usersByRoleGroup[g.key]);
+    const result: Record<string, User[]> = {};
+    for (const cat of categoryDefs) {
+      result[cat.key] = cat.groups.flatMap((g) => usersByRoleGroup[g.key] ?? []);
     }
     return result;
-  }, [usersByRoleGroup]);
+  }, [usersByRoleGroup, categoryDefs]);
 
-  // Non-empty sub-groups (for the print selection and the grid sections).
   const employeeGroups = useMemo(
     () =>
-      CATEGORY_DEFS.flatMap((c) =>
-        c.groups.map((g) => ({
-          key: g.key,
-          label: g.label,
-          categoryKey: c.key,
-          users: usersByRoleGroup[g.key],
-        })),
-      ).filter((group) => group.users.length > 0),
-    [usersByRoleGroup],
+      categoryDefs
+        .flatMap((c) =>
+          c.groups.map((g) => ({
+            key: g.key,
+            label: g.label,
+            categoryKey: c.key,
+            users: usersByRoleGroup[g.key] ?? [],
+          })),
+        )
+        .filter((group) => group.users.length > 0),
+    [usersByRoleGroup, categoryDefs],
   );
 
   // Sub-groups of the selected category (e.g. cashiers + LAD + reception).
@@ -446,7 +429,7 @@ function PlanningContent() {
               aria-label="Catégorie d'employés à afficher"
               className="cf-seg grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center"
             >
-              {CATEGORY_DEFS.map((cat) => {
+              {categoryDefs.map((cat) => {
                 const count = usersByCategory[cat.key].length;
                 const active = selectedCategory === cat.key;
                 return (
@@ -478,7 +461,7 @@ function PlanningContent() {
       {error && <Alert>{error}</Alert>}
 
       <Card
-        title={CATEGORY_DEFS.find((c) => c.key === selectedCategory)?.label ?? "Planning"}
+        title={categoryDefs.find((c) => c.key === selectedCategory)?.label ?? "Planning"}
         actions={
           <Button type="button" variant="secondary" onClick={openClosureModal} disabled={loading}>
             Fermeture
@@ -663,7 +646,7 @@ function PlanningContent() {
       siteName={
         visibleEmployeeGroups.flatMap((g) => g.users).find((u) => u.site?.name)?.site?.name ?? null
       }
-      categoryLabel={CATEGORY_DEFS.find((c) => c.key === selectedCategory)?.label ?? null}
+      categoryLabel={categoryDefs.find((c) => c.key === selectedCategory)?.label ?? null}
     />
 
     {closureModalOpen && (

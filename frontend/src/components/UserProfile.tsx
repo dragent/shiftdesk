@@ -11,14 +11,18 @@ import {
   contractPartsFromMinutes,
   formatDateFR,
   fullName,
+  hasProtectedJob,
   jobTitle,
+  recruitmentCategoriesFromJobs,
   selectableJobKey,
   userInitials,
 } from "@/lib/employees";
 import { formatMinutesAsHours } from "@/lib/planning";
-import { ApiError } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
+import { usePageQuery } from "@/lib/usePageQuery";
 import type { ContactUpdate, JobUpdate } from "@/lib/profile";
-import type { User } from "@/lib/types";
+import type { Job, User } from "@/lib/types";
 
 export function UserProfile({
   profile,
@@ -207,7 +211,14 @@ function JobForm({
   profile: User;
   onSave: (payload: JobUpdate) => Promise<void>;
 }) {
+  const { data: jobs = [] } = usePageQuery({
+    queryKey: queryKeys.jobsCatalog,
+    queryFn: () => api.get<Job[]>("/api/jobs"),
+  });
+  const recruitmentCategories =
+    jobs.length > 0 ? recruitmentCategoriesFromJobs(jobs) : RECRUITMENT_CATEGORIES;
   const jobKey = selectableJobKey(profile);
+  const jobLocked = hasProtectedJob(profile);
   const contractMinutes = profile.contractMinutes ?? 0;
   const parts = contractPartsFromMinutes(contractMinutes);
   const [source, setSource] = useState({ jobKey, contractMinutes });
@@ -226,7 +237,7 @@ function JobForm({
   }
 
   const nextMinutes = contractMinutesFromParts(hours, extraMinutes);
-  const dirty = role !== jobKey || nextMinutes !== contractMinutes;
+  const dirty = (!jobLocked && role !== jobKey) || nextMinutes !== contractMinutes;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -235,7 +246,7 @@ function JobForm({
     setSuccess(null);
     try {
       await onSave({
-        ...(role ? { role } : {}),
+        ...(role && !jobLocked ? { role } : {}),
         contractMinutes: nextMinutes,
       });
       setSuccess("Poste et contrat enregistrés.");
@@ -253,12 +264,14 @@ function JobForm({
         <select
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          className="mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
+          disabled={jobLocked}
+          aria-describedby={jobLocked ? "profile-job-locked" : undefined}
+          className="mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
         >
           {jobKey === "" && (
             <option value="">{jobTitle(profile)}</option>
           )}
-          {RECRUITMENT_CATEGORIES.map((category) =>
+          {recruitmentCategories.map((category) =>
             category.jobs.length === 1 ? (
               <option key={category.key} value={category.jobs[0].value}>
                 {category.jobs[0].label}
@@ -275,6 +288,11 @@ function JobForm({
           )}
         </select>
       </label>
+      {jobLocked && (
+        <p id="profile-job-locked" className="-mt-1 text-xs text-slate-500">
+          Le poste de directeur/rice ne peut pas être retiré.
+        </p>
+      )}
 
       <div>
         <span className="block text-sm font-medium text-slate-700">Contrat hebdomadaire</span>
@@ -302,7 +320,12 @@ function JobForm({
           <select
             id="profile-contract-minutes"
             value={extraMinutes}
-            onChange={(e) => setExtraMinutes(Number(e.target.value))}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if ((CONTRACT_MINUTE_OPTIONS as readonly number[]).includes(next)) {
+                setExtraMinutes(next as (typeof CONTRACT_MINUTE_OPTIONS)[number]);
+              }
+            }}
             className="min-h-11 w-20 rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm"
           >
             {CONTRACT_MINUTE_OPTIONS.map((minutes) => (
