@@ -311,8 +311,9 @@ body {
 }
 
 /* --- Navigation (Carrefour-themed tabs) --- */
+/* No `display` here: unlayered CSS would beat the `hidden md:flex` utilities
+   and leak the desktop tab bar into the mobile header. */
 .cf-nav-track {
-  display: flex;
   align-items: center;
 }
 

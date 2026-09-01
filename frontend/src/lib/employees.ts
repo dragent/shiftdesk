@@ -1,4 +1,4 @@
-import type { User, UserRole } from "@/lib/types";
+import type { Job, JobCategoryKey, User, UserRole } from "@/lib/types";
 
 /** Position (sub-group) an employee is attached to in the list. */
 export interface RoleGroup {
@@ -28,7 +28,12 @@ export const CATEGORY_DEFS = [
     label: "Direction",
     shortLabel: "Direction",
     groups: [
-      { key: "DIRECTION", label: "Direction", shortLabel: "Direction", role: "ROLE_DIRECTION" },
+      {
+        key: "DIRECTEUR",
+        label: "Directeur/rice",
+        shortLabel: "Directeur/rice",
+        role: "ROLE_DIRECTEUR",
+      },
     ],
   },
   {
@@ -68,11 +73,72 @@ export const CATEGORY_DEFS = [
 
 export type CategoryKey = (typeof CATEGORY_DEFS)[number]["key"];
 
+export const JOB_CATEGORY_DEFS: { key: JobCategoryKey; label: string; shortLabel: string }[] = [
+  { key: "DIRECTION", label: "Direction", shortLabel: "Direction" },
+  { key: "ACCUEIL_CAISSE", label: "Accueil / Caisse", shortLabel: "Accueil" },
+  { key: "SECURITE", label: "Sécurité", shortLabel: "Sécurité" },
+  { key: "RAYON", label: "Rayon", shortLabel: "Rayon" },
+];
+
+/**
+ * Builds the category / job tree from the API catalogue. Falls back to
+ * {@link CATEGORY_DEFS} when the catalogue has not been loaded yet.
+ */
+export function categoryDefsFromJobs(jobs: readonly Job[]): Category[] {
+  if (jobs.length === 0) {
+    return CATEGORY_DEFS.map((category) => ({
+      ...category,
+      groups: [...category.groups],
+    }));
+  }
+
+  const categories: Category[] = JOB_CATEGORY_DEFS.map((category) => ({
+    key: category.key,
+    label: category.label,
+    shortLabel: category.shortLabel,
+    groups: jobs
+      .filter((job) => job.category === category.key)
+      .map((job) => ({
+        key: job.code,
+        label: job.label,
+        shortLabel: job.label,
+        role: (job.grantsRole ?? null) as UserRole | null,
+      })),
+  }));
+
+  return [
+    ...categories,
+    {
+      key: "AUTRES",
+      label: "Autres",
+      shortLabel: "Autres",
+      groups: [{ key: "AUTRES", label: "Autres", shortLabel: "Autres", role: null }],
+    },
+  ];
+}
+
+export function recruitmentCategoriesFromJobs(jobs: readonly Job[]): {
+  key: string;
+  label: string;
+  jobs: { value: string; label: string }[];
+}[] {
+  return categoryDefsFromJobs(jobs)
+    .filter((category) => category.key !== "AUTRES")
+    .map((category) => ({
+      key: category.key,
+      label: category.label,
+      jobs: category.groups
+        .filter((group) => group.key !== "AUTRES")
+        .map((group) => ({ value: group.key, label: RECRUITMENT_LABELS[group.key] ?? group.label })),
+    }))
+    .filter((category) => category.jobs.length > 0);
+}
+
 export const ROLE_GROUPS: RoleGroup[] = CATEGORY_DEFS.flatMap((category) => [...category.groups]);
 
 /** Job titles offered when recruiting (admin accounts are created on the admin side). */
 const RECRUITMENT_LABELS: Record<string, string> = {
-  DIRECTION: "Direction",
+  DIRECTEUR: "Directeur/rice",
   CAISSIER: "Caissier(ère)",
   LAD: "LAD",
   HOTE: "Hôte(sse) d'accueil",
@@ -211,6 +277,9 @@ export function userInitials(user: Pick<User, "firstName" | "lastName">): string
  * which is the compact team label used in lists.
  */
 export function jobTitle(user: User): string {
+  if (user.job?.label) {
+    return user.job.label;
+  }
   const key = groupKeyOf(user);
   if (key === "AUTRES" && user.roles?.includes("ROLE_ADMIN")) {
     return "Administrateur";
@@ -230,12 +299,27 @@ export function canViewUserProfile(
 /** Management may change anyone's job and weekly contract from the profile. */
 export function canEditJobAndContract(viewer: Pick<User, "roles">): boolean {
   return Boolean(
-    viewer.roles?.includes("ROLE_DIRECTION") || viewer.roles?.includes("ROLE_ADMIN"),
+    viewer.roles?.includes("ROLE_DIRECTEUR") ||
+      viewer.roles?.includes("ROLE_DIRECTION") ||
+      viewer.roles?.includes("ROLE_ADMIN"),
   );
+}
+
+/**
+ * Job that can never be taken away once granted, mirroring
+ * `UserRole::isProtected()` on the API side.
+ */
+export const PROTECTED_JOB_ROLE: UserRole = "ROLE_DIRECTEUR";
+
+export function hasProtectedJob(user: Pick<User, "roles">): boolean {
+  return Boolean(user.roles?.includes(PROTECTED_JOB_ROLE));
 }
 
 /** Recruitment job key, or empty when the account has no business position. */
 export function selectableJobKey(user: User): string {
+  if (user.job?.code) {
+    return user.job.code;
+  }
   const key = groupKeyOf(user);
   return RECRUITMENT_CATEGORIES.some((category) =>
     category.jobs.some((job) => job.value === key),
@@ -244,8 +328,11 @@ export function selectableJobKey(user: User): string {
     : "";
 }
 
-/** Position of an employee: first known role, « Autres » as a fallback. */
+/** Position of an employee: catalogue job, then first known role, « Autres » as a fallback. */
 export function groupKeyOf(user: User): string {
+  if (user.job?.code) {
+    return user.job.code;
+  }
   return ROLE_GROUPS.find((group) => group.role && user.roles?.includes(group.role))?.key ?? "AUTRES";
 }
 
@@ -273,15 +360,28 @@ export function positionLabel(user: User): string {
 }
 
 /** Headcount shown on each button of the category selector. */
-export function countByCategory(users: User[]): Record<CategoryKey, number> {
-  const counts = Object.fromEntries(CATEGORY_DEFS.map((c) => [c.key, 0])) as Record<
-    CategoryKey,
-    number
-  >;
+export function countByCategory(users: User[], jobs: readonly Job[] = []): Record<CategoryKey, number> {
+  const defs = jobs.length > 0 ? categoryDefsFromJobs(jobs) : CATEGORY_DEFS;
+  const counts = Object.fromEntries(defs.map((c) => [c.key, 0])) as Record<CategoryKey, number>;
   for (const user of users) {
     const groupKey = groupKeyOf(user);
-    const category = CATEGORY_DEFS.find((c) => c.groups.some((g) => g.key === groupKey));
-    if (category) counts[category.key] += 1;
+    const category = defs.find((c) => c.groups.some((g) => g.key === groupKey));
+    if (category) counts[category.key as CategoryKey] += 1;
+  }
+  return counts;
+}
+
+/**
+ * Headcount per position, keyed like {@link groupKeyOf}. Dismissed accounts are
+ * left out: only employees still in post are counted.
+ */
+export function countByJob(users: User[], jobs: readonly Job[] = []): Record<string, number> {
+  const keys = jobs.length > 0 ? jobs.map((job) => job.code) : ROLE_GROUPS.map((group) => group.key);
+  const counts: Record<string, number> = Object.fromEntries(keys.map((key) => [key, 0]));
+  for (const user of users) {
+    if (!user.active) continue;
+    const key = groupKeyOf(user);
+    counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
 }
@@ -302,13 +402,17 @@ export interface EmployeeGroup {
  */
 export function buildStatusGroups(
   users: User[],
-  { category, searchTerm }: { category: CategoryKey | null; searchTerm: string },
+  {
+    category,
+    searchTerm,
+    jobs = [],
+  }: { category: CategoryKey | null; searchTerm: string; jobs?: readonly Job[] },
 ): { employed: EmployeeGroup[]; dismissed: EmployeeGroup[] } {
   const searching = searchTerm.length > 0;
+  const defs = jobs.length > 0 ? categoryDefsFromJobs(jobs) : CATEGORY_DEFS;
+  const allGroups = defs.flatMap((c) => [...c.groups]);
   const visibleGroups =
-    searching || !category
-      ? ROLE_GROUPS
-      : CATEGORY_DEFS.find((c) => c.key === category)?.groups ?? [];
+    searching || !category ? allGroups : defs.find((c) => c.key === category)?.groups ?? [];
 
   function buildGroups(subset: User[]): EmployeeGroup[] {
     const matching = searching ? subset.filter((u) => matchesName(u, searchTerm)) : subset;

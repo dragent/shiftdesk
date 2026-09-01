@@ -12,7 +12,7 @@ import type { Site, User } from "@/lib/types";
 const ROLE_OPTIONS = [
   { value: "HOTE", label: "Hôte(sse) d'accueil" },
   { value: "LAD", label: "LAD" },
-  { value: "DIRECTION", label: "Direction" },
+  { value: "DIRECTEUR", label: "Directeur/rice" },
   { value: "RAYON", label: "Rayon" },
   { value: "SECURITE", label: "Sécurité" },
   { value: "ADMIN", label: "Administrateur" },

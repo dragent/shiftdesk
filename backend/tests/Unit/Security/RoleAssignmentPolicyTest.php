@@ -35,6 +35,51 @@ final class RoleAssignmentPolicyTest extends TestCase
         self::assertTrue($this->policy->canAssign($direction, UserRole::CAISSIER));
     }
 
+    public function testOnlyADirecteurAppointsAnotherDirecteur(): void
+    {
+        self::assertTrue(
+            $this->policy->canAssign($this->user(UserRole::DIRECTEUR), UserRole::DIRECTEUR),
+        );
+        self::assertTrue(
+            $this->policy->canAssign($this->user(UserRole::ADMIN), UserRole::DIRECTEUR),
+        );
+        // Holding the category role is not enough to appoint a director.
+        self::assertFalse(
+            $this->policy->canAssign($this->user(UserRole::DIRECTION), UserRole::DIRECTEUR),
+        );
+        self::assertFalse(
+            $this->policy->canAssign($this->user(UserRole::HOTE), UserRole::DIRECTEUR),
+        );
+    }
+
+    public function testDirecteurKeepsEveryRightOfTheDirectionCategory(): void
+    {
+        $directeur = $this->user(UserRole::DIRECTEUR);
+
+        self::assertTrue($directeur->hasRole(UserRole::DIRECTION));
+        self::assertTrue($this->policy->canAssign($directeur, UserRole::CAISSIER));
+        self::assertFalse($this->policy->canAssign($directeur, UserRole::ADMIN));
+    }
+
+    public function testTheDirecteurRoleCanNeverBeTakenAway(): void
+    {
+        $directeur = $this->user(UserRole::DIRECTEUR);
+
+        self::assertFalse($this->policy->canReplaceRole($directeur, UserRole::HOTE));
+        self::assertFalse($this->policy->canReplaceRole($directeur, UserRole::DIRECTION));
+        self::assertFalse($this->policy->canReplaceRole($directeur, UserRole::ADMIN));
+        // Re-applying the same job stays a no-op, not a removal.
+        self::assertTrue($this->policy->canReplaceRole($directeur, UserRole::DIRECTEUR));
+    }
+
+    public function testOtherJobsRemainInterchangeable(): void
+    {
+        $cashier = $this->user(UserRole::CAISSIER);
+
+        self::assertTrue($this->policy->canReplaceRole($cashier, UserRole::LAD));
+        self::assertTrue($this->policy->canReplaceRole($cashier, UserRole::DIRECTEUR));
+    }
+
     public function testReceptionCannotAssignRoles(): void
     {
         $hote = $this->user(UserRole::HOTE);

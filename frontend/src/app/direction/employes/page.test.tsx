@@ -4,7 +4,7 @@ import { renderWithQuery } from "@/test/query";
 import userEvent from "@testing-library/user-event";
 import { api } from "@/lib/api";
 import { todayISO } from "@/lib/employees";
-import type { Site, User, UserRole } from "@/lib/types";
+import type { Job, Site, User, UserRole } from "@/lib/types";
 
 // The page is only reachable by management: the guard and the shell are
 // replaced by their content so the test stays focused on the employee list.
@@ -65,7 +65,7 @@ function employee(
 
 const SOPHIE = employee("Durand", "Sophie", "ROLE_CAISSIER", { phone: "06 12 00 08 08" });
 const LEA = employee("Martin", "Léa", "ROLE_HOTE");
-const CLAIRE = employee("Bernard", "Claire", "ROLE_DIRECTION");
+const CLAIRE = employee("Bernard", "Claire", "ROLE_DIRECTEUR");
 const KARIM = employee("Benali", "Karim", "ROLE_CAISSIER", { dismissedAt: "2026-09-15" });
 const MARC = employee("Petit", "Marc", "ROLE_LAD", { active: false, dismissedAt: "2026-07-01" });
 const JULIE = employee("Martin", "Julie", "ROLE_CAISSIER", {
@@ -76,10 +76,12 @@ const JULIE = employee("Martin", "Julie", "ROLE_CAISSIER", {
 const TEAM = [SOPHIE, LEA, CLAIRE, KARIM, MARC, JULIE];
 const SITES: Site[] = [{ id: 7, name: "Carrefour Market - Test", active: true }];
 
-function renderPage(users: User[] = TEAM, sites: Site[] = SITES) {
-  mockedApi.get.mockImplementation((path: string) =>
-    Promise.resolve(path === "/api/users" ? users : sites),
-  );
+function renderPage(users: User[] = TEAM, sites: Site[] = SITES, jobs: Job[] = []) {
+  mockedApi.get.mockImplementation((path: string) => {
+    if (path === "/api/users") return Promise.resolve(users);
+    if (path === "/api/jobs") return Promise.resolve(jobs);
+    return Promise.resolve(sites);
+  });
   renderWithQuery(<EmployesPage />);
   return userEvent.setup();
 }
@@ -110,7 +112,7 @@ describe("liste des employés", () => {
     const employedCard = employed.closest("section") as HTMLElement;
 
     expect(within(employedCard).getAllByRole("heading", { level: 3 }).map((h) => h.textContent))
-      .toEqual(["Direction", "Caissiers", "Hôtes / hôtesses d'accueil"]);
+      .toEqual(["Directeur/rice", "Caissiers", "Hôtes / hôtesses d'accueil"]);
     expect(within(employedCard).getByRole("link", { name: "Durand Sophie" })).toHaveAttribute(
       "href",
       `/profil/${SOPHIE.id}`,
@@ -340,8 +342,15 @@ describe("absences", () => {
     expect(screen.queryByLabelText("Heure de début")).toBeNull();
 
     const endDate = screen.getByLabelText("Date de fin");
+    const later = new Date(`${todayISO()}T12:00:00`);
+    later.setDate(later.getDate() + 5);
+    const endDateValue = [
+      later.getFullYear(),
+      String(later.getMonth() + 1).padStart(2, "0"),
+      String(later.getDate()).padStart(2, "0"),
+    ].join("-");
     await user.clear(endDate);
-    await user.type(endDate, "2026-08-30");
+    await user.type(endDate, endDateValue);
     await user.click(screen.getByRole("button", { name: "Valider" }));
 
     await waitFor(() =>
@@ -349,7 +358,7 @@ describe("absences", () => {
         userId: SOPHIE.id,
         reason: "CONGE",
         startDate: todayISO(),
-        endDate: "2026-08-30",
+        endDate: endDateValue,
       }),
     );
     expect(await screen.findByText("Congés enregistrés pour Sophie Durand.")).toBeInTheDocument();
@@ -371,7 +380,7 @@ describe("recrutement", () => {
       "Accueil / Caisse",
     ]);
     expect([...select.querySelectorAll(":scope > option")].map((option) => option.value)).toEqual([
-      "DIRECTION",
+      "DIRECTEUR",
       "SECURITE",
       "RAYON",
     ]);
@@ -469,6 +478,71 @@ describe("recrutement", () => {
       expect(mockedApi.post).toHaveBeenCalledWith(
         "/api/users",
         expect.objectContaining({ phone: null }),
+      ),
+    );
+  });
+
+  it("propose un métier ajouté au catalogue dans le recrutement et la liste", async () => {
+    const chefJob: Job = {
+      id: 9,
+      code: "CHEF_DE_CAISSE",
+      label: "Chef de caisse",
+      category: "ACCUEIL_CAISSE",
+      protected: false,
+      grantsRole: "ROLE_CAISSIER",
+    };
+    const catalog: Job[] = [
+      {
+        id: 1,
+        code: "DIRECTEUR",
+        label: "Directeur/rice",
+        category: "DIRECTION",
+        protected: true,
+        grantsRole: "ROLE_DIRECTEUR",
+      },
+      {
+        id: 2,
+        code: "CAISSIER",
+        label: "Caissier(ère)",
+        category: "ACCUEIL_CAISSE",
+        protected: false,
+        grantsRole: "ROLE_CAISSIER",
+      },
+      {
+        id: 3,
+        code: "HOTE",
+        label: "Hôte(sse) d'accueil",
+        category: "ACCUEIL_CAISSE",
+        protected: false,
+        grantsRole: "ROLE_HOTE",
+      },
+      chefJob,
+    ];
+    const paul = employee("Martin", "Paul", "ROLE_CAISSIER", { job: chefJob });
+    const user = renderPage([...TEAM, paul], SITES, catalog);
+
+    const employedCard = (await screen.findByRole("heading", { name: "En emploi" })).closest(
+      "section",
+    ) as HTMLElement;
+    expect(within(employedCard).getByRole("heading", { name: "Chef de caisse" })).toBeInTheDocument();
+    expect(within(employedCard).getByRole("link", { name: "Martin Paul" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Recruter un nouvel employé" }));
+    const select = screen.getByLabelText(/Poste/) as HTMLSelectElement;
+    expect([...select.querySelectorAll("option")].map((option) => option.value)).toContain(
+      "CHEF_DE_CAISSE",
+    );
+
+    await user.type(screen.getByLabelText("Prénom"), "Emma");
+    await user.type(screen.getByLabelText("Nom"), "Leroy");
+    await user.type(screen.getByLabelText("Email"), "emma.leroy@carrefour.local");
+    await user.selectOptions(select, "CHEF_DE_CAISSE");
+    await user.click(screen.getByRole("button", { name: "Recruter" }));
+
+    await waitFor(() =>
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        "/api/users",
+        expect.objectContaining({ role: "CHEF_DE_CAISSE" }),
       ),
     );
   });

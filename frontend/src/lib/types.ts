@@ -1,5 +1,7 @@
 export type UserRole =
   | "ROLE_ADMIN"
+  /** Job of the « Direction » category; always carries ROLE_DIRECTION too. */
+  | "ROLE_DIRECTEUR"
   | "ROLE_DIRECTION"
   | "ROLE_HOTE"
   | "ROLE_CAISSIER"
@@ -7,6 +9,19 @@ export type UserRole =
   | "ROLE_RAYON"
   | "ROLE_SECURITE"
   | "ROLE_USER";
+
+export type JobCategoryKey = "DIRECTION" | "ACCUEIL_CAISSE" | "SECURITE" | "RAYON";
+
+export interface Job {
+  id: number;
+  code: string;
+  label: string;
+  category: JobCategoryKey;
+  protected: boolean;
+  grantsRole?: UserRole;
+  position?: number;
+  occupantCount?: number;
+}
 
 export interface Site {
   id: number;
@@ -27,6 +42,8 @@ export interface User {
   active: boolean;
   /** Weekly contract hours for the employee, in minutes (e.g. 36h45 = 2205). */
   contractMinutes?: number;
+  /** Métier from the job catalogue, when the account has one. */
+  job?: Job | null;
   /** Cashier number (register login), distinct from the physical register number. */
   cashierNumber?: string | null;
   /** Contact phone number displayed on the employee record. */

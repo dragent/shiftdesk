@@ -11,6 +11,7 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -32,13 +33,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private string $email;
 
     /**
-     * Symfony roles (ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_USER...).
+     * Stored Symfony roles. Serialized through {@see getRoles()} so implied
+     * category roles (e.g. ROLE_DIRECTION on a Directeur/rice) are visible
+     * to the frontend, matching the firewall hierarchy.
      *
      * @var list<string>
      */
     #[ORM\Column]
-    #[Groups(['user:read'])]
     private array $roles = [];
+
+    #[ORM\ManyToOne(targetEntity: Job::class, inversedBy: 'users')]
+    #[ORM\JoinColumn(name: 'job_id', nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['user:read'])]
+    private ?Job $job = null;
 
     #[ORM\Column]
     private string $password;
@@ -145,9 +152,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @return list<string>
      */
+    #[Groups(['user:read'])]
+    #[SerializedName('roles')]
     public function getRoles(): array
     {
         $roles = $this->roles;
+
+        // A job also carries the roles of its category (e.g. Directeur/rice
+        // holds ROLE_DIRECTION), so that permission checks made in PHP see the
+        // same set as the firewall, which applies security.yaml role_hierarchy.
+        foreach ($this->roles as $role) {
+            foreach (UserRole::tryFrom($role)?->impliedRoles() ?? [] as $implied) {
+                $roles[] = $implied->value;
+            }
+        }
+
         // Every authenticated user holds at least ROLE_USER.
         $roles[] = 'ROLE_USER';
 
@@ -160,6 +179,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setRoles(array $roles): static
     {
         $this->roles = $roles;
+
+        return $this;
+    }
+
+    public function getJob(): ?Job
+    {
+        return $this->job;
+    }
+
+    public function setJob(?Job $job): static
+    {
+        $this->job = $job;
+
+        return $this;
+    }
+
+    /** Binds the métier and the permission role it grants. */
+    public function assignJob(Job $job): static
+    {
+        $this->job = $job;
+        $this->roles = [$job->getGrantsRole()->value];
 
         return $this;
     }

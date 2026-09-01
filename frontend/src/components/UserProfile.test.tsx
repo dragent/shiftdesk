@@ -1,8 +1,29 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithQuery } from "@/test/query";
 import { UserProfile } from "./UserProfile";
-import type { User } from "@/lib/types";
+import { api } from "@/lib/api";
+import type { Job, User } from "@/lib/types";
+
+vi.mock("@/lib/api", () => ({
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      public status = 400,
+    ) {
+      super(message);
+    }
+  },
+  api: { get: vi.fn() },
+}));
+
+const mockedApi = api as unknown as { get: Mock };
+
+beforeEach(() => {
+  mockedApi.get.mockReset();
+  mockedApi.get.mockResolvedValue([]);
+});
 
 function profile(overrides: Partial<User> = {}): User {
   return {
@@ -21,7 +42,7 @@ function profile(overrides: Partial<User> = {}): User {
 
 describe("UserProfile", () => {
   it("affiche le profil de l'utilisateur connecté avec des champs modifiables", () => {
-    render(<UserProfile profile={profile()} isOwn onSaveContact={vi.fn()} />);
+    renderWithQuery(<UserProfile profile={profile()} isOwn onSaveContact={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "Mon profil" })).toBeInTheDocument();
     expect(screen.getByText("Martin Léa")).toBeInTheDocument();
@@ -39,7 +60,7 @@ describe("UserProfile", () => {
   it("enregistre email et téléphone depuis son propre profil", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<UserProfile profile={profile()} isOwn onSaveContact={onSave} />);
+    renderWithQuery(<UserProfile profile={profile()} isOwn onSaveContact={onSave} />);
 
     const email = screen.getByLabelText("Email");
     await user.clear(email);
@@ -57,7 +78,7 @@ describe("UserProfile", () => {
   });
 
   it("affiche la fiche d'un collègue en lecture seule", () => {
-    render(
+    renderWithQuery(
       <UserProfile
         profile={profile({
           firstName: "Sophie",
@@ -86,7 +107,7 @@ describe("UserProfile", () => {
   it("permet à la direction de changer le poste et le contrat d'un employé", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<UserProfile profile={profile()} isOwn={false} onSaveJob={onSave} />);
+    renderWithQuery(<UserProfile profile={profile()} isOwn={false} onSaveJob={onSave} />);
 
     expect(screen.getByLabelText("Fonction")).toHaveValue("HOTE");
     expect(screen.getByLabelText("Heures par semaine")).toHaveValue(36);
@@ -106,7 +127,7 @@ describe("UserProfile", () => {
   it("n'envoie pas de poste métier tant qu'un administrateur n'en choisit pas un", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(
+    renderWithQuery(
       <UserProfile
         profile={profile({ roles: ["ROLE_ADMIN"], contractMinutes: 0 })}
         isOwn
@@ -125,8 +146,56 @@ describe("UserProfile", () => {
     expect(onSave).toHaveBeenCalledWith({ contractMinutes: 2100 });
   });
 
+  it("verrouille le poste d'un directeur/rice", () => {
+    renderWithQuery(
+      <UserProfile
+        profile={profile({
+          firstName: "Nadia",
+          lastName: "Direction",
+          roles: ["ROLE_DIRECTEUR", "ROLE_DIRECTION"],
+        })}
+        isOwn={false}
+        onSaveJob={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Fonction")).toBeDisabled();
+    expect(screen.getByText("Le poste de directeur/rice ne peut pas être retiré.")).toBeInTheDocument();
+  });
+
+  it("propose un métier du catalogue dans la fonction", async () => {
+    const catalog: Job[] = [
+      {
+        id: 3,
+        code: "HOTE",
+        label: "Hôte(sse) d'accueil",
+        category: "ACCUEIL_CAISSE",
+        protected: false,
+        grantsRole: "ROLE_HOTE",
+      },
+      {
+        id: 9,
+        code: "CHEF_DE_CAISSE",
+        label: "Chef de caisse",
+        category: "ACCUEIL_CAISSE",
+        protected: false,
+        grantsRole: "ROLE_CAISSIER",
+      },
+    ];
+    mockedApi.get.mockResolvedValue(catalog);
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderWithQuery(<UserProfile profile={profile()} isOwn={false} onSaveJob={onSave} />);
+
+    expect(await screen.findByRole("option", { name: "Chef de caisse" })).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Fonction"), "CHEF_DE_CAISSE");
+    await user.click(screen.getByRole("button", { name: "Enregistrer le poste" }));
+
+    expect(onSave).toHaveBeenCalledWith({ role: "CHEF_DE_CAISSE", contractMinutes: 2205 });
+  });
+
   it("signale un téléphone manquant et un départ programmé", () => {
-    render(
+    renderWithQuery(
       <UserProfile
         profile={profile({ phone: null, dismissedAt: "2026-09-15" })}
         isOwn={false}

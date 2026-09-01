@@ -66,7 +66,7 @@ const CLAIRE: User = {
   email: "claire.bernard@carrefour.local",
   firstName: "Claire",
   lastName: "Bernard",
-  roles: ["ROLE_DIRECTION"],
+  roles: ["ROLE_DIRECTEUR", "ROLE_DIRECTION"],
   active: true,
 };
 
@@ -74,7 +74,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   nav.id = "8";
   auth.user = CLAIRE;
-  mockedApi.get.mockResolvedValue(LEA);
+  mockedApi.get.mockImplementation((path: string) => {
+    if (path === "/api/jobs") {
+      return Promise.resolve([]);
+    }
+    return Promise.resolve(LEA);
+  });
 });
 
 describe("fiche profil d'un employé", () => {
@@ -120,8 +125,30 @@ describe("fiche profil d'un employé", () => {
 
     expect(await screen.findByRole("heading", { name: "Mon profil" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "← Retour aux employés" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Fonction")).toHaveValue("DIRECTION");
-    expect(mockedApi.get).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Fonction")).toHaveValue("DIRECTEUR");
+    expect(mockedApi.get).not.toHaveBeenCalledWith("/api/users/2");
+    expect(mockedApi.get).toHaveBeenCalledWith("/api/jobs");
+  });
+
+  it("verrouille le poste de directeur/rice tout en laissant modifier le contrat", async () => {
+    nav.id = "2";
+    auth.user = CLAIRE;
+    mockedApi.patch.mockResolvedValue({ ...CLAIRE, contractMinutes: 1800 });
+    const user = userEvent.setup();
+    renderWithQuery(<UserProfilPage />);
+
+    await screen.findByRole("heading", { name: "Mon profil" });
+    expect(screen.getByLabelText("Fonction")).toBeDisabled();
+    expect(screen.getByText("Le poste de directeur/rice ne peut pas être retiré.")).toBeVisible();
+
+    const hours = screen.getByLabelText("Heures par semaine");
+    await user.clear(hours);
+    await user.type(hours, "30");
+    await user.selectOptions(screen.getByLabelText("Minutes"), "0");
+    await user.click(screen.getByRole("button", { name: "Enregistrer le poste" }));
+
+    // Le rôle n'est jamais envoyé : l'API refuserait de le remplacer.
+    expect(mockedApi.patch).toHaveBeenCalledWith("/api/users/2", { contractMinutes: 1800 });
   });
 
   it("renvoie un caissier qui consulte la fiche d'un collègue", async () => {

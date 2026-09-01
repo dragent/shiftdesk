@@ -6,9 +6,11 @@ use App\Entity\RequestCategory;
 use App\Entity\Site;
 use App\Entity\User;
 use App\Enum\UserRole;
+use App\Repository\JobRepository;
 use App\Repository\RequestCategoryRepository;
 use App\Repository\SiteRepository;
 use App\Repository\UserRepository;
+use App\Service\JobCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -34,6 +36,8 @@ class SeedDemoDataCommand extends Command
         private readonly UserRepository $userRepository,
         private readonly RequestCategoryRepository $categoryRepository,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly JobCatalog $jobCatalog,
+        private readonly JobRepository $jobRepository,
     ) {
         parent::__construct();
     }
@@ -41,6 +45,8 @@ class SeedDemoDataCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        $this->jobCatalog->ensureBuiltins();
 
         $site = $this->siteRepository->findOneBy(['name' => 'Carrefour Market - Centre Ville']);
         if (!$site) {
@@ -54,7 +60,7 @@ class SeedDemoDataCommand extends Command
         }
 
         $this->createUserIfMissing('admin@carrefour-accueil.local', 'Admin', 'Système', UserRole::ADMIN, $site, $io);
-        $this->createUserIfMissing('direction@carrefour-accueil.local', 'Nadia', 'Direction', UserRole::DIRECTION, $site, $io);
+        $this->createUserIfMissing('direction@carrefour-accueil.local', 'Nadia', 'Direction', UserRole::DIRECTEUR, $site, $io);
         $this->createUserIfMissing('hote@carrefour-accueil.local', 'Caroline', 'Hôtesse', UserRole::HOTE, $site, $io);
         $this->createUserIfMissing('lad@carrefour-accueil.local', 'Yanis', 'Lad', UserRole::LAD, $site, $io);
         $this->createUserIfMissing('rayon@carrefour-accueil.local', 'Fatou', 'Rayon', UserRole::RAYON, $site, $io);
@@ -115,7 +121,12 @@ class SeedDemoDataCommand extends Command
         $user->setEmail($email);
         $user->setFirstName($firstName);
         $user->setLastName($lastName);
-        $user->setRoles([$role->value]);
+        $job = $this->jobRepository->findOneBy(['grantsRole' => $role]);
+        if ($job) {
+            $user->assignJob($job);
+        } else {
+            $user->setRoles([$role->value]);
+        }
         $user->setSite($site);
         $user->setPassword($this->passwordHasher->hashPassword($user, self::DEMO_PASSWORD));
 

@@ -2,6 +2,7 @@
 
 namespace App\Tests\Integration;
 
+use App\Entity\Job;
 use App\Entity\User;
 use App\Enum\UserRole;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -171,6 +172,73 @@ final class UserContractInsertionTest extends WebTestCase
         self::assertSame(1800, $stored->getContractMinutes());
     }
 
+    public function testTheDirecteurJobCannotBeTakenAwayThroughTheApi(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('directeur@test.local', UserRole::DIRECTEUR, $site);
+        $other = $this->createUser('autre.directeur@test.local', UserRole::DIRECTEUR, $site);
+
+        $client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode([
+                'email' => 'directeur@test.local',
+                'password' => 'Password123!',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseIsSuccessful();
+        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        $client->request(
+            'PATCH',
+            '/api/users/'.$other->getId(),
+            server: $this->authHeaders($login['token']),
+            content: json_encode(['role' => 'HOTE'], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(403);
+
+        $this->em()->clear();
+        $stored = $this->em()->getRepository(User::class)->find($other->getId());
+        self::assertInstanceOf(User::class, $stored);
+        self::assertTrue($stored->hasRole(UserRole::DIRECTEUR));
+        self::assertFalse($stored->hasRole(UserRole::HOTE));
+    }
+
+    public function testDirecteurKeepsTheAccessOfTheDirectionCategory(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('directeur@test.local', UserRole::DIRECTEUR, $site);
+
+        $client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode([
+                'email' => 'directeur@test.local',
+                'password' => 'Password123!',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseIsSuccessful();
+        $login = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        // Routes reserved for ROLE_DIRECTION in security.yaml stay reachable.
+        $client->request('GET', '/api/users', server: $this->authHeaders($login['token']));
+        self::assertResponseIsSuccessful();
+
+        $client->request(
+            'GET',
+            '/api/direction-notes?channel=DIRECTION_DIRECTION',
+            server: $this->authHeaders($login['token']),
+        );
+        self::assertResponseIsSuccessful();
+    }
+
     public function testSeedDemoAssignsContractsToEveryone(): void
     {
         static::createClient();
@@ -204,5 +272,13 @@ final class UserContractInsertionTest extends WebTestCase
             self::assertInstanceOf(User::class, $user, $email);
             self::assertSame($minutes, $user->getContractMinutes(), $email);
         }
+
+        $nadia = $repo->findOneBy(['email' => 'direction@carrefour-accueil.local']);
+        self::assertInstanceOf(User::class, $nadia);
+        self::assertSame(Job::CODE_DIRECTEUR, $nadia->getJob()?->getCode());
+
+        $sophie = $repo->findOneBy(['email' => 'sophie.durand@caissier.carrefour-accueil.local']);
+        self::assertInstanceOf(User::class, $sophie);
+        self::assertSame('CAISSIER', $sophie->getJob()?->getCode());
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\Job;
 use App\Entity\Site;
 use App\Entity\User;
 use App\Enum\UserRole;
+use App\Repository\JobRepository;
 use App\Repository\SiteRepository;
 use App\Repository\UserRepository;
 use App\Security\RoleAssignmentPolicy;
@@ -33,6 +35,7 @@ class UserController extends AbstractApiController
         private readonly ValidatorInterface $validator,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RecruitmentMailer $recruitmentMailer,
+        private readonly JobRepository $jobRepository,
         private readonly RoleAssignmentPolicy $roleAssignment,
     ) {
         parent::__construct($serializer);
@@ -68,7 +71,10 @@ class UserController extends AbstractApiController
             return $this->respondError('Un compte existe déjà avec cet email.', 409);
         }
 
-        $targetRole = $this->roleAssignment->parse((string) ($data['role'] ?? 'HOTE'));
+        $rawRole = (string) ($data['role'] ?? 'HOTE');
+        $targetRole = $this->roleAssignment->parse($rawRole);
+        $job = $this->resolveJob($rawRole, $targetRole);
+        $targetRole = $job?->getGrantsRole() ?? $targetRole;
         if (!$this->roleAssignment->canAssign($currentUser, $targetRole)) {
             return $this->respondError('Vous ne pouvez pas attribuer ce rôle.', 403);
         }
@@ -77,7 +83,11 @@ class UserController extends AbstractApiController
         $user->setEmail($data['email'] ?? '');
         $user->setFirstName($data['firstName'] ?? '');
         $user->setLastName($data['lastName'] ?? '');
-        $user->setRoles([$targetRole->value]);
+        if ($job) {
+            $user->assignJob($job);
+        } else {
+            $user->setRoles([$targetRole->value]);
+        }
         $user->setPhone($data['phone'] ?? null);
 
         if (array_key_exists('contractMinutes', $data)) {
@@ -144,11 +154,25 @@ class UserController extends AbstractApiController
             $user->setEmail($data['email']);
         }
         if (array_key_exists('role', $data)) {
-            $targetRole = $this->roleAssignment->parse((string) $data['role']);
+            $rawRole = (string) $data['role'];
+            $targetRole = $this->roleAssignment->parse($rawRole);
+            $job = $this->resolveJob($rawRole, $targetRole);
+            $targetRole = $job?->getGrantsRole() ?? $targetRole;
             if (!$this->roleAssignment->canAssign($currentUser, $targetRole)) {
                 return $this->respondError('Vous ne pouvez pas attribuer ce rôle.', 403);
             }
-            $user->setRoles([$targetRole->value]);
+            if (!$this->roleAssignment->canReplaceRole($user, $targetRole)) {
+                return $this->respondError(
+                    'Le poste de directeur/rice ne peut pas être retiré.',
+                    403,
+                );
+            }
+            if ($job) {
+                $user->assignJob($job);
+            } else {
+                $user->setJob(null);
+                $user->setRoles([$targetRole->value]);
+            }
         }
         if (array_key_exists('active', $data)) {
             $user->setActive((bool) $data['active']);
@@ -228,4 +252,25 @@ class UserController extends AbstractApiController
         return $date !== false && $date->format('Y-m-d') === $value;
     }
 
+    private function resolveJob(string $raw, UserRole $fallbackRole): ?Job
+    {
+        $raw = strtoupper(trim($raw));
+        $code = str_starts_with($raw, 'ROLE_') ? substr($raw, 5) : $raw;
+        if ($code !== '') {
+            $byCode = $this->jobRepository->findOneByCode($code);
+            if ($byCode) {
+                return $byCode;
+            }
+        }
+
+        if ($fallbackRole === UserRole::ADMIN) {
+            return null;
+        }
+
+        if ($code === $fallbackRole->name || $raw === $fallbackRole->value) {
+            return $this->jobRepository->findOneBy(['grantsRole' => $fallbackRole]);
+        }
+
+        return null;
+    }
 }
