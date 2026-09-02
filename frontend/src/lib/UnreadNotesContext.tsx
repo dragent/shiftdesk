@@ -43,7 +43,7 @@ export function UnreadNotesProvider({ children }: { children: ReactNode }) {
   } | null>(null);
 
   const canReadNotes =
-    Boolean(user) && hasRole("ROLE_DIRECTION", "ROLE_ADMIN", "ROLE_HOTE");
+    Boolean(user) && hasRole("ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN", "ROLE_HOTE");
 
   const dismissToast = useCallback(() => setToastMessage(null), []);
 

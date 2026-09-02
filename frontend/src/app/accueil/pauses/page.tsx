@@ -33,7 +33,7 @@ function isToday(isoDate: string): boolean {
 
 export default function PausesPage() {
   return (
-    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <PausesContent />
       </AppShell>

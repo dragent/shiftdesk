@@ -257,6 +257,7 @@ final class UserContractInsertionTest extends WebTestCase
         $this->em()->clear();
         $repo = $this->em()->getRepository(User::class);
         $expected = [
+            'directeur@carrefour-accueil.local' => 2205,
             'direction@carrefour-accueil.local' => 2100,
             'hote@carrefour-accueil.local' => 2205,
             'lad@carrefour-accueil.local' => 2100,

@@ -20,7 +20,7 @@ function toISODate(date: Date): string {
 
 export default function SupervisionIaPage() {
   return (
-    <RoleGuard roles={["ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <SupervisionContent />
       </AppShell>

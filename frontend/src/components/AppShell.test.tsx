@@ -52,6 +52,21 @@ describe("AppShell — accès au profil", () => {
     }
     expect(screen.getAllByText("Claire Bernard").length).toBeGreaterThan(0);
   });
+
+  it("affiche le lien Annexe pour la direction", () => {
+    pathname.value = "/dashboard";
+    render(
+      <AppShell>
+        <p>contenu</p>
+      </AppShell>,
+    );
+
+    const links = screen.getAllByRole("link", { name: "Annexe" });
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", "/annexe");
+    }
+  });
 });
 
 describe("AppShell — dropdown Direction", () => {

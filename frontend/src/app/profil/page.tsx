@@ -41,6 +41,7 @@ function OwnProfileContent() {
             }
           : undefined
       }
+      viewer={user}
     />
   );
 }

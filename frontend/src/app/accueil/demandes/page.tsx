@@ -13,7 +13,7 @@ const STATUS_OPTIONS: DemandeStatus[] = ["NOUVELLE", "EN_COURS", "TRAITEE", "ANN
 
 export default function DemandesPage() {
   return (
-    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <DemandesContent />
       </AppShell>

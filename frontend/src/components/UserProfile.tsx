@@ -3,17 +3,17 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Alert, Button, Card } from "@/components/ui";
+import { useAuth } from "@/lib/AuthContext";
 import {
   CONTRACT_MINUTE_OPTIONS,
   MAX_CONTRACT_HOURS,
-  RECRUITMENT_CATEGORIES,
   contractMinutesFromParts,
   contractPartsFromMinutes,
   formatDateFR,
   fullName,
   hasProtectedJob,
   jobTitle,
-  recruitmentCategoriesFromJobs,
+  recruitmentCategoriesFor,
   selectableJobKey,
   userInitials,
 } from "@/lib/employees";
@@ -211,12 +211,12 @@ function JobForm({
   profile: User;
   onSave: (payload: JobUpdate) => Promise<void>;
 }) {
+  const { user: viewer } = useAuth();
   const { data: jobs = [] } = usePageQuery({
     queryKey: queryKeys.jobsCatalog,
     queryFn: () => api.get<Job[]>("/api/jobs"),
   });
-  const recruitmentCategories =
-    jobs.length > 0 ? recruitmentCategoriesFromJobs(jobs) : RECRUITMENT_CATEGORIES;
+  const recruitmentCategories = recruitmentCategoriesFor(viewer ?? { roles: [] }, jobs);
   const jobKey = selectableJobKey(profile);
   const jobLocked = hasProtectedJob(profile);
   const contractMinutes = profile.contractMinutes ?? 0;

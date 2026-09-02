@@ -30,7 +30,7 @@ function toISODate(date: Date): string {
 
 export default function MonPlanningPage() {
   return (
-    <RoleGuard roles={["ROLE_HOTE", "ROLE_CAISSIER", "ROLE_LAD", "ROLE_RAYON", "ROLE_SECURITE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_HOTE", "ROLE_CAISSIER", "ROLE_LAD", "ROLE_RAYON", "ROLE_SECURITE", "ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <MonPlanningContent />
       </AppShell>
@@ -40,7 +40,7 @@ export default function MonPlanningPage() {
 
 function MonPlanningContent() {
   const { user, hasRole } = useAuth();
-  const isDirectionOrAdmin = hasRole("ROLE_DIRECTION", "ROLE_ADMIN");
+  const isDirectionOrAdmin = hasRole("ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
 
   const weekDays = useMemo(

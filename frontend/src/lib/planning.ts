@@ -76,7 +76,7 @@ export function scoReliefTimeOptions(
  * Other roles: store opening at 07:30.
  */
 export const EARLY_SHIFT_START = "04:00";
-export const EARLY_SHIFT_ROLES = ["ROLE_DIRECTION", "ROLE_RAYON"] as const;
+export const EARLY_SHIFT_ROLES = ["ROLE_DIRECTEUR", "ROLE_DIRECTION", "ROLE_RAYON"] as const;
 
 export const DAY_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 

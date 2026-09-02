@@ -274,7 +274,7 @@ class DirectionNoteController extends AbstractApiController
 
     private function isDirectionOrAdmin(User $user): bool
     {
-        return $user->hasRole(UserRole::DIRECTION) || $user->hasRole(UserRole::ADMIN);
+        return $user->hasAccess(UserRole::DIRECTION);
     }
 
     private function canReadChannel(User $user, DirectionNoteChannel $channel): bool

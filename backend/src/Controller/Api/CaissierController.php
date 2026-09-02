@@ -121,8 +121,7 @@ class CaissierController extends AbstractApiController
         }
 
         $receptionOnly = $currentUser->hasRole(UserRole::HOTE)
-            && !$currentUser->hasRole(UserRole::DIRECTION)
-            && !$currentUser->hasRole(UserRole::ADMIN);
+            && !$currentUser->hasAccess(UserRole::DIRECTION);
         if ($receptionOnly) {
             $forbidden = array_diff(array_keys($data), ['cashierNumber']);
             if ($forbidden !== []) {

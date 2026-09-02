@@ -43,4 +43,15 @@ final class UserRoleTest extends TestCase
             self::assertStringStartsWith('ROLE_', $role->value);
         }
     }
+
+    public function testDirecteurSitsAboveDirectionWhichSitsAboveOtherJobs(): void
+    {
+        self::assertTrue(UserRole::DIRECTEUR->grants(UserRole::DIRECTION));
+        self::assertTrue(UserRole::DIRECTEUR->grants(UserRole::HOTE));
+        self::assertFalse(UserRole::DIRECTION->grants(UserRole::DIRECTEUR));
+        self::assertTrue(UserRole::DIRECTION->grants(UserRole::CAISSIER));
+        self::assertFalse(UserRole::HOTE->grants(UserRole::DIRECTION));
+        self::assertTrue(UserRole::ADMIN->grants(UserRole::DIRECTEUR));
+        self::assertFalse(UserRole::DIRECTEUR->grants(UserRole::ADMIN));
+    }
 }

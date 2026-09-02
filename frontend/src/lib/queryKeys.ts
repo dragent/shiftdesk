@@ -18,4 +18,6 @@ export const queryKeys = {
     ["direction-notes", channel, "open", limit] as const,
   directionNotesClosed: (channel: string, limit: number) =>
     ["direction-notes", channel, "closed", limit] as const,
+  annexeWebsites: ["annexe", "websites"] as const,
+  annexeFiles: ["annexe", "files"] as const,
 };

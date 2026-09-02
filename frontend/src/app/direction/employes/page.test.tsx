@@ -14,6 +14,21 @@ vi.mock("@/components/RoleGuard", () => ({
 vi.mock("@/components/AppShell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
+vi.mock("@/lib/AuthContext", () => ({
+  useAuth: () => ({
+    user: {
+      id: 99,
+      email: "direction@carrefour.local",
+      firstName: "Nadia",
+      lastName: "Direction",
+      roles: ["ROLE_DIRECTION"],
+      active: true,
+    },
+    logout: vi.fn(),
+    hasRole: () => true,
+  }),
+}));
+
 vi.mock("@/lib/api", () => {
   class ApiError extends Error {
     constructor(
@@ -380,7 +395,6 @@ describe("recrutement", () => {
       "Accueil / Caisse",
     ]);
     expect([...select.querySelectorAll(":scope > option")].map((option) => option.value)).toEqual([
-      "DIRECTEUR",
       "SECURITE",
       "RAYON",
     ]);

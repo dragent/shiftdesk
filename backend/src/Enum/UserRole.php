@@ -57,4 +57,33 @@ enum UserRole: string
     {
         return $this === self::DIRECTEUR;
     }
+
+    /**
+     * Store hierarchy: Directeur/rice above Direction, Direction above every
+     * other business job. Admin sits above Directeur/rice.
+     *
+     * @return list<self>
+     */
+    public function reachableRoles(): array
+    {
+        $operational = [
+            self::HOTE,
+            self::CAISSIER,
+            self::LAD,
+            self::RAYON,
+            self::SECURITE,
+        ];
+
+        return match ($this) {
+            self::ADMIN => self::cases(),
+            self::DIRECTEUR => [self::DIRECTEUR, self::DIRECTION, ...$operational],
+            self::DIRECTION => [self::DIRECTION, ...$operational],
+            default => [$this],
+        };
+    }
+
+    public function grants(UserRole $other): bool
+    {
+        return \in_array($other, $this->reachableRoles(), true);
+    }
 }

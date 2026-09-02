@@ -15,7 +15,7 @@ const EMPTY_JOBS: Job[] = [];
 
 export default function GestionJobsPage() {
   return (
-    <RoleGuard roles={["ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <GestionJobsContent />
       </AppShell>

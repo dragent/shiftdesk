@@ -18,6 +18,21 @@ vi.mock("@/lib/api", () => ({
   api: { get: vi.fn() },
 }));
 
+vi.mock("@/lib/AuthContext", () => ({
+  useAuth: () => ({
+    user: {
+      id: 1,
+      email: "direction@carrefour.local",
+      firstName: "Nadia",
+      lastName: "Direction",
+      roles: ["ROLE_DIRECTION"],
+      active: true,
+    },
+    logout: vi.fn(),
+    hasRole: () => true,
+  }),
+}));
+
 const mockedApi = api as unknown as { get: Mock };
 
 beforeEach(() => {

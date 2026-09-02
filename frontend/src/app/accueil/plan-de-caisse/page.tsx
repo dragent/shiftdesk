@@ -106,7 +106,7 @@ function registerLabelAtTime(p: Planning, time: string): string {
 
 export default function PlanDeCaissePage() {
   return (
-    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <PlanDeCaisseContent />
       </AppShell>

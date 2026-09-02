@@ -18,7 +18,7 @@ export default function DashboardPage() {
 function DashboardContent() {
   const { user, hasRole } = useAuth();
   // ROLE_ADMIN has the same note privileges as ROLE_DIRECTION.
-  const isDirectionOrAdmin = hasRole("ROLE_DIRECTION", "ROLE_ADMIN");
+  const isDirectionOrAdmin = hasRole("ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN");
   const isHote = hasRole("ROLE_HOTE");
   const canSeeDirectionNotes = isDirectionOrAdmin;
   const canSeeAccueilNotes = isDirectionOrAdmin || isHote;
