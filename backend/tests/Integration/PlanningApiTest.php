@@ -5,6 +5,7 @@ namespace App\Tests\Integration;
 use App\Entity\Planning;
 use App\Entity\User;
 use App\Enum\UserRole;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -560,6 +561,81 @@ final class PlanningApiTest extends WebTestCase
             ], JSON_THROW_ON_ERROR),
         );
         self::assertResponseStatusCodeSame(422);
+    }
+
+    #[DataProvider('restrictedTeamPlanningFilterProvider')]
+    public function testOnlyReceptionOrManagementCanUseTeamPlanningFilters(UserRole $role, string $filter): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+
+        $site = $this->createSite();
+        $email = strtolower($role->name).'@test.local';
+        $this->createUser($email, $role, $site);
+        $auth = $this->loginAs($client, $email);
+
+        $client->request(
+            'GET',
+            '/api/plannings?from=2026-07-27&to=2026-07-27&'.$filter.'=1',
+            server: $this->authHeaders($auth['token']),
+        );
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    /** @return iterable<string, array{UserRole, string}> */
+    public static function restrictedTeamPlanningFilterProvider(): iterable
+    {
+        foreach ([UserRole::CAISSIER, UserRole::LAD, UserRole::RAYON, UserRole::SECURITE] as $role) {
+            foreach (['caissiersOnly', 'ladOnly'] as $filter) {
+                yield $role->name.' avec '.$filter => [$role, $filter];
+            }
+        }
+    }
+
+    public function testReceptionCanUseTeamPlanningFilters(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+        $this->createUser('hote@test.local', UserRole::HOTE, $site);
+        $caissier = $this->createUser('caissier@test.local', UserRole::CAISSIER, $site);
+        $lad = $this->createUser('lad@test.local', UserRole::LAD, $site);
+        $directionAuth = $this->loginAs($client, 'direction@test.local');
+
+        foreach ([$caissier, $lad] as $employee) {
+            $client->request(
+                'POST',
+                '/api/plannings',
+                server: $this->authHeaders($directionAuth['token']),
+                content: json_encode([
+                    'userId' => $employee->getId(),
+                    'workDate' => '2026-07-27',
+                    'startTime' => '09:00',
+                    'endTime' => '12:00',
+                ], JSON_THROW_ON_ERROR),
+            );
+            self::assertResponseStatusCodeSame(201);
+        }
+
+        $hoteAuth = $this->loginAs($client, 'hote@test.local');
+        foreach ([
+            'caissiersOnly' => $caissier->getId(),
+            'ladOnly' => $lad->getId(),
+        ] as $filter => $expectedUserId) {
+            $client->request(
+                'GET',
+                '/api/plannings?from=2026-07-27&to=2026-07-27&'.$filter.'=1',
+                server: $this->authHeaders($hoteAuth['token']),
+            );
+
+            self::assertResponseIsSuccessful();
+            $list = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+            self::assertCount(1, $list);
+            self::assertSame($expectedUserId, $list[0]['user']['id']);
+        }
     }
 
     /** @return array{token: string, user: User} */

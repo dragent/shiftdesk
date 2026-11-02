@@ -127,7 +127,7 @@ final class PermissionAccessApiTest extends WebTestCase
             ['PATCH', '/api/plannings/'.$id.'/register-number', $accueil],
             ['DELETE', '/api/plannings/'.$id, $management],
 
-            ['GET', '/api/absences', $authenticated],
+            ['GET', '/api/absences', $management],
             ['POST', '/api/absences', $management],
             ['DELETE', '/api/absences/'.$id, $management],
 

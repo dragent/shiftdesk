@@ -262,7 +262,7 @@ final class AbsenceApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testAnEmployeeCanReadButNotDeclareAbsences(): void
+    public function testAnEmployeeCannotReadOrDeclareTeamAbsences(): void
     {
         [$client, $directionToken, $employee] = $this->bootWithDirection();
         $this->postAbsence($client, $directionToken, [
@@ -280,7 +280,7 @@ final class AbsenceApiTest extends WebTestCase
             '/api/absences?from=2026-03-02&to=2026-03-08',
             server: $this->authHeaders($employeeToken),
         );
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(403);
 
         // Réponse d'erreur du pare-feu : on ne décode pas son corps.
         $this->sendAbsence($client, $employeeToken, [
