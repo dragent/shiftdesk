@@ -46,13 +46,17 @@ permissions n’étaient appliquées que dans l’UI.
 UI alignée : page Caissiers, l’accueil ne voit plus Désactiver / site /
 suppression.
 
+### Hors périmètre
+
+- **IDOR multi-sites** sur les notes direction. Le produit n’a qu’un
+  site : les actions par id ne filtrent pas le site, et ce filtre n’est
+  pas à ajouter tant qu’un second site n’existe pas.
+
 ### Encore ouvert (MEDIUM)
 
 À traiter dans un prochain audit à froid, pas dans la session qui a
 écrit les correctifs ci-dessus :
 
-- **IDOR multi-sites** sur les notes direction (actions par id hors
-  filtre site).
 - **`GET /api/absences`** lisible par tous les rôles authentifiés
   (congés / maladie de toute l’équipe).
 - **`?caissiersOnly=` / `?ladOnly=`** sur `GET /api/plannings` : tout
