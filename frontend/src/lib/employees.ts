@@ -139,6 +139,7 @@ export const ROLE_GROUPS: RoleGroup[] = CATEGORY_DEFS.flatMap((category) => [...
 /** Job titles offered when recruiting (admin accounts are created on the admin side). */
 const RECRUITMENT_LABELS: Record<string, string> = {
   DIRECTEUR: "Directeur/rice",
+  DIRECTION: "Direction",
   CAISSIER: "Caissier(ère)",
   LAD: "LAD",
   HOTE: "Hôte(sse) d'accueil",
@@ -161,6 +162,63 @@ export const RECRUITMENT_CATEGORIES = CATEGORY_DEFS.map((category) => ({
 })).filter((category) => category.jobs.length > 0);
 
 export const DEFAULT_RECRUITMENT_ROLE = "CAISSIER";
+
+const OPERATIONAL_ROLES: UserRole[] = [
+  "ROLE_HOTE",
+  "ROLE_CAISSIER",
+  "ROLE_LAD",
+  "ROLE_RAYON",
+  "ROLE_SECURITE",
+];
+
+/** PHP/Symfony store hierarchy: Directeur/rice → Direction → other jobs. */
+const ROLE_REACHABLE: Record<UserRole, UserRole[]> = {
+  ROLE_ADMIN: [
+    "ROLE_ADMIN",
+    "ROLE_DIRECTEUR",
+    "ROLE_DIRECTION",
+    ...OPERATIONAL_ROLES,
+    "ROLE_USER",
+  ],
+  ROLE_DIRECTEUR: ["ROLE_DIRECTEUR", "ROLE_DIRECTION", ...OPERATIONAL_ROLES],
+  ROLE_DIRECTION: ["ROLE_DIRECTION", ...OPERATIONAL_ROLES],
+  ROLE_HOTE: ["ROLE_HOTE"],
+  ROLE_CAISSIER: ["ROLE_CAISSIER"],
+  ROLE_LAD: ["ROLE_LAD"],
+  ROLE_RAYON: ["ROLE_RAYON"],
+  ROLE_SECURITE: ["ROLE_SECURITE"],
+  ROLE_USER: ["ROLE_USER"],
+};
+
+export function roleGrants(owned: UserRole, needed: UserRole): boolean {
+  return (ROLE_REACHABLE[owned] ?? [owned]).includes(needed);
+}
+
+/** True when any owned role grants at least one of the needed roles. */
+export function rolesGrant(owned: UserRole[] | undefined, ...needed: UserRole[]): boolean {
+  if (!owned?.length || needed.length === 0) return false;
+  return needed.some((need) => owned.some((have) => roleGrants(have, need)));
+}
+
+export function canAssignJobKey(viewer: Pick<User, "roles">, jobKey: string): boolean {
+  if (rolesGrant(viewer.roles, "ROLE_ADMIN")) return true;
+  if (rolesGrant(viewer.roles, "ROLE_DIRECTEUR")) return jobKey !== "ADMIN";
+  if (rolesGrant(viewer.roles, "ROLE_DIRECTION")) {
+    return jobKey !== "ADMIN" && jobKey !== "DIRECTEUR";
+  }
+  return false;
+}
+
+export function recruitmentCategoriesFor(viewer: Pick<User, "roles">, jobs?: readonly Job[]) {
+  const categories =
+    jobs && jobs.length > 0 ? recruitmentCategoriesFromJobs(jobs) : RECRUITMENT_CATEGORIES;
+  return categories
+    .map((category) => ({
+      ...category,
+      jobs: category.jobs.filter((job) => canAssignJobKey(viewer, job.value)),
+    }))
+    .filter((category) => category.jobs.length > 0);
+}
 
 /** Weekly contract offered by default when recruiting (full-time ceiling). */
 export const DEFAULT_CONTRACT_HOURS = 36;
@@ -298,11 +356,7 @@ export function canViewUserProfile(
 
 /** Management may change anyone's job and weekly contract from the profile. */
 export function canEditJobAndContract(viewer: Pick<User, "roles">): boolean {
-  return Boolean(
-    viewer.roles?.includes("ROLE_DIRECTEUR") ||
-      viewer.roles?.includes("ROLE_DIRECTION") ||
-      viewer.roles?.includes("ROLE_ADMIN"),
-  );
+  return rolesGrant(viewer.roles, "ROLE_DIRECTION");
 }
 
 /**

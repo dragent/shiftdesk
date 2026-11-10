@@ -42,7 +42,8 @@ describe("slotKeyForTime", () => {
 });
 
 describe("earliestStartForUser", () => {
-  it("autorise Direction et Rayon dès 04h00 le matin", () => {
+  it("autorise Directeur/rice, Direction et Rayon dès 04h00 le matin", () => {
+    expect(earliestStartForUser({ roles: ["ROLE_DIRECTEUR"] }, "MATIN")).toBe("04:00");
     expect(earliestStartForUser({ roles: ["ROLE_DIRECTION"] }, "MATIN")).toBe("04:00");
     expect(earliestStartForUser({ roles: ["ROLE_RAYON"] }, "MATIN")).toBe("04:00");
   });

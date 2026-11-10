@@ -127,7 +127,7 @@ final class PermissionAccessApiTest extends WebTestCase
             ['PATCH', '/api/plannings/'.$id.'/register-number', $accueil],
             ['DELETE', '/api/plannings/'.$id, $management],
 
-            ['GET', '/api/absences', $authenticated],
+            ['GET', '/api/absences', $management],
             ['POST', '/api/absences', $management],
             ['DELETE', '/api/absences/'.$id, $management],
 
@@ -152,6 +152,14 @@ final class PermissionAccessApiTest extends WebTestCase
             ['GET', '/api/ai/insights', $management],
             ['POST', '/api/ai/analyze', $management],
             ['PATCH', '/api/ai/insights/'.$id, $management],
+
+            ['GET', '/api/annexe/websites', $authenticated],
+            ['POST', '/api/annexe/websites', $management],
+            ['DELETE', '/api/annexe/websites/'.$id, $management],
+
+            ['GET', '/api/annexe/files', $accueil],
+            ['POST', '/api/annexe/files', $accueil],
+            ['DELETE', '/api/annexe/files/'.$id, $accueil],
 
             ['GET', '/api/me', $authenticated],
             ['PATCH', '/api/me', $authenticated],

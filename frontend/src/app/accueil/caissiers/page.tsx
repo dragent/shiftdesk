@@ -12,7 +12,7 @@ import type { Site, User } from "@/lib/types";
 
 export default function CaissiersPage() {
   return (
-    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_HOTE", "ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <CaissiersContent />
       </AppShell>
@@ -22,7 +22,7 @@ export default function CaissiersPage() {
 
 function CaissiersContent() {
   const { hasRole } = useAuth();
-  const canManage = hasRole("ROLE_DIRECTION", "ROLE_ADMIN");
+  const canManage = hasRole("ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN");
 
   const { data, loading, error, setError, refetch } = usePageQuery({
     queryKey: queryKeys.caissiersPage,

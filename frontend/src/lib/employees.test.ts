@@ -24,6 +24,7 @@ import {
   userInitials,
   RECRUITMENT_CATEGORIES,
   recruitmentCategoriesFromJobs,
+  recruitmentCategoriesFor,
   categoryDefsFromJobs,
   sortByName,
   todayISO,
@@ -277,6 +278,7 @@ describe("canEditJobAndContract", () => {
   it("n'autorise que la direction et l'admin", () => {
     expect(canEditJobAndContract(user("Durand", "Sophie", "ROLE_CAISSIER"))).toBe(false);
     expect(canEditJobAndContract(user("Bernard", "Claire", "ROLE_DIRECTION"))).toBe(true);
+    expect(canEditJobAndContract(user("Dupont", "Camille", "ROLE_DIRECTEUR"))).toBe(true);
     expect(canEditJobAndContract(user("Admin", "Super", "ROLE_ADMIN"))).toBe(true);
   });
 });
@@ -527,5 +529,23 @@ describe("catalogue de jobs", () => {
     expect(jobTitle(chef)).toBe("Chef de caisse");
     expect(selectableJobKey(chef)).toBe("CHEF_DE_CAISSE");
     expect(countByCategory([chef], [extra]).ACCUEIL_CAISSE).toBe(1);
+  });
+});
+
+describe("recruitmentCategoriesFor", () => {
+  it("empêche la direction d'attribuer Directeur/rice", () => {
+    const keys = recruitmentCategoriesFor({ roles: ["ROLE_DIRECTION"] }).flatMap((category) =>
+      category.jobs.map((job) => job.value),
+    );
+    expect(keys).not.toContain("DIRECTEUR");
+    expect(keys).toContain("CAISSIER");
+  });
+
+  it("laisse le directeur/rice attribuer Directeur/rice", () => {
+    const keys = recruitmentCategoriesFor({ roles: ["ROLE_DIRECTEUR"] }).flatMap((category) =>
+      category.jobs.map((job) => job.value),
+    );
+    expect(keys).toContain("DIRECTEUR");
+    expect(keys).toContain("CAISSIER");
   });
 });

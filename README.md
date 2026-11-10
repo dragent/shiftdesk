@@ -147,6 +147,7 @@ Créés par `php bin/console app:seed-demo` :
 | Email | Rôle |
 |---|---|
 | `admin@carrefour-accueil.local` | Administrateur |
+| `directeur@carrefour-accueil.local` | Directeur/rice |
 | `direction@carrefour-accueil.local` | Direction |
 | `hote@carrefour-accueil.local` | Hôte/hôtesse d'accueil |
 | `lad@carrefour-accueil.local` | LAD |

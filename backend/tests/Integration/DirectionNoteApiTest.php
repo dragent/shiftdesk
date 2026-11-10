@@ -2,7 +2,10 @@
 
 namespace App\Tests\Integration;
 
+use App\Entity\DirectionNote;
+use App\Entity\DirectionNoteSeen;
 use App\Enum\UserRole;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
@@ -421,6 +424,120 @@ final class DirectionNoteApiTest extends WebTestCase
             server: $this->authHeaders($hote['token']),
         );
         self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testDirectionCannotEditANoteFromAnotherSite(): void
+    {
+        [$client, $noteId, $directionToken] = $this->bootCrossSiteNote();
+
+        $client->request(
+            'PATCH',
+            '/api/direction-notes/'.$noteId,
+            server: $this->authHeaders($directionToken),
+            content: json_encode(['body' => 'Modification inter-site.'], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        $this->em()->clear();
+        $note = $this->em()->getRepository(DirectionNote::class)->find($noteId);
+        self::assertInstanceOf(DirectionNote::class, $note);
+        self::assertSame('Note privée du site B.', $note->getBody());
+    }
+
+    public function testDirectionCannotCloseANoteFromAnotherSite(): void
+    {
+        [$client, $noteId, $directionToken] = $this->bootCrossSiteNote();
+
+        $client->request(
+            'PATCH',
+            '/api/direction-notes/'.$noteId.'/close',
+            server: $this->authHeaders($directionToken),
+            content: '{}',
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        $this->em()->clear();
+        $note = $this->em()->getRepository(DirectionNote::class)->find($noteId);
+        self::assertInstanceOf(DirectionNote::class, $note);
+        self::assertFalse($note->isClosed());
+    }
+
+    public function testDirectionCannotReadReadersOfANoteFromAnotherSite(): void
+    {
+        [$client, $noteId, $directionToken] = $this->bootCrossSiteNote();
+
+        $client->request(
+            'GET',
+            '/api/direction-notes/'.$noteId.'/readers',
+            server: $this->authHeaders($directionToken),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testHoteCannotMarkSeenANoteFromAnotherSite(): void
+    {
+        [$client, $noteId, , $hoteToken] = $this->bootCrossSiteNote();
+
+        $client->request(
+            'POST',
+            '/api/direction-notes/'.$noteId.'/seen',
+            server: $this->authHeaders($hoteToken),
+            content: '{}',
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertCount(0, $this->em()->getRepository(DirectionNoteSeen::class)->findAll());
+    }
+
+    public function testDirectionCannotDeleteANoteFromAnotherSite(): void
+    {
+        [$client, $noteId, $directionToken] = $this->bootCrossSiteNote();
+
+        $client->request(
+            'DELETE',
+            '/api/direction-notes/'.$noteId,
+            server: $this->authHeaders($directionToken),
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        $this->em()->clear();
+        self::assertInstanceOf(
+            DirectionNote::class,
+            $this->em()->getRepository(DirectionNote::class)->find($noteId),
+        );
+    }
+
+    /**
+     * @return array{0: KernelBrowser, 1: int, 2: string, 3: string}
+     */
+    private function bootCrossSiteNote(): array
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $siteA = $this->createSite('Carrefour Market - Site A');
+        $siteB = $this->createSite('Carrefour Market - Site B');
+        $this->createUser('direction.a@test.local', UserRole::DIRECTION, $siteA);
+        $this->createUser('hote.a@test.local', UserRole::HOTE, $siteA);
+        $this->createUser('direction.b@test.local', UserRole::DIRECTION, $siteB);
+        $siteBAuth = $this->loginAs($client, 'direction.b@test.local');
+
+        $client->request(
+            'POST',
+            '/api/direction-notes',
+            server: $this->authHeaders($siteBAuth['token']),
+            content: json_encode([
+                'channel' => 'DIRECTION_ACCUEIL',
+                'body' => 'Note privée du site B.',
+            ], JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(201);
+        $created = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+
+        $directionAAuth = $this->loginAs($client, 'direction.a@test.local');
+        $hoteAAuth = $this->loginAs($client, 'hote.a@test.local');
+
+        return [$client, $created['id'], $directionAAuth['token'], $hoteAAuth['token']];
     }
 
     /** @return array{token: string} */

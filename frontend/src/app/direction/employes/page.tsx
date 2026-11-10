@@ -6,6 +6,7 @@ import { RoleGuard } from "@/components/RoleGuard";
 import { AppShell } from "@/components/AppShell";
 import { EmployeeSearch } from "@/components/EmployeeSearch";
 import { Card, Button, Alert, TimeField } from "@/components/ui";
+import { useAuth } from "@/lib/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { usePageQuery } from "@/lib/usePageQuery";
@@ -24,7 +25,7 @@ import {
   isDevToolsEnabled,
   MAX_CONTRACT_HOURS,
   normalize,
-  recruitmentCategoriesFromJobs,
+  recruitmentCategoriesFor,
   todayISO,
   type CategoryKey,
 } from "@/lib/employees";
@@ -40,7 +41,7 @@ const DEFAULT_ARRET_END = "20:15";
 
 export default function EmployesPage() {
   return (
-    <RoleGuard roles={["ROLE_DIRECTION", "ROLE_ADMIN"]}>
+    <RoleGuard roles={["ROLE_DIRECTION", "ROLE_DIRECTEUR", "ROLE_ADMIN"]}>
       <AppShell>
         <EmployesContent />
       </AppShell>
@@ -49,6 +50,7 @@ export default function EmployesPage() {
 }
 
 function EmployesContent() {
+  const { user: viewer } = useAuth();
   const { data, loading, error, setError, refetch } = usePageQuery({
     queryKey: queryKeys.employeesPage,
     queryFn: async () => {
@@ -101,7 +103,10 @@ function EmployesContent() {
 
   const counts = useMemo(() => countByCategory(users, jobs), [users, jobs]);
   const categories = useMemo(() => categoryDefsFromJobs(jobs), [jobs]);
-  const recruitmentCategories = useMemo(() => recruitmentCategoriesFromJobs(jobs), [jobs]);
+  const recruitmentCategories = useMemo(
+    () => recruitmentCategoriesFor(viewer ?? { roles: [] }, jobs),
+    [viewer, jobs],
+  );
 
   const groupsByStatus = useMemo(
     () => buildStatusGroups(users, { category: selectedCategory, searchTerm, jobs }),

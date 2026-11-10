@@ -120,6 +120,7 @@ function LoginForm() {
           <div className="mt-4 rounded-md border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
             <p className="font-medium text-slate-600">Comptes de démonstration :</p>
             <p>admin@carrefour-accueil.local</p>
+            <p>directeur@carrefour-accueil.local</p>
             <p>direction@carrefour-accueil.local</p>
             <p>hote@carrefour-accueil.local</p>
             <p className="mt-1">Mot de passe : Password123!</p>

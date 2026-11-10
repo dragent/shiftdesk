@@ -2,10 +2,12 @@ security:
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
-    # Un métier porte les droits de sa catégorie. Doublé côté PHP par
-    # UserRole::impliedRoles(), pour que hasRole() voie les mêmes rôles.
+    # Un métier porte les droits de sa catégorie. Directeur/rice inherits
+    # Direction; Direction inherits every other job. Admin inherits Directeur.
     role_hierarchy:
+        ROLE_ADMIN: [ROLE_DIRECTEUR]
         ROLE_DIRECTEUR: [ROLE_DIRECTION]
+        ROLE_DIRECTION: [ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE]
 
     providers:
         app_user_provider:
@@ -58,8 +60,8 @@ security:
         - { path: ^/api/plannings/\d+/register-number, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [PATCH] }
         - { path: ^/api/plannings, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST, PUT, PATCH, DELETE] }
         - { path: ^/api/plannings, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }
-        - { path: ^/api/absences, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST, PUT, PATCH, DELETE] }
-        - { path: ^/api/absences, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }
+        # Congés et arrêts : lecture et écriture réservées à la direction.
+        - { path: ^/api/absences, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
         - { path: ^/api/store-closures, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST, PUT, PATCH, DELETE] }
         - { path: ^/api/store-closures, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }
         - { path: ^/api/pauses, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
@@ -71,6 +73,12 @@ security:
         - { path: ^/api/direction-notes/\d+, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [PATCH, DELETE] }
         - { path: ^/api/direction-notes, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST] }
         - { path: ^/api/direction-notes, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE], methods: [GET] }
+        # Annexe: websites are readable by every job (then filtered by métier);
+        # only Direction/Admin may add or delete them.
+        - { path: ^/api/annexe/websites, roles: [ROLE_ADMIN, ROLE_DIRECTION], methods: [POST, DELETE] }
+        - { path: ^/api/annexe/websites, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE], methods: [GET] }
+        # Named files: Direction + Accueil.
+        - { path: ^/api/annexe/files, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE] }
         - { path: ^/api/ai, roles: [ROLE_ADMIN, ROLE_DIRECTION] }
         - { path: ^/api/me/password, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE], methods: [POST] }
         - { path: ^/api/me, roles: [ROLE_ADMIN, ROLE_DIRECTION, ROLE_HOTE, ROLE_CAISSIER, ROLE_LAD, ROLE_RAYON, ROLE_SECURITE] }

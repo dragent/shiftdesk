@@ -209,6 +209,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return in_array($role->value, $this->getRoles(), true);
     }
 
+    /**
+     * Permission check that follows the store hierarchy (Directeur/rice →
+     * Direction → other jobs). Use {@see hasRole()} when the question is
+     * the person's actual job, not what they are allowed to do.
+     */
+    public function hasAccess(UserRole $role): bool
+    {
+        foreach ($this->roles as $stored) {
+            $owned = UserRole::tryFrom($stored);
+            if ($owned?->grants($role)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function getPassword(): string
     {
         return $this->password;

@@ -20,8 +20,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Initialises demonstration data: one site, the 3 role accounts
- * (admin/management/host) and the default request categories (Caroline,
+ * Initialises demonstration data: one site, the demo role accounts
+ * (admin / directeur / direction / host / …) and the default request categories (Caroline,
  * Siebel, Menu Carrefour). Idempotent: can be run again without duplicating
  * data.
  */
@@ -60,7 +60,8 @@ class SeedDemoDataCommand extends Command
         }
 
         $this->createUserIfMissing('admin@carrefour-accueil.local', 'Admin', 'Système', UserRole::ADMIN, $site, $io);
-        $this->createUserIfMissing('direction@carrefour-accueil.local', 'Nadia', 'Direction', UserRole::DIRECTEUR, $site, $io);
+        $this->createUserIfMissing('directeur@carrefour-accueil.local', 'Camille', 'Directeur', UserRole::DIRECTEUR, $site, $io);
+        $this->createUserIfMissing('direction@carrefour-accueil.local', 'Nadia', 'Direction', UserRole::DIRECTION, $site, $io);
         $this->createUserIfMissing('hote@carrefour-accueil.local', 'Caroline', 'Hôtesse', UserRole::HOTE, $site, $io);
         $this->createUserIfMissing('lad@carrefour-accueil.local', 'Yanis', 'Lad', UserRole::LAD, $site, $io);
         $this->createUserIfMissing('rayon@carrefour-accueil.local', 'Fatou', 'Rayon', UserRole::RAYON, $site, $io);
@@ -74,10 +75,22 @@ class SeedDemoDataCommand extends Command
         // the repository (SQL), so the users must already exist in database.
         $this->em->flush();
 
+        $this->setDemoRole('admin@carrefour-accueil.local', UserRole::ADMIN, $io);
+        $this->setDemoRole('directeur@carrefour-accueil.local', UserRole::DIRECTEUR, $io);
+        $this->setDemoRole('direction@carrefour-accueil.local', UserRole::DIRECTION, $io);
+        $this->setDemoRole('hote@carrefour-accueil.local', UserRole::HOTE, $io);
+        $this->setDemoRole('lad@carrefour-accueil.local', UserRole::LAD, $io);
+        $this->setDemoRole('rayon@carrefour-accueil.local', UserRole::RAYON, $io);
+        $this->setDemoRole('securite@carrefour-accueil.local', UserRole::SECURITE, $io);
+        $this->setDemoRole('julie.martin@caissier.carrefour-accueil.local', UserRole::CAISSIER, $io);
+        $this->setDemoRole('karim.benali@caissier.carrefour-accueil.local', UserRole::CAISSIER, $io);
+        $this->setDemoRole('sophie.durand@caissier.carrefour-accueil.local', UserRole::CAISSIER, $io);
+
         // Default weekly contract hours for every demo employee (in minutes:
         // 36h45 = 2205, 35h00 = 2100, 30h00 = 1800). Without contract hours
         // the Total column stays grey; one is set for each employee to enable
         // the green/red colour coding across the whole grid.
+        $this->setContractMinutes('directeur@carrefour-accueil.local', 2205, $io); // Camille: 36h45
         $this->setContractMinutes('direction@carrefour-accueil.local', 2100, $io); // Nadia: 35h
         $this->setContractMinutes('hote@carrefour-accueil.local', 2205, $io); // Caroline: 36h45
         $this->setContractMinutes('lad@carrefour-accueil.local', 2100, $io); // Yanis: 35h
@@ -91,6 +104,7 @@ class SeedDemoDataCommand extends Command
         $this->setCashierNumber('sophie.durand@caissier.carrefour-accueil.local', '103', $io);
 
         // Contact phone numbers displayed on the employee record (management).
+        $this->setPhone('directeur@carrefour-accueil.local', '06 12 00 00 01', $io);
         $this->setPhone('direction@carrefour-accueil.local', '06 12 00 01 01', $io);
         $this->setPhone('hote@carrefour-accueil.local', '06 12 00 02 02', $io);
         $this->setPhone('lad@carrefour-accueil.local', '06 12 00 03 03', $io);
@@ -132,6 +146,36 @@ class SeedDemoDataCommand extends Command
 
         $this->em->persist($user);
         $io->text(sprintf('Utilisateur créé : %s (%s)', $email, $role->label()));
+    }
+
+    private function setDemoRole(string $email, UserRole $role, SymfonyStyle $io): void
+    {
+        $user = $this->userRepository->findOneByEmail($email);
+        if (!$user) {
+            return;
+        }
+
+        $job = $this->jobRepository->findOneBy(['grantsRole' => $role]);
+        if ($job) {
+            if ($user->getJob()?->getId() === $job->getId()) {
+                return;
+            }
+            $user->assignJob($job);
+            $io->text(sprintf('Rôle mis à jour : %s -> %s', $email, $role->label()));
+
+            return;
+        }
+
+        $stored = array_values(array_filter(
+            $user->getRoles(),
+            static fn (string $held) => $held !== 'ROLE_USER',
+        ));
+        if ($stored === [$role->value]) {
+            return;
+        }
+
+        $user->setRoles([$role->value]);
+        $io->text(sprintf('Rôle mis à jour : %s -> %s', $email, $role->label()));
     }
 
     private function setContractMinutes(string $email, int $minutes, SymfonyStyle $io): void

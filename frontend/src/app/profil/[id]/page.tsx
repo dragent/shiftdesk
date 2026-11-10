@@ -73,6 +73,7 @@ function UserProfileContent() {
           await refreshUser(await saveOwnContact(payload));
         }}
         onSaveJob={canEditJob ? (payload) => handleSaveJob(user.id, payload) : undefined}
+        viewer={user}
       />
     );
   }
@@ -94,6 +95,7 @@ function UserProfileContent() {
       profile={data}
       isOwn={false}
       onSaveJob={canEditJob ? (payload) => handleSaveJob(data.id, payload) : undefined}
+      viewer={user}
     />
   );
 }

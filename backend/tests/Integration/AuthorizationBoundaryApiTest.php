@@ -41,6 +41,31 @@ final class AuthorizationBoundaryApiTest extends WebTestCase
         self::assertNull($this->em()->getRepository(User::class)->findOneBy(['email' => 'promoted@test.local']));
     }
 
+    public function testDirectionCannotCreateADirecteurAccount(): void
+    {
+        $client = static::createClient();
+        $this->resetDatabaseSchema();
+        $site = $this->createSite();
+        $this->createUser('direction@test.local', UserRole::DIRECTION, $site);
+        $token = $this->login($client, 'direction@test.local');
+
+        $client->request(
+            'POST',
+            '/api/users',
+            server: $this->authHeaders($token),
+            content: json_encode([
+                'firstName' => 'Camille',
+                'lastName' => 'Directeur',
+                'email' => 'directeur@test.local',
+                'role' => 'DIRECTEUR',
+                'siteId' => $site->getId(),
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertNull($this->em()->getRepository(User::class)->findOneBy(['email' => 'directeur@test.local']));
+    }
+
     public function testDirectionCannotPromoteAnEmployeeToAdmin(): void
     {
         $client = static::createClient();

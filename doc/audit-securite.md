@@ -46,18 +46,19 @@ permissions n’étaient appliquées que dans l’UI.
 UI alignée : page Caissiers, l’accueil ne voit plus Désactiver / site /
 suppression.
 
-### Encore ouvert (MEDIUM)
+### Corrigé
 
-À traiter dans un prochain audit à froid, pas dans la session qui a
-écrit les correctifs ci-dessus :
+- **`GET /api/absences`** : lecture réservée à Admin, Directeur et Direction.
+  Hôte, Caissier, LAD, Rayon et Sécurité reçoivent 403.
+- **Notes direction** : modifier, clore, lecteurs, « vu » et supprimer
+  refusent une note d’un autre site (404, comme si elle n’existait pas).
+- **`?caissiersOnly=` / `?ladOnly=`** : réservés à l’accueil et à la
+  direction. Caissier, LAD, Rayon et Sécurité reçoivent 403.
 
-- **IDOR multi-sites** sur les notes direction (actions par id hors
-  filtre site).
-- **`GET /api/absences`** lisible par tous les rôles authentifiés
-  (congés / maladie de toute l’équipe).
-- **`?caissiersOnly=` / `?ladOnly=`** sur `GET /api/plannings` : tout
-  rôle autorisé à lire le planning peut voir tous les créneaux caisse/LAD.
-- **`GET /api/users`** : pas de filtrage par site pour la Direction.
+### Hors périmètre
+
+- **`GET /api/users`** : pas de filtre par site. Le produit n’a qu’un
+  site, ce filtre n’est pas à ajouter tant qu’un second site n’existe pas.
 
 ## Commandes
 

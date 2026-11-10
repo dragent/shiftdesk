@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { api, ApiError, clearToken, getToken, login as apiLogin, setToken } from "./api";
 import { queryKeys } from "./queryKeys";
+import { rolesGrant } from "./employees";
 import type { User, UserRole } from "./types";
 
 interface AuthContextValue {
@@ -90,10 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient, router]);
 
   const hasRole = useCallback(
-    (...roles: UserRole[]) => {
-      if (!user?.roles) return false;
-      return roles.some((role) => user.roles?.includes(role));
-    },
+    (...roles: UserRole[]) => rolesGrant(user?.roles, ...roles),
     [user],
   );
 
