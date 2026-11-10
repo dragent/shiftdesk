@@ -25,8 +25,9 @@ use Symfony\Component\Serializer\SerializerInterface;
  * - ROLE_ADMIN / ROLE_DIRECTION: full CRUD, both channels, readers list, close
  * - ROLE_HOTE: read DIRECTION_ACCUEIL + mark seen only
  *
- * Site scope: notes of the user's site (or notes without a site). Users
- * without a site only see unscoped notes.
+ * Site scope, including every action by id: notes of the user's site (or
+ * notes without a site). Users without a site only reach unscoped notes.
+ * A note from another site is treated as missing.
  */
 #[Route('/api/direction-notes')]
 class DirectionNoteController extends AbstractApiController
@@ -135,7 +136,7 @@ class DirectionNoteController extends AbstractApiController
             return $this->respondError('Seule la direction peut modifier une note.', 403);
         }
 
-        $note = $this->directionNoteRepository->find($id);
+        $note = $this->findNoteOnUserSite($id, $currentUser);
         if (!$note) {
             return $this->respondError('Note introuvable.', 404);
         }
@@ -181,7 +182,7 @@ class DirectionNoteController extends AbstractApiController
             return $this->respondError('Seule la direction peut clore une note.', 403);
         }
 
-        $note = $this->directionNoteRepository->find($id);
+        $note = $this->findNoteOnUserSite($id, $currentUser);
         if (!$note) {
             return $this->respondError('Note introuvable.', 404);
         }
@@ -207,7 +208,7 @@ class DirectionNoteController extends AbstractApiController
             return $this->respondError('Seul la direction peut consulter les lecteurs.', 403);
         }
 
-        $note = $this->directionNoteRepository->find($id);
+        $note = $this->findNoteOnUserSite($id, $currentUser);
         if (!$note) {
             return $this->respondError('Note introuvable.', 404);
         }
@@ -227,7 +228,7 @@ class DirectionNoteController extends AbstractApiController
     #[Route('/{id}/seen', name: 'api_direction_notes_seen', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function markSeen(int $id, #[CurrentUser] User $currentUser): JsonResponse
     {
-        $note = $this->directionNoteRepository->find($id);
+        $note = $this->findNoteOnUserSite($id, $currentUser);
         if (!$note) {
             return $this->respondError('Note introuvable.', 404);
         }
@@ -261,7 +262,7 @@ class DirectionNoteController extends AbstractApiController
             return $this->respondError('Seule la direction peut supprimer une note.', 403);
         }
 
-        $note = $this->directionNoteRepository->find($id);
+        $note = $this->findNoteOnUserSite($id, $currentUser);
         if (!$note) {
             return $this->respondError('Note introuvable.', 404);
         }
@@ -270,6 +271,29 @@ class DirectionNoteController extends AbstractApiController
         $this->em->flush();
 
         return new JsonResponse(null, 204);
+    }
+
+    /**
+     * Same site rule as the list: another site's note does not exist for
+     * this user. Notes without a site stay visible to a user who has one.
+     */
+    private function findNoteOnUserSite(int $id, User $user): ?DirectionNote
+    {
+        $note = $this->directionNoteRepository->find($id);
+        if (!$note) {
+            return null;
+        }
+
+        $noteSiteId = $note->getSite()?->getId();
+        $userSiteId = $user->getSite()?->getId();
+        if ($userSiteId === null) {
+            return $noteSiteId === null ? $note : null;
+        }
+        if ($noteSiteId !== null && $noteSiteId !== $userSiteId) {
+            return null;
+        }
+
+        return $note;
     }
 
     private function isDirectionOrAdmin(User $user): bool

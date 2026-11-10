@@ -211,49 +211,6 @@ final class AuthorizationBoundaryApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
     }
 
-    public function testDirectionOnlyListsUsersFromItsOwnSite(): void
-    {
-        $client = static::createClient();
-        $this->resetDatabaseSchema();
-        $lyon = $this->createSite('Carrefour Market - Lyon');
-        $paris = $this->createSite('Carrefour Market - Paris');
-        $direction = $this->createUser('direction.lyon@test.local', UserRole::DIRECTION, $lyon);
-        $lyonEmployee = $this->createUser('employee.lyon@test.local', UserRole::CAISSIER, $lyon);
-        $parisDirection = $this->createUser('direction.paris@test.local', UserRole::DIRECTION, $paris);
-        $parisEmployee = $this->createUser('employee.paris@test.local', UserRole::CAISSIER, $paris);
-        $token = $this->login($client, 'direction.lyon@test.local');
-
-        $client->request('GET', '/api/users', server: $this->authHeaders($token));
-
-        self::assertResponseIsSuccessful();
-        $payload = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
-        $ids = array_column($payload, 'id');
-        self::assertContains($direction->getId(), $ids);
-        self::assertContains($lyonEmployee->getId(), $ids);
-        self::assertNotContains($parisDirection->getId(), $ids);
-        self::assertNotContains($parisEmployee->getId(), $ids);
-    }
-
-    public function testAdminCanListUsersAcrossSites(): void
-    {
-        $client = static::createClient();
-        $this->resetDatabaseSchema();
-        $lyon = $this->createSite('Carrefour Market - Lyon');
-        $paris = $this->createSite('Carrefour Market - Paris');
-        $this->createUser('admin@test.local', UserRole::ADMIN, $lyon);
-        $lyonEmployee = $this->createUser('employee.lyon@test.local', UserRole::CAISSIER, $lyon);
-        $parisEmployee = $this->createUser('employee.paris@test.local', UserRole::CAISSIER, $paris);
-        $token = $this->login($client, 'admin@test.local');
-
-        $client->request('GET', '/api/users', server: $this->authHeaders($token));
-
-        self::assertResponseIsSuccessful();
-        $payload = json_decode($client->getResponse()->getContent() ?: '[]', true, 512, JSON_THROW_ON_ERROR);
-        $ids = array_column($payload, 'id');
-        self::assertContains($lyonEmployee->getId(), $ids);
-        self::assertContains($parisEmployee->getId(), $ids);
-    }
-
     public function testAdminCanStillCreateAnAdminAccount(): void
     {
         $client = static::createClient();

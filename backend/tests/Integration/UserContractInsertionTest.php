@@ -274,9 +274,9 @@ final class UserContractInsertionTest extends WebTestCase
             self::assertSame($minutes, $user->getContractMinutes(), $email);
         }
 
-        $nadia = $repo->findOneBy(['email' => 'direction@carrefour-accueil.local']);
-        self::assertInstanceOf(User::class, $nadia);
-        self::assertSame(Job::CODE_DIRECTEUR, $nadia->getJob()?->getCode());
+        $camille = $repo->findOneBy(['email' => 'directeur@carrefour-accueil.local']);
+        self::assertInstanceOf(User::class, $camille);
+        self::assertSame(Job::CODE_DIRECTEUR, $camille->getJob()?->getCode());
 
         $sophie = $repo->findOneBy(['email' => 'sophie.durand@caissier.carrefour-accueil.local']);
         self::assertInstanceOf(User::class, $sophie);

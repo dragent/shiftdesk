@@ -60,6 +60,11 @@ class PlanningController extends AbstractApiController
         // LAD is on duty for each half-day, without diluting the register grid
         // (dedicated parameter, parallel to caissiersOnly).
         $ladOnly = $request->query->getBoolean('ladOnly', false);
+        // These team views are the register layout. Reception uses them;
+        // Direction inherits ROLE_HOTE. The other jobs keep their own slots only.
+        if (($caissiersOnly || $ladOnly) && !$this->isGranted('ROLE_HOTE')) {
+            return $this->respondError('Seul l\'accueil et la direction peuvent consulter le plan de caisse.', 403);
+        }
 
         $from = $from ? new \DateTimeImmutable($from) : new \DateTimeImmutable('monday this week');
         $to = $to ? new \DateTimeImmutable($to) : $from->modify('+6 days');

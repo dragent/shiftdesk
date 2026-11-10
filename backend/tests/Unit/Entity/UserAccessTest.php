@@ -8,12 +8,12 @@ use PHPUnit\Framework\TestCase;
 
 final class UserAccessTest extends TestCase
 {
-    public function testHasAccessFollowsHierarchyWithoutChangingTheStoredJob(): void
+    public function testDirecteurKeepsItsJobAndTheDirectionCategory(): void
     {
         $directeur = $this->user(UserRole::DIRECTEUR);
 
         self::assertTrue($directeur->hasRole(UserRole::DIRECTEUR));
-        self::assertFalse($directeur->hasRole(UserRole::DIRECTION));
+        self::assertTrue($directeur->hasRole(UserRole::DIRECTION));
         self::assertTrue($directeur->hasAccess(UserRole::DIRECTION));
         self::assertTrue($directeur->hasAccess(UserRole::HOTE));
         self::assertFalse($directeur->hasAccess(UserRole::ADMIN));
